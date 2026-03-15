@@ -8,11 +8,8 @@ exports.uploadMedia = async (req, res) => {
       return res.status(400).json({ error: 'Please upload a file' });
     }
 
-    // You can add validation logic based on the `mimetype`
-    // image/jpeg, video/mp4, audio/mpeg, etc.
-    
-    // Upload to our Cloud Storage abstraction
-    const mediaUrl = await uploadToS3(file);
+    // Call service to get final URL
+    const mediaUrl = await uploadToS3(file, req);
 
     res.status(200).json({ 
       success: true, 

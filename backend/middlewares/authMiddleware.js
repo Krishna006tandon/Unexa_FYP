@@ -14,11 +14,12 @@ const protect = async (req, res, next) => {
       //decodes token id
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_super_secret_jwt_key');
 
-      // Find user by decoded.id. If User model doesn't exist yet, we can mock it
-      // req.user = await User.findById(decoded.id).select("-passwordHash");
+      // Find user by decoded.id. 
+      req.user = await User.findById(decoded.id).select("-passwordHash");
       
-      // Mock for now so the module can work independently of full User module
-      req.user = { _id: decoded.id };
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authorized, user missing" });
+      }
 
       next();
     } catch (error) {

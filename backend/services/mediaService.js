@@ -1,28 +1,12 @@
-// In a real production app, use 'aws-sdk' and configure S3.
-// Mocked media service reflecting advanced requirement structure.
+// Instead of mocking S3, this natively computes the local URL for the frontend.
+// The uploadRoutes handles actual storage. This service bridges context.
 
-const AWS = require('aws-sdk');
-
-// const s3 = new AWS.S3({
-//   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//   region: process.env.AWS_REGION,
-// });
-
-exports.uploadToS3 = async (file) => {
-  /*
-  const params = {
-    Bucket: process.env.AWS_BUCKET_NAME,
-    Key: `${Date.now()}_${file.originalname}`,
-    Body: file.buffer,
-    ContentType: file.mimetype,
-    ACL: 'public-read',
-  };
-
-  const uploadResult = await s3.upload(params).promise();
-  return uploadResult.Location;
-  */
+exports.uploadToS3 = async (file, req) => {
+  // Compute local full URL path
+  const protocol = req.protocol;
+  // Fallback to local machine IP if host is lost, this avoids localhost bugs on physical phones
+  const host = req.get('host');
   
-  // Mock return for now. In reality, files should be passed through S3.
-  return `https://unexa-media.s3.amazonaws.com/mock_${Date.now()}_${file.originalname}`;
+  // E.g., http://localhost:5000/uploads/unexa_123456.jpg
+  return `${protocol}://${host}/uploads/${file.filename}`;
 };
