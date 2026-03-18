@@ -25,9 +25,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: (req, file, cb) => {
+    // Accept all file types for now
+    cb(null, true);
+  }
 });
 
-router.route('/').post(upload.single('media'), uploadMedia);
+router.route('/').post(protect, upload.single('media'), uploadMedia);
 
 module.exports = router;

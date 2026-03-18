@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Image, ActivityIndicator, Linking, Modal, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking, Modal, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
@@ -91,13 +92,21 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const uploadMediaAPI = async (uri, mimeType, filename) => {
-    const formData = new FormData();
-    formData.append('media', { uri, name: filename, type: mimeType });
-    
-    const { data } = await axios.post(`${API_URL}/api/upload`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${user.token}` }
-    });
-    return data.mediaUrl;
+    try {
+      const formData = new FormData();
+      formData.append('media', { uri, name: filename, type: mimeType });
+      
+      const { data } = await axios.post(`${API_URL}/api/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${user.token}` }
+      });
+      return data.mediaUrl;
+    } catch (error) {
+      console.log('Upload error:', error);
+      console.log('Error response:', error.response);
+      console.log('Error status:', error.response?.status);
+      console.log('Error data:', error.response?.data);
+      throw error;
+    }
   };
 
   const sendMediaMessage = async (mediaUrl, type, duration = null) => {

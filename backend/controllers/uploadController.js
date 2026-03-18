@@ -19,6 +19,7 @@ exports.uploadMedia = async (req, res) => {
       mimetype: file.mimetype 
     });
   } catch (error) {
+    console.error('Upload error:', error);
     res.status(500).json({ error: error.message });
   }
 };

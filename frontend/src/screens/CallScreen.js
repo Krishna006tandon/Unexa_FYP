@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, SafeAreaView, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
 import { PhoneOff, MicOff, VideoOff, RefreshCcw, Volume2 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 

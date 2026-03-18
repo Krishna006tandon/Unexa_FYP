@@ -52,10 +52,20 @@ const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const storyRoutes = require('./routes/storyRoutes');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
   res.send('UNEXA SuperApp API is running...');
+});
+
+// Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Test endpoint working',
+    timestamp: new Date().toISOString(),
+    headers: req.headers
+  });
 });
 
 // Mount Routes
@@ -63,6 +73,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageLimiter, messageRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/story', storyRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {

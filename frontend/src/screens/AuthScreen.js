@@ -7,7 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 // Use your local Wi-Fi IP address instead of localhost so your actual phone can reach it.
 // E.g., http://192.168.29.104:5000
 export const API_URL = "http://192.168.29.104:5000"; //wifi4g
-// export const API_URL = "http://10.168.102.180:5000"; //mobile
+// export const API_URL = "http://10.0.2.2:5000"; //android emulator
+// export const API_URL = "http://localhost:5000"; //local testing
+// export const API_URL = "http://10.168.102.180:5001"; //mobile
 
 const THEME = {
   colors: {

@@ -9,6 +9,8 @@ import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import NewChatScreen from './src/screens/NewChatScreen';
 import CallScreen from './src/screens/CallScreen';
+import StoriesListScreen from './src/screens/StoriesListScreen';
+import StoryScreen from './src/screens/StoryScreen';
 import { Home, MessageCircle, PlusSquare, Video, User } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +30,7 @@ const THEME = {
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const FeedScreen = () => <View style={styles.container}><Text style={styles.title}>Home Feed</Text></View>;
+const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
 const CreateScreen = () => <View style={styles.container}><Text style={styles.title}>Create</Text></View>;
 const VideoScreen = () => <View style={styles.container}><Text style={styles.title}>Stream</Text></View>;
 const ProfileScreen = () => {
@@ -47,6 +49,7 @@ const ChatStack = () => (
     <Stack.Screen name="ChatScreen" component={ChatScreen} />
     <Stack.Screen name="NewChat" component={NewChatScreen} />
     <Stack.Screen name="CallScreen" component={CallScreen} options={{ presentation: 'fullScreenModal' }} />
+    <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
   </Stack.Navigator>
 );
 
@@ -85,7 +88,10 @@ const AppNavigator = () => {
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          <Stack.Screen name="Main" component={MainTabs} />
+          <>
+            <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
+          </>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />
         )}
