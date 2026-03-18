@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import profileService from '../services/profileService';
 
 // Import API_URL from AuthScreen
-const API_URL = 'http://192.168.29.104:5000'; //wifi4g
+const API_URL = 'https://unexa-fyp.onrender.com'; // Production backend
 
 const ProfileContext = createContext();
 

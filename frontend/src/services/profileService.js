@@ -2,7 +2,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import API_URL from AuthScreen
-const API_URL = 'http://192.168.29.104:5000'; //wifi4g
+const API_URL = 'https://unexa-fyp.onrender.com'; // Production backend URL
 
 class ProfileService {
   // Get current user's profile
