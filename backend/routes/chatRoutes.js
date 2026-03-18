@@ -14,11 +14,11 @@ const router = express.Router();
 
 router.route('/').post(protect, accessChat);
 router.route('/').get(protect, fetchChats);
-router.route('/:chatId').get(protect, accessChat);
 router.route('/friends').get(protect, fetchFriends);
 router.route('/group').post(protect, createGroupChat);
 router.route('/rename').put(protect, renameGroup);
 router.route('/remove').put(protect, removeFromGroup);
 router.route('/add').put(protect, addToGroup);
+router.route('/:chatId').get(protect, accessChat);
 
 module.exports = router;

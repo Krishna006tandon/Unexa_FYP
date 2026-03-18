@@ -24,6 +24,7 @@ const io = new Server(server, {
 // Import Socket Logic
 require('./sockets/presenceSocket')(io);
 require('./sockets/chatSocket')(io);
+require('./sockets/profileSocket')(io);
 
 // Middlewares
 app.use(express.json());
@@ -55,6 +56,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const storyRoutes = require('./routes/storyRoutes');
 const mediaShareRoutes = require('./routes/mediaShare');
 const streakRoutes = require('./routes/streaks');
+const profileRoutes = require('./routes/profileRoutes');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -78,6 +80,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/story', storyRoutes);
 app.use('/api/media', mediaShareRoutes);
 app.use('/api/streaks', streakRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {

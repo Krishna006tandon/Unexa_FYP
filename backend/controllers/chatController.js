@@ -195,11 +195,15 @@ exports.removeFromGroup = async (req, res) => {
 // Fetch user's friends (chat partners)
 exports.fetchFriends = async (req, res) => {
   try {
+    console.log('Fetching friends for user:', req.user._id);
+    
     const chats = await Chat.find({ 
       users: { $elemMatch: { $eq: req.user._id } } 
     })
     .populate('users', '-passwordHash')
     .select('users');
+
+    console.log('Found chats:', chats.length);
 
     // Extract unique friends from all chats
     const friendsSet = new Set();
@@ -211,14 +215,19 @@ exports.fetchFriends = async (req, res) => {
       });
     });
 
+    console.log('Unique friends IDs:', Array.from(friendsSet));
+
     // Convert Set back to array and populate full user details
     const friendsIds = Array.from(friendsSet);
     const friends = await User.find({ 
       _id: { $in: friendsIds } 
     }).select('username email profilePhoto');
 
+    console.log('Friends found:', friends.length);
+
     res.json({ friends });
   } catch (error) {
+    console.error('Error in fetchFriends:', error);
     res.status(500).json({ error: error.message });
   }
 };

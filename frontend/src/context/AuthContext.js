@@ -22,8 +22,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (userData) => {
-    await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
-    setUser(userData);
+    try {
+      console.log('🔐 Login attempt:', userData.email);
+      await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
+      setUser(userData);
+      console.log('✅ Login successful, user data stored:', userData.username);
+    } catch (error) {
+      console.error('❌ Login error in AuthContext:', error);
+      throw error;
+    }
   };
 
   const logout = async () => {

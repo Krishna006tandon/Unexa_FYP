@@ -45,6 +45,28 @@ const AuthScreen = () => {
 
       Alert.alert("Success", "Authenticated Successfully");
       await login(data); // Move to main app automatically
+      
+      // Auto-create profile after successful login
+      try {
+        const profileData = {
+          username: data.username,
+          fullName: data.username,
+          email: data.email,
+          bio: 'Welcome to UNEXA! 🎉',
+        };
+        
+        const profileResponse = await axios.post(`${API_URL}/api/profile`, profileData, {
+          headers: { Authorization: `Bearer ${data.token}` }
+        });
+        
+        if (profileResponse.status === 200) {
+          console.log('✅ Auto-profile created successfully');
+        } else {
+          console.log('❌ Auto-profile creation failed');
+        }
+      } catch (profileError) {
+        console.log('❌ Auto-profile error:', profileError.message);
+      }
     } catch (error) {
       Alert.alert("Auth Failed", error.response?.data?.error || error.message);
     }

@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
+import { ProfileProvider } from './src/context/ProfileContext';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -12,6 +13,7 @@ import CallScreen from './src/screens/CallScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
 import StoryScreen from './src/screens/StoryScreen';
 import MediaShareScreen from './src/screens/MediaShareScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 import StreaksScreen from './src/screens/StreaksScreen';
 import { Home, MessageCircle, PlusSquare, Video, User } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
@@ -35,21 +37,6 @@ const Stack = createNativeStackNavigator();
 const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
 const CreateScreen = ({ navigation }) => <MediaShareScreen navigation={navigation} />;
 const VideoScreen = () => <View style={styles.container}><Text style={styles.title}>Stream</Text></View>;
-const ProfileScreen = ({ navigation }) => {
-   const { logout } = useContext(AuthContext);
-   return (
-      <View style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
-         <Text style={styles.title}>Profile</Text>
-         <TouchableOpacity 
-            onPress={() => navigation.navigate('Chats', { screen: 'Streaks' })}
-            style={{marginTop: 20, backgroundColor: THEME.colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10}}
-         >
-            <Text style={{color: '#FFF', fontSize: 16, fontWeight: 'bold'}}>View Streaks</Text>
-         </TouchableOpacity>
-         <Text onPress={logout} style={{color: THEME.colors.primary, marginTop: 20, fontSize: 18}}>Logout</Text>
-      </View>
-   );
-};
 
 const ChatStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: THEME.colors.background } }}>
@@ -113,7 +100,9 @@ const AppNavigator = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <AppNavigator />
+      <ProfileProvider>
+        <AppNavigator />
+      </ProfileProvider>
     </AuthProvider>
   );
 }
