@@ -53,6 +53,8 @@ const chatRoutes = require('./routes/chatRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const storyRoutes = require('./routes/storyRoutes');
+const mediaShareRoutes = require('./routes/mediaShare');
+const streakRoutes = require('./routes/streaks');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -74,6 +76,8 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageLimiter, messageRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/story', storyRoutes);
+app.use('/api/media', mediaShareRoutes);
+app.use('/api/streaks', streakRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {

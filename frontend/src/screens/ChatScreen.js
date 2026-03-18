@@ -9,7 +9,8 @@ import { AuthContext } from '../context/AuthContext';
 import { API_URL } from './AuthScreen';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
+import { Camera } from 'expo-camera';
 
 let socket;
 
@@ -155,6 +156,65 @@ const ChatScreen = ({ route, navigation }) => {
     }
   };
 
+  // --- CAMERA FUNCTION --- //
+  const openCamera = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaType,
+        quality: 0.8,
+        allowsEditing: true,
+      });
+      
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const mediaType = asset.type === 'video' ? 'video' : 'image';
+        const fileName = asset.type === 'video' ? 'video.mp4' : 'photo.jpg';
+        const mimeType = asset.type === 'video' ? 'video/mp4' : 'image/jpeg';
+        
+        const url = await uploadMediaAPI(asset.uri, mimeType, fileName);
+        
+        // Send to chat
+        await sendMediaMessage(url, mediaType, asset.duration);
+        
+        // Update streak with this friend
+        await updateStreakWithChat();
+      }
+    } catch (error) {
+      console.log('Camera error:', error);
+      Alert.alert('Camera Error', 'Failed to capture media');
+    }
+  };
+
+  // --- UPDATE STREAK FUNCTION --- //
+  const updateStreakWithChat = async () => {
+    try {
+      // Get the other user in this chat
+      const chatResponse = await axios.get(`${API_URL}/api/chat/${chatId}`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      
+      const chat = chatResponse.data;
+      const otherUser = chat.users.find(u => u._id !== user._id);
+      
+      if (otherUser) {
+        // Share media with this friend to update streak
+        const formData = new FormData();
+        formData.append('recipients', JSON.stringify([otherUser._id]));
+        formData.append('caption', 'Shared via chat 📸');
+        
+        await axios.post(`${API_URL}/api/media/share`, formData, {
+          headers: { 
+            'Content-Type': 'multipart/form-data', 
+            Authorization: `Bearer ${user.token}` 
+          }
+        });
+      }
+    } catch (error) {
+      console.log('Streak update error:', error);
+      // Don't show error to user, just log it
+    }
+  };
+
   // --- AUDIO LOGIC --- //
   const startRecording = async () => {
     try {
@@ -261,6 +321,7 @@ const ChatScreen = ({ route, navigation }) => {
         <View style={styles.inputContainer}>
           <TouchableOpacity style={styles.iconButton} onPress={pickDocument}><Paperclip color={THEME.colors.textDim} size={24} /></TouchableOpacity>
           <TouchableOpacity style={styles.iconButton} onPress={pickImage}><ImageIcon color={THEME.colors.textDim} size={24} /></TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={openCamera}><Video color={THEME.colors.primary} size={24} /></TouchableOpacity>
           
           {recording ? (
              <View style={styles.recordingBar}>

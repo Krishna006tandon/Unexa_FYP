@@ -1,10 +1,35 @@
 const Chat = require('../models/Chat');
 const User = require('../models/User'); // Assuming User model exists
 
-// Access 1-on-1 chat or create one if it doesn't exist
+// Access 1-on-1 chat or create one if it doesn't exist (POST) or get existing chat (GET)
 exports.accessChat = async (req, res) => {
-  const { userId } = req.body; // The user to chat with
+  const { userId } = req.body; // For POST request
+  const { chatId } = req.params; // For GET request
 
+  // Handle GET request - fetch existing chat
+  if (chatId && !userId) {
+    try {
+      let chat = await Chat.findById(chatId)
+        .populate('users', '-passwordHash')
+        .populate('latestMessage');
+
+      chat = await User.populate(chat, {
+        path: 'latestMessage.sender',
+        select: 'username profilePhoto email',
+      });
+
+      if (!chat) {
+        return res.status(404).json({ error: 'Chat not found' });
+      }
+
+      res.send(chat);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+    return;
+  }
+
+  // Handle POST request - create or access chat
   if (!userId) {
     return res.status(400).json({ error: 'UserId param not sent with request' });
   }
@@ -162,6 +187,37 @@ exports.removeFromGroup = async (req, res) => {
     } else {
       res.json(removed);
     }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Fetch user's friends (chat partners)
+exports.fetchFriends = async (req, res) => {
+  try {
+    const chats = await Chat.find({ 
+      users: { $elemMatch: { $eq: req.user._id } } 
+    })
+    .populate('users', '-passwordHash')
+    .select('users');
+
+    // Extract unique friends from all chats
+    const friendsSet = new Set();
+    chats.forEach(chat => {
+      chat.users.forEach(user => {
+        if (user._id.toString() !== req.user._id.toString()) {
+          friendsSet.add(user._id.toString());
+        }
+      });
+    });
+
+    // Convert Set back to array and populate full user details
+    const friendsIds = Array.from(friendsSet);
+    const friends = await User.find({ 
+      _id: { $in: friendsIds } 
+    }).select('username email profilePhoto');
+
+    res.json({ friends });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

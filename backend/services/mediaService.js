@@ -4,9 +4,9 @@
 exports.uploadToS3 = async (file, req) => {
   // Compute local full URL path
   const protocol = req.protocol;
-  // Fallback to local machine IP if host is lost, this avoids localhost bugs on physical phones
-  const host = req.get('host');
+  // Use hardcoded IP for mobile compatibility
+  const host = '192.168.29.104:5000';
   
-  // E.g., http://localhost:5000/uploads/unexa_123456.jpg
+  // E.g., http://192.168.29.104:5000/uploads/unexa_123456.jpg
   return `${protocol}://${host}/uploads/${file.filename}`;
 };

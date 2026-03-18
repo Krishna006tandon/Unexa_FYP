@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { StyleSheet, Text, View, StatusBar } from 'react-native';
+import { StyleSheet, Text, View, StatusBar, TouchableOpacity } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -11,6 +11,8 @@ import NewChatScreen from './src/screens/NewChatScreen';
 import CallScreen from './src/screens/CallScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
 import StoryScreen from './src/screens/StoryScreen';
+import MediaShareScreen from './src/screens/MediaShareScreen';
+import StreaksScreen from './src/screens/StreaksScreen';
 import { Home, MessageCircle, PlusSquare, Video, User } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,13 +33,19 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
-const CreateScreen = () => <View style={styles.container}><Text style={styles.title}>Create</Text></View>;
+const CreateScreen = ({ navigation }) => <MediaShareScreen navigation={navigation} />;
 const VideoScreen = () => <View style={styles.container}><Text style={styles.title}>Stream</Text></View>;
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
    const { logout } = useContext(AuthContext);
    return (
       <View style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
          <Text style={styles.title}>Profile</Text>
+         <TouchableOpacity 
+            onPress={() => navigation.navigate('Chats', { screen: 'Streaks' })}
+            style={{marginTop: 20, backgroundColor: THEME.colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10}}
+         >
+            <Text style={{color: '#FFF', fontSize: 16, fontWeight: 'bold'}}>View Streaks</Text>
+         </TouchableOpacity>
          <Text onPress={logout} style={{color: THEME.colors.primary, marginTop: 20, fontSize: 18}}>Logout</Text>
       </View>
    );
@@ -50,6 +58,8 @@ const ChatStack = () => (
     <Stack.Screen name="NewChat" component={NewChatScreen} />
     <Stack.Screen name="CallScreen" component={CallScreen} options={{ presentation: 'fullScreenModal' }} />
     <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
+    <Stack.Screen name="MediaShare" component={MediaShareScreen} options={{ presentation: 'modal' }} />
+    <Stack.Screen name="Streaks" component={StreaksScreen} options={{ presentation: 'modal' }} />
   </Stack.Navigator>
 );
 

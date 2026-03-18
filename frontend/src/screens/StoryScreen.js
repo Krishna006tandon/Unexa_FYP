@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Dimensions, Alert, TextInput, Modal, FlatList, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, AVPlaybackStatus } from 'expo-av';
+import { Video } from 'expo-video';
 import { X, Send, Eye, Heart, MessageCircle, Smile } from 'lucide-react-native';
 import axios from 'axios';
 import { API_URL } from './AuthScreen';
