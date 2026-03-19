@@ -38,9 +38,13 @@ const config = {
       }
     ]
   ],
+  updates: {
+    url: 'https://u.expo.dev/d0033147-bdaf-48b1-8af8-68077eaa17dc'
+  },
+  runtimeVersion: '1.0.0',
   extra: {
     eas: {
-      projectId: 'your-project-id-here'
+      projectId: 'd0033147-bdaf-48b1-8af8-68077eaa17dc'
     }
   },
   scheme: 'unexa'
