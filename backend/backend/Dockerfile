@@ -1,30 +1,17 @@
 # Use Node.js 18 LTS
 FROM node:18-alpine
 
-<<<<<<< HEAD
 # Set working directory
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-=======
-# Set working directory to backend
-WORKDIR /app/backend
-
-# Copy package files from backend
-COPY backend/package*.json ./
->>>>>>> 4e4cd27fbed2345c4db75a6810294fc26a261c2a
 
 # Install dependencies
 RUN npm ci --only=production
 
-<<<<<<< HEAD
 # Copy application code
 COPY . .
-=======
-# Copy backend application code
-COPY backend/ ./
->>>>>>> 4e4cd27fbed2345c4db75a6810294fc26a261c2a
 
 # Create uploads directory
 RUN mkdir -p uploads

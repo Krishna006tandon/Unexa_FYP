@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "name": "unexa-frontend",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "web-build"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "EXPO_PUBLIC_API_URL": "https://unexa-fyp.onrender.com"
+  }
+}

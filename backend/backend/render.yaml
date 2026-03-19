@@ -2,17 +2,10 @@ services:
   # API Server
   - type: web
     name: unexa-backend
-<<<<<<< HEAD
     env: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
-=======
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: ./
->>>>>>> 4e4cd27fbed2345c4db75a6810294fc26a261c2a
     envVars:
       - key: NODE_ENV
         value: production

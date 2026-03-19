@@ -11,13 +11,5 @@ coverage
 .idea
 .DS_Store
 *.log
-<<<<<<< HEAD
 uploads/*
 !uploads/.gitkeep
-=======
-frontend/
-docs/
-TROUBLESHOOTING.md
-backend/uploads/*
-!backend/uploads/.gitkeep
->>>>>>> 4e4cd27fbed2345c4db75a6810294fc26a261c2a
