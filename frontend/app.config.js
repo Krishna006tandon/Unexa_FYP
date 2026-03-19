@@ -15,7 +15,10 @@ const config = {
   ],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.unexa.superapp'
+    bundleIdentifier: 'com.unexa.superapp',
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false
+    }
   },
   android: {
     adaptiveIcon: {
