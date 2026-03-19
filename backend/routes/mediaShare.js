@@ -7,38 +7,23 @@ const MediaShare = require('../models/MediaShare');
 const Streak = require('../models/Streak');
 const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
+const { upload, deleteFromCloudinary } = require('../config/cloudinary');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/media');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+// Configure Cloudinary storage for media share
+const mediaUpload = multer({
+  storage: upload.storage,
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image and video files are allowed'), false);
     }
-    cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image and video files are allowed'), false);
-  }
-};
-
-const upload = multer({ 
-  storage, 
-  fileFilter,
   limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
 });
 
 // POST /api/media/share - Share media with friends
-router.post('/share', protect, upload.single('media'), async (req, res) => {
+router.post('/share', protect, mediaUpload.single('media'), async (req, res) => {
   try {
     const { recipients, caption } = req.body;
     
@@ -59,7 +44,8 @@ router.post('/share', protect, upload.single('media'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid recipients' });
     }
     
-    const mediaUrl = `/uploads/media/${req.file.filename}`;
+    // The file is already uploaded to Cloudinary via multer-storage-cloudinary
+    const mediaUrl = req.file.path; // Cloudinary URL
     const mediaType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
     
     // Create media share

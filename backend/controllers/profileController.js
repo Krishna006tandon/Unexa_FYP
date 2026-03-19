@@ -1,35 +1,7 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
-const multer = require('multer');
+const { upload, uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
 const path = require('path');
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/profiles/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  }
-});
 
 // @desc    Create or update profile
 // @route   POST /api/profile
@@ -246,26 +218,55 @@ const uploadAvatar = async (req, res) => {
         });
       }
 
-      const avatarUrl = `/uploads/profiles/${req.file.filename}`;
+      try {
+        // Get the current profile to check if there's an existing avatar
+        const currentProfile = await Profile.findOne({ user: req.user.id });
+        
+        // Delete old avatar from Cloudinary if it exists
+        if (currentProfile && currentProfile.avatar) {
+          // Extract public_id from Cloudinary URL
+          const urlParts = currentProfile.avatar.split('/');
+          const fileName = urlParts[urlParts.length - 1];
+          const publicId = fileName.split('.')[0];
+          
+          try {
+            await deleteFromCloudinary(`unexa/profiles/${publicId}`);
+          } catch (deleteError) {
+            console.log('Failed to delete old avatar:', deleteError.message);
+            // Continue with upload even if deletion fails
+          }
+        }
 
-      const profile = await Profile.findOneAndUpdate(
-        { user: req.user.id },
-        { avatar: avatarUrl },
-        { new: true, runValidators: true }
-      ).populate('user', 'name email');
+        // The file is already uploaded to Cloudinary via multer-storage-cloudinary
+        const avatarUrl = req.file.path; // Cloudinary URL
 
-      // TODO: Fix socket.io integration
-      // req.io.emit('avatarUpdated', {
-      //   profileId: profile._id,
-      //   userId: req.user.id,
-      //   avatarUrl: avatarUrl
-      // });
+        const profile = await Profile.findOneAndUpdate(
+          { user: req.user.id },
+          { avatar: avatarUrl },
+          { new: true, runValidators: true }
+        ).populate('user', 'name email');
 
-      res.status(200).json({
-        success: true,
-        data: profile,
-        message: 'Avatar uploaded successfully'
-      });
+        // TODO: Fix socket.io integration
+        // req.io.emit('avatarUpdated', {
+        //   profileId: profile._id,
+        //   userId: req.user.id,
+        //   avatarUrl: avatarUrl
+        // });
+
+        res.status(200).json({
+          success: true,
+          data: profile,
+          message: 'Avatar uploaded successfully'
+        });
+
+      } catch (cloudinaryError) {
+        console.error('Cloudinary error:', cloudinaryError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload avatar to cloud storage',
+          error: cloudinaryError.message
+        });
+      }
     });
 
   } catch (error) {
@@ -300,26 +301,55 @@ const uploadCoverImage = async (req, res) => {
         });
       }
 
-      const coverImageUrl = `/uploads/profiles/${req.file.filename}`;
+      try {
+        // Get the current profile to check if there's an existing cover image
+        const currentProfile = await Profile.findOne({ user: req.user.id });
+        
+        // Delete old cover image from Cloudinary if it exists
+        if (currentProfile && currentProfile.coverImage) {
+          // Extract public_id from Cloudinary URL
+          const urlParts = currentProfile.coverImage.split('/');
+          const fileName = urlParts[urlParts.length - 1];
+          const publicId = fileName.split('.')[0];
+          
+          try {
+            await deleteFromCloudinary(`unexa/profiles/${publicId}`);
+          } catch (deleteError) {
+            console.log('Failed to delete old cover image:', deleteError.message);
+            // Continue with upload even if deletion fails
+          }
+        }
 
-      const profile = await Profile.findOneAndUpdate(
-        { user: req.user.id },
-        { coverImage: coverImageUrl },
-        { new: true, runValidators: true }
-      ).populate('user', 'name email');
+        // The file is already uploaded to Cloudinary via multer-storage-cloudinary
+        const coverImageUrl = req.file.path; // Cloudinary URL
 
-      // TODO: Fix socket.io integration
-      // req.io.emit('coverImageUpdated', {
-      //   profileId: profile._id,
-      //   userId: req.user.id,
-      //   coverImageUrl: coverImageUrl
-      // });
+        const profile = await Profile.findOneAndUpdate(
+          { user: req.user.id },
+          { coverImage: coverImageUrl },
+          { new: true, runValidators: true }
+        ).populate('user', 'name email');
 
-      res.status(200).json({
-        success: true,
-        data: profile,
-        message: 'Cover image uploaded successfully'
-      });
+        // TODO: Fix socket.io integration
+        // req.io.emit('coverImageUpdated', {
+        //   profileId: profile._id,
+        //   userId: req.user.id,
+        //   coverImageUrl: coverImageUrl
+        // });
+
+        res.status(200).json({
+          success: true,
+          data: profile,
+          message: 'Cover image uploaded successfully'
+        });
+
+      } catch (cloudinaryError) {
+        console.error('Cloudinary error:', cloudinaryError);
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload cover image to cloud storage',
+          error: cloudinaryError.message
+        });
+      }
     });
 
   } catch (error) {

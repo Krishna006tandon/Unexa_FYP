@@ -4,34 +4,24 @@ const path = require('path');
 const fs = require('fs');
 const { protect } = require('../middlewares/authMiddleware');
 const { uploadMedia } = require('../controllers/uploadController');
+const { upload } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// Ensure uploads dir exists for local media storage
-const dir = './uploads';
-if (!fs.existsSync(dir)){
-    fs.mkdirSync(dir, { recursive: true });
-}
-
-// Map multer to disk storage so the frontend can retrieve the images natively
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    cb(null, 'unexa_' + Date.now() + path.extname(file.originalname)); 
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
+// Configure Cloudinary storage for chat media
+const chatUpload = multer({
+  storage: upload.storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
-    // Accept all file types for now
-    cb(null, true);
+    // Accept images and videos for chat
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images, videos, and audio files are allowed'), false);
+    }
   }
 });
 
-router.route('/').post(protect, upload.single('media'), uploadMedia);
+router.route('/').post(protect, chatUpload.single('media'), uploadMedia);
 
 module.exports = router;

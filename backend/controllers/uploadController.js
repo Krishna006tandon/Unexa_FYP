@@ -1,4 +1,4 @@
-const { uploadToS3 } = require('../services/mediaService');
+const { uploadToCloudinary } = require('../config/cloudinary');
 
 exports.uploadMedia = async (req, res) => {
   try {
@@ -8,8 +8,9 @@ exports.uploadMedia = async (req, res) => {
       return res.status(400).json({ error: 'Please upload a file' });
     }
 
-    // Call service to get final URL
-    const mediaUrl = await uploadToS3(file, req);
+    // The file is already uploaded to Cloudinary via multer-storage-cloudinary
+    // The Cloudinary URL is available in req.file.path
+    const mediaUrl = req.file.path;
 
     res.status(200).json({ 
       success: true, 
