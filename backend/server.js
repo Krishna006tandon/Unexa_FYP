@@ -10,9 +10,12 @@ const path = require('path');
 
 // Initialize App
 const app = express();
-const server = http.createServer(app);
+
+// Trust proxy for Render deployment
+app.set('trust proxy', true);
 
 // Socket.IO Setup
+const server = http.createServer(app);
 const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
@@ -38,14 +41,21 @@ const limiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for health checks
+  skip: (req) => {
+    return req.path === '/' || req.path === '/api/test';
+  }
 });
-app.use(limiter);
 
 // Specific rate limit for messages
 const messageLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 20, // 20 messages per minute
-  message: "Too many messages sent from this IP, please try again after a minute"
+  message: "Too many messages sent from this IP, please try again after a minute",
+  // Skip rate limiting for development
+  skip: (req) => {
+    return process.env.NODE_ENV === 'development';
+  }
 });
 
 // Routes
