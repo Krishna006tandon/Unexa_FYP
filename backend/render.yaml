@@ -14,10 +14,10 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: CLOUDINARY_CLOUD_NAME
-        sync: false
+        sync: true
       - key: CLOUDINARY_API_KEY
-        sync: false
+        sync: true
       - key: CLOUDINARY_API_SECRET
-        sync: false
+        sync: true
       - key: PORT
         value: 5000
