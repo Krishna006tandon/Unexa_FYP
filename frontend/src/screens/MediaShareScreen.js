@@ -180,14 +180,14 @@ const MediaShareScreen = ({ navigation }) => {
       
       {item.mediaType === 'image' ? (
         <Image 
-          source={{ uri: `${API_URL}${item.mediaUrl}` }} 
+          source={{ uri: item.mediaUrl }} 
           style={styles.mediaContent}
           resizeMode="cover"
         />
       ) : (
         <View style={styles.videoContainer}>
           <Video
-            source={{ uri: `${API_URL}${item.mediaUrl}` }}
+            source={{ uri: item.mediaUrl }}
             style={styles.mediaContent}
             shouldPlay={false}
             isLooping

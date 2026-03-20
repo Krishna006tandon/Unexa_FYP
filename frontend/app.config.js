@@ -48,7 +48,11 @@ const config = {
   extra: {
     eas: {
       projectId: 'd0033147-bdaf-48b1-8af8-68077eaa17dc'
-    }
+    },
+    // Environment variables for Expo
+    apiUrl: process.env.API_URL || 'https://unexa-fyp.onrender.com',
+    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
   },
   scheme: 'unexa'
 };

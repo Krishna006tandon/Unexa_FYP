@@ -1,8 +1,9 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ENVIRONMENT from '../config/environment';
 
-// Import API_URL from AuthScreen
-const API_URL = 'https://unexa-fyp.onrender.com'; // Production backend URL
+// Use environment configuration
+const API_URL = ENVIRONMENT.API_URL;
 
 class ProfileService {
   // Get current user's profile

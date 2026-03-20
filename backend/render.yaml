@@ -2,17 +2,10 @@ services:
   # API Server
   - type: web
     name: unexa-backend
-<<<<<<< HEAD
     env: node
     plan: free
     buildCommand: npm install
     startCommand: npm start
-=======
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: ./
->>>>>>> 4e4cd27fbed2345c4db75a6810294fc26a261c2a
     envVars:
       - key: NODE_ENV
         value: production
@@ -20,11 +13,11 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: AWS_ACCESS_KEY_ID
+      - key: CLOUDINARY_CLOUD_NAME
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
+      - key: CLOUDINARY_API_KEY
         sync: false
-      - key: AWS_REGION
-        value: us-east-1
+      - key: CLOUDINARY_API_SECRET
+        sync: false
       - key: PORT
         value: 5000
