@@ -42,12 +42,12 @@ const config = {
     ]
   ],
   updates: {
-    url: 'https://u.expo.dev/d0033147-bdaf-48b1-8af8-68077eaa17dc'
+    url: 'https://u.expo.dev/00e58f94-d139-4858-ae55-077ea71f067e'
   },
   runtimeVersion: '1.0.0',
   extra: {
     eas: {
-      projectId: 'd0033147-bdaf-48b1-8af8-68077eaa17dc'
+      projectId: '00e58f94-d139-4858-ae55-077ea71f067e'
     },
     // Environment variables for Expo
     apiUrl: process.env.API_URL || 'https://unexa-fyp.onrender.com',
