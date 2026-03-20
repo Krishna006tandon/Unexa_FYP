@@ -30,7 +30,7 @@
         <category android:name="android.intent.category.DEFAULT"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="unexa"/>
-        <data android:scheme="exp+unexa-superapp"/>
+        <data android:scheme="exp+unexa"/>
       </intent-filter>
     </activity>
   </application>

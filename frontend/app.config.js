@@ -1,6 +1,6 @@
 const config = {
   name: 'UNEXA SuperApp',
-  slug: 'unexa-superapp',
+  slug: 'unexa',
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',

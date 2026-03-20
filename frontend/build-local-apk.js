@@ -22,7 +22,7 @@ commands.forEach((cmd, index) => {
       if (index === commands.length - 1) {
         console.log('\n🔄 All methods failed. Try using Expo Go instead:');
         console.log('1. Download Expo Go app');
-        console.log('2. Scan: https://expo.dev/@krishna0042/unexa-superapp');
+        console.log('2. Scan: https://expo.dev/@krishna0042/unexa');
         console.log('3. Test with production backend');
       }
     } else {
