@@ -79,39 +79,69 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
     });
     
     await mediaShare.save();
+    console.log('✅ Media share saved to database');
     
     // Update or create streaks for each recipient
+    let streaksUpdated = 0;
     for (const recipientId of recipientIds) {
       const users = [req.user._id, recipientId].sort();
       
       let streak = await Streak.findOne({ 
-        users: { $all: users, $size: 2 },
-        isActive: true 
+        users: { $all: users, $size: 2 }
       });
       
-      if (!streak) {
-        streak = new Streak({ users });
-      }
-      
-      const streakUpdated = streak.updateStreak(req.user._id, mediaShare._id);
-      if (streakUpdated) {
+      if (streak) {
+        streak.count += 1;
+        streak.lastShared = new Date();
         await streak.save();
+        streaksUpdated++;
+      } else {
+        // Create new streak
+        const newStreak = new Streak({
+          users: users,
+          count: 1,
+          lastShared: new Date()
+        });
+        await newStreak.save();
+        streaksUpdated++;
       }
     }
     
-    // Populate sender and recipients info
-    await mediaShare.populate('sender', 'username profilePhoto');
-    await mediaShare.populate('recipients', 'username profilePhoto');
+    console.log(`✅ Streaks updated: ${streaksUpdated}`);
     
     res.status(201).json({ 
-      message: 'Media shared successfully', 
-      mediaShare,
-      streaksUpdated: recipientIds.length 
+      success: true, 
+      message: 'Media shared successfully',
+      mediaShare: {
+        id: mediaShare._id,
+        mediaUrl,
+        mediaType,
+        caption: caption || '',
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        createdAt: mediaShare.createdAt
+      },
+      streaksUpdated
     });
     
   } catch (error) {
-    console.error('Error sharing media:', error);
-    res.status(500).json({ error: 'Failed to share media' });
+    console.error('❌ Media share error:', error);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Handle specific errors
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ error: 'Invalid data provided' });
+    }
+    
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Duplicate media share' });
+    }
+    
+    // Generic error
+    res.status(500).json({ 
+      error: 'Internal server error during media sharing',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
