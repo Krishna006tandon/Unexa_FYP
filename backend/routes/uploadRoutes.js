@@ -4,14 +4,15 @@ const path = require('path');
 const fs = require('fs');
 const { protect } = require('../middlewares/authMiddleware');
 const { uploadMedia } = require('../controllers/uploadController');
-const { upload } = require('../config/cloudinary');
+const { createUploadHandler } = require('../config/cloudinary');
 
 const router = express.Router();
 
 // Configure Cloudinary storage for chat media
-const chatUpload = multer({
-  storage: upload.storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+const chatUpload = createUploadHandler({
+  folder: 'unexa/chat-media',
+  fileSizeLimit: 50 * 1024 * 1024, // 50MB
+  allowedTypes: ['image', 'video', 'audio', 'file'],
   fileFilter: (req, file, cb) => {
     console.log('🔍 File filter check:', file.mimetype);
     

@@ -78,7 +78,18 @@ const createUploadHandler = (options = {}) => {
         ? ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm']
         : allowedTypes.includes('audio')
         ? ['mp3', 'wav', 'ogg', 'm4a']
+        : allowedTypes.includes('file')
+        ? ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm', 'mp3', 'wav', 'm4a', 'pdf']
         : ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      resource_type: (req, file) => {
+        if (file.mimetype === 'application/pdf') {
+          return 'raw';
+        } else if (file.mimetype.startsWith('audio/')) {
+          return 'video'; // Cloudinary uses 'video' for audio files
+        } else {
+          return 'auto';
+        }
+      },
       public_id: (req, file) => {
         const timestamp = Date.now();
         const random = Math.round(Math.random() * 1E9);
@@ -94,6 +105,8 @@ const createUploadHandler = (options = {}) => {
     } else if (allowedTypes.includes('video') && file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else if (allowedTypes.includes('audio') && file.mimetype.startsWith('audio/')) {
+      cb(null, true);
+    } else if (allowedTypes.includes('file') && (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/') || file.mimetype === 'application/pdf')) {
       cb(null, true);
     } else {
       cb(new Error(`Only ${allowedTypes.join(', ')} files are allowed`), false);
