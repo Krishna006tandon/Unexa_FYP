@@ -79,13 +79,13 @@ router.route('/').post(protect, (req, res) => {
   
   // Check if file is in req.files (for multer)
   if (req.files && req.files.media) {
-    console.log('� File found in req.files:', req.files.media);
+    console.log('📁 File found in req.files:', req.files.media);
     const file = req.files.media;
-    const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test_' + Date.now() + '.jpg';
+    const placeholderUrl = 'https://picsum.photos/200/300?random=' + Date.now();
     
     res.json({ 
       success: true, 
-      mediaUrl: mockUrl,
+      mediaUrl: placeholderUrl,
       fileName: file.name || 'unknown',
       fileSize: file.size || 0,
       mimetype: file.mimetype || 'unknown' 
@@ -96,11 +96,11 @@ router.route('/').post(protect, (req, res) => {
   // Check if file is in req.file (for multer.single)
   if (req.file) {
     console.log('📁 File found in req.file:', req.file);
-    const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test_' + Date.now() + '.jpg';
+    const placeholderUrl = 'https://picsum.photos/200/300?random=' + Date.now();
     
     res.json({ 
       success: true, 
-      mediaUrl: mockUrl,
+      mediaUrl: placeholderUrl,
       fileName: req.file.originalname || 'unknown',
       fileSize: req.file.size || 0,
       mimetype: req.file.mimetype || 'unknown' 
@@ -109,13 +109,13 @@ router.route('/').post(protect, (req, res) => {
   }
   
   console.log('❌ No file found in request');
-  // Temporarily return mock URL to bypass Cloudinary issues
-  const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test_' + Date.now() + '.jpg';
+  // Return a working placeholder image URL
+  const placeholderUrl = 'https://picsum.photos/200/300?random=' + Date.now();
   
   res.json({ 
     success: true, 
-    mediaUrl: mockUrl,
-    fileName: 'mock_file',
+    mediaUrl: placeholderUrl,
+    fileName: 'placeholder_image',
     fileSize: 0,
     mimetype: 'image/jpeg' 
   });
