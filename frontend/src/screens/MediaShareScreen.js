@@ -108,9 +108,34 @@ const MediaShareScreen = ({ navigation }) => {
       if (selectedMedia.uri.startsWith('blob:')) {
         // For React Native Web, convert blob URI to actual Blob
         try {
+          console.log('🔄 Converting blob to file...');
           const response = await fetch(selectedMedia.uri);
           const blob = await response.blob();
-          formData.append('media', blob, selectedMedia.fileName || `media_${Date.now()}.jpg`);
+          
+          // Compress image if it's too large
+          let processedBlob = blob;
+          if (blob.size > 5 * 1024 * 1024) { // 5MB limit
+            console.log('🗜️ Compressing large image...');
+            // Create a compressed version
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            await new Promise((resolve) => {
+              img.onload = () => {
+                canvas.width = img.width * 0.8; // Reduce size by 20%
+                canvas.height = img.height * 0.8;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(resolve, 'image/jpeg', 0.8);
+              };
+              img.src = selectedMedia.uri;
+            });
+            
+            processedBlob = canvas.toBlob('image/jpeg', 0.8);
+          }
+          
+          console.log('📁 File size:', processedBlob.size, 'bytes');
+          formData.append('media', processedBlob, selectedMedia.fileName || `media_${Date.now()}.jpg`);
         } catch (error) {
           console.error('❌ Error converting blob to file:', error);
           throw new Error('Failed to process media file');
@@ -139,7 +164,11 @@ const MediaShareScreen = ({ navigation }) => {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${user.token}`
         },
-        timeout: 60000 // 60 second timeout
+        timeout: 120000, // 2 minute timeout
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`📊 Upload progress: ${percentCompleted}%`);
+        }
       });
 
       console.log('✅ Media share response:', response.data);
