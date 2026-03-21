@@ -107,10 +107,16 @@ const ChatScreen = ({ route, navigation }) => {
         name: filename,
       };
       
-      formData.append('media', fileData);
+      // Create proper file object for React Native
+      formData.append('media', {
+        uri: uri,
+        type: mimeType,
+        name: filename,
+      }, filename);
       
       console.log('📡 Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
       console.log('📦 FormData prepared:', fileData);
+      console.log('📦 FormData entries count:', formData._parts.length);
       
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, {
         headers: { 
