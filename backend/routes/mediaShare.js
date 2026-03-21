@@ -58,6 +58,14 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
     const mediaUrl = req.file.path; // Cloudinary URL
     const mediaType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
     
+    console.log('☁️ Cloudinary upload successful!');
+    console.log('🔗 Cloudinary URL:', mediaUrl);
+    console.log('📁 File info:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+    
     // Create media share
     const mediaShare = new MediaShare({
       sender: req.user._id,
