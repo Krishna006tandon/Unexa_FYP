@@ -78,17 +78,20 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
   
   if (req.file) {
     console.log('📁 File found in req.file:', req.file);
-    console.log('✅ File uploaded successfully!');
+    console.log('✅ File saved to disk!');
     
-    // Clean up local file
-    fs.unlinkSync(req.file.path);
+    // Build the actual file URL
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://unexa-fyp.onrender.com'
+      : `http://localhost:${process.env.PORT || 5000}`;
     
-    // Return working placeholder URL
-    const placeholderUrl = `https://picsum.photos/200/300?random=${Date.now()}`;
+    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+    
+    console.log('🔗 File URL:', fileUrl);
     
     res.json({ 
       success: true, 
-      mediaUrl: placeholderUrl,
+      mediaUrl: fileUrl,
       fileName: req.file.originalname || 'unknown',
       fileSize: req.file.size || 0,
       mimetype: req.file.mimetype || 'unknown' 
