@@ -109,10 +109,10 @@ const ChatScreen = ({ route, navigation }) => {
       
       formData.append('media', fileData);
       
-      console.log('📡 Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
+      console.log('📡 Sending request to:', `${ENVIRONMENT.API_URL}/api/upload/bypass`);
       console.log('📦 FormData prepared:', fileData);
       
-      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, {
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload/bypass`, formData, {
         headers: { 
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${user.token}` 
