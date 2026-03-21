@@ -138,7 +138,7 @@ const ChatScreen = ({ route, navigation }) => {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${user.token}` 
         },
-        timeout: 30000, // 30 seconds timeout for large files
+        timeout: 60000, // 60 seconds timeout for large files
       });
       
       console.log('✅ Upload successful:', data);
