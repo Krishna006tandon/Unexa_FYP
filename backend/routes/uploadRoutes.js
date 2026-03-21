@@ -71,7 +71,7 @@ router.use((error, req, res, next) => {
   next();
 });
 
-router.route('/').post(protect, chatUpload.single('media'), (req, res) => {
+router.route('/').post(protect, (req, res) => {
   console.log('🎯 Upload route hit!');
   console.log('📁 File received:', req.file ? '✅' : '❌');
   console.log('📄 Request headers:', req.headers);
