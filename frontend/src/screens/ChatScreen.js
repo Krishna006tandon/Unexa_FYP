@@ -338,11 +338,11 @@ const ChatScreen = ({ route, navigation }) => {
              </TouchableOpacity>
           )}
           
-          {item.content ? <Text style={styles.messageText}>{item.content}</Text> : null}
+          {item.content ? <Text style={[styles.messageText, isMine && { color: '#FFF' }]}>{item.content}</Text> : null}
 
           <View style={styles.metaContainer}>
-            <Text style={styles.timestamp}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-            {isMine && <CheckCheck color={item.seenBy?.length > 0 ? THEME.colors.readBlue : THEME.colors.textDim} size={14} style={{marginLeft: 4}} />}
+            <Text style={[styles.timestamp, isMine && { color: 'rgba(255,255,255,0.7)' }]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            {isMine && <CheckCheck color={item.seenBy?.length > 0 ? THEME.colors.readBlue : 'rgba(255,255,255,0.7)'} size={14} style={{marginLeft: 4}} />}
           </View>
         </View>
       </View>
@@ -424,33 +424,207 @@ const ChatScreen = ({ route, navigation }) => {
 export default ChatScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderColor: THEME.colors.glassBorder, backgroundColor: '#0A0A0A', marginTop: Platform.OS === 'android' ? 25 : 0 },
-  backButton: { color: THEME.colors.primary, fontSize: 24, marginRight: 15 },
-  headerInfo: { flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center' },
-  headerName: { color: THEME.colors.text, fontSize: 18, fontWeight: 'bold' },
-  headerStatus: { color: THEME.colors.secondary, fontSize: 12 },
-  messageRow: { flexDirection: 'row', marginBottom: 15, alignItems: 'flex-end', maxWidth: '100%' },
-  rowMine: { justifyContent: 'flex-end' },
-  rowTheirs: { justifyContent: 'flex-start' },
-  bubble: { padding: 10, borderRadius: 20, maxWidth: '75%', minWidth: 80 },
-  bubbleMine: { backgroundColor: THEME.colors.glass, borderWidth: 1, borderColor: THEME.colors.primary, borderBottomRightRadius: 5 },
-  bubbleTheirs: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: THEME.colors.glassBorder, borderBottomLeftRadius: 5 },
-  mediaPreview: { width: 200, height: 200, borderRadius: 12, marginBottom: 8 },
-  fileContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 5 },
-  audioContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 20, marginBottom: 5 },
-  waveform: { flex: 1, height: 2, backgroundColor: THEME.colors.primary, marginHorizontal: 10, width: 100 },
-  messageText: { color: THEME.colors.text, fontSize: 16 },
-  metaContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 4 },
-  timestamp: { color: THEME.colors.textDim, fontSize: 11 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', padding: 10, backgroundColor: THEME.colors.background, borderTopWidth: 1, borderColor: THEME.colors.glassBorder },
-  textInput: { flex: 1, backgroundColor: THEME.colors.glass, color: THEME.colors.text, borderRadius: 20, paddingHorizontal: 15, paddingTop: 12, paddingBottom: 12, marginHorizontal: 5, borderWidth: 1, borderColor: THEME.colors.glassBorder, maxHeight: 100 },
-  recordingBar: { flex: 1, padding: 12, alignItems: 'center', justifyContent: 'center' },
-  recordingText: { color: THEME.colors.danger, fontWeight: 'bold' },
-  iconButton: { padding: 8 },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
-  modalClose: { position: 'absolute', top: 50, right: 20, zIndex: 10, padding: 10 },
-  modalCloseText: { color: THEME.colors.primary, fontSize: 18, fontWeight: 'bold' },
-  fullImage: { width: '100%', height: '80%' }
+  container: { 
+    flex: 1, 
+    backgroundColor: THEME.colors.background 
+  },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 20, 
+    borderBottomWidth: 1, 
+    borderColor: THEME.colors.border, 
+    backgroundColor: THEME.colors.glass, 
+    paddingTop: Platform.OS === 'android' ? 60 : 50,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  backButton: { 
+    color: THEME.colors.primary, 
+    fontSize: 24, 
+    marginRight: 15,
+    fontWeight: '600',
+  },
+  headerInfo: { 
+    flex: 1 
+  },
+  headerActions: { 
+    flexDirection: 'row', 
+    alignItems: 'center',
+    gap: 15,
+  },
+  headerName: { 
+    color: THEME.colors.text, 
+    fontSize: 18, 
+    fontWeight: '700' 
+  },
+  headerStatus: { 
+    color: THEME.colors.secondary, 
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  messageRow: { 
+    flexDirection: 'row', 
+    marginBottom: 20, 
+    alignItems: 'flex-end', 
+    maxWidth: '100%',
+    paddingHorizontal: 20,
+  },
+  rowMine: { 
+    justifyContent: 'flex-end' 
+  },
+  rowTheirs: { 
+    justifyContent: 'flex-start' 
+  },
+  bubble: { 
+    padding: 15, 
+    borderRadius: 20, 
+    maxWidth: '75%', 
+    minWidth: 80,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  bubbleMine: { 
+    backgroundColor: THEME.colors.primary, 
+    borderBottomRightRadius: 5,
+    borderWidth: 0,
+  },
+  bubbleTheirs: { 
+    backgroundColor: THEME.colors.glass, 
+    borderBottomLeftRadius: 5,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  mediaPreview: { 
+    width: 220, 
+    height: 220, 
+    borderRadius: 15, 
+    marginBottom: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  fileContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    padding: 12, 
+    borderRadius: 12, 
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  audioContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    padding: 12, 
+    borderRadius: 20, 
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  waveform: { 
+    flex: 1, 
+    height: 3, 
+    backgroundColor: THEME.colors.primary, 
+    marginHorizontal: 10, 
+    width: 100,
+    borderRadius: 2,
+  },
+  messageText: { 
+    color: THEME.colors.text, 
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  metaContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'flex-end', 
+    alignItems: 'center', 
+    marginTop: 8,
+    gap: 4,
+  },
+  timestamp: { 
+    color: THEME.colors.textDim, 
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  inputContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 15, 
+    backgroundColor: THEME.colors.glass, 
+    borderTopWidth: 1, 
+    borderColor: THEME.colors.border,
+    gap: 10,
+  },
+  textInput: { 
+    flex: 1, 
+    backgroundColor: THEME.colors.background, 
+    color: THEME.colors.text, 
+    borderRadius: 25, 
+    paddingHorizontal: 20, 
+    paddingTop: 12, 
+    paddingBottom: 12, 
+    borderWidth: 1, 
+    borderColor: THEME.colors.border, 
+    maxHeight: 100,
+    fontSize: 16,
+  },
+  recordingBar: { 
+    flex: 1, 
+    padding: 15, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,59,48,0.1)',
+    borderRadius: 20,
+    marginHorizontal: 10,
+  },
+  recordingText: { 
+    color: THEME.colors.danger, 
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  iconButton: { 
+    padding: 10,
+    borderRadius: 20,
+    backgroundColor: THEME.colors.background,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  modalContainer: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.95)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  modalClose: { 
+    position: 'absolute', 
+    top: 60, 
+    right: 20, 
+    zIndex: 10, 
+    padding: 10,
+    backgroundColor: THEME.colors.glass,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  modalCloseText: { 
+    color: THEME.colors.text, 
+    fontSize: 16, 
+    fontWeight: '600' 
+  },
+  fullImage: { 
+    width: '100%', 
+    height: '80%',
+    borderRadius: 20,
+  }
 });

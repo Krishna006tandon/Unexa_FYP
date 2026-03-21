@@ -86,17 +86,27 @@ class ProfileService {
 
       const formData = new FormData();
       
-      formData.append('avatar', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: `avatar_${Date.now()}.jpg`,
-      });
+      // Handle React Native Web blob URIs
+      if (imageUri.startsWith('blob:')) {
+        // For React Native Web, convert blob URI to actual Blob
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        formData.append('avatar', blob, `avatar_${Date.now()}.jpg`);
+      } else {
+        // For native React Native
+        formData.append('avatar', {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: `avatar_${Date.now()}.jpg`,
+        });
+      }
 
       const response = await axios.post(`${API_URL}/api/profile/avatar`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
+        timeout: 60000, // 60 second timeout
       });
       return response.data;
     } catch (error) {
@@ -117,17 +127,27 @@ class ProfileService {
 
       const formData = new FormData();
       
-      formData.append('coverImage', {
-        uri: imageUri,
-        type: 'image/jpeg',
-        name: `cover_${Date.now()}.jpg`,
-      });
+      // Handle React Native Web blob URIs
+      if (imageUri.startsWith('blob:')) {
+        // For React Native Web, convert blob URI to actual Blob
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        formData.append('coverImage', blob, `cover_${Date.now()}.jpg`);
+      } else {
+        // For native React Native
+        formData.append('coverImage', {
+          uri: imageUri,
+          type: 'image/jpeg',
+          name: `cover_${Date.now()}.jpg`,
+        });
+      }
 
       const response = await axios.post(`${API_URL}/api/profile/cover`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
+        timeout: 60000, // 60 second timeout
       });
       return response.data;
     } catch (error) {

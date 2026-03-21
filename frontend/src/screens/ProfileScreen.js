@@ -191,15 +191,13 @@ const ProfileScreen = ({ navigation }) => {
           />
         )}
         
-        {editMode && (
-          <TouchableOpacity
-            style={styles.cameraButton}
-            onPress={() => pickImage('cover')}
-            disabled={uploading}
-          >
-            <Camera size={20} color={THEME.colors.text} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={styles.cameraButton}
+          onPress={() => pickImage('cover')}
+          disabled={uploading}
+        >
+          <Camera size={20} color={THEME.colors.text} />
+        </TouchableOpacity>
       </View>
 
       {/* Avatar */}
@@ -219,15 +217,13 @@ const ProfileScreen = ({ navigation }) => {
             </View>
           )}
           
-          {editMode && (
-            <TouchableOpacity
-              style={styles.avatarCameraButton}
-              onPress={() => pickImage('avatar')}
-              disabled={uploading}
-            >
-              <Camera size={16} color={THEME.colors.text} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.avatarCameraButton}
+            onPress={() => pickImage('avatar')}
+            disabled={uploading}
+          >
+            <Camera size={16} color={THEME.colors.text} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -573,13 +569,18 @@ const styles = StyleSheet.create({
   },
   cameraButton: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 20,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: THEME.colors.glassBorder,
+    bottom: 15,
+    right: 15,
+    backgroundColor: THEME.colors.primary,
+    borderRadius: 25,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: THEME.colors.background,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   avatarContainer: {
     alignItems: 'center',
@@ -618,11 +619,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: THEME.colors.primary,
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    borderRadius: 18,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: THEME.colors.background,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   profileInfo: {
     paddingHorizontal: 20,
