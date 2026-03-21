@@ -9,7 +9,7 @@ import { AuthContext } from '../context/AuthContext';
 import ENVIRONMENT from '../config/environment';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { Audio } from 'expo-audio';
+import { Audio } from 'expo-av';
 import { Camera } from 'expo-camera';
 
 let socket;
