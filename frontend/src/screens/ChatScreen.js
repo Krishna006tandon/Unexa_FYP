@@ -101,28 +101,32 @@ const ChatScreen = ({ route, navigation }) => {
       const formData = new FormData();
       
       // React Native specific format for file upload
-      const fileData = {
-        uri: uri,
-        type: mimeType,
-        name: filename,
-      };
-      
-      // Create proper file object for React Native
       console.log('📝 Creating FormData...');
-      formData.append('media', {
-        uri: uri,
-        type: mimeType,
-        name: filename,
-      }, filename);
       
-      console.log('� FormData entries count:', formData._parts.length);
+      let fileObject;
+      if (Platform.OS === 'web') {
+        // Web - fetch the file and create File object
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        fileObject = new File([blob], filename, { type: mimeType });
+        formData.append('media', fileObject);
+      } else {
+        // React Native - use the format we had
+        fileObject = {
+          uri: uri,
+          type: mimeType,
+          name: filename,
+        };
+        formData.append('media', fileObject, filename);
+      }
+      
+      console.log('📦 FormData entries count:', formData._parts.length);
       console.log('📋 FormData content:');
       for (let [key, value] of formData._parts) {
         console.log(`  ${key}:`, value);
       }
       
-      console.log('�📡 Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
-      console.log('📦 FormData prepared:', fileData);
+      console.log('� Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
       
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, {
         headers: { 
