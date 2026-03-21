@@ -25,18 +25,28 @@ const mediaUpload = multer({
 // POST /api/media/share - Share media with friends
 router.post('/share', protect, mediaUpload.single('media'), async (req, res) => {
   try {
+    console.log('🎯 Media share route hit!');
+    console.log('📁 File received:', req.file ? '✅' : '❌');
+    console.log('👤 User authenticated:', req.user ? '✅' : '❌');
+    console.log('📝 Request body:', req.body);
+    console.log('📝 Recipients:', req.body.recipients);
+    console.log('📝 Caption:', req.body.caption);
+    
     const { recipients, caption } = req.body;
     
     if (!req.file) {
+      console.log('❌ No file received');
       return res.status(400).json({ error: 'Media file is required' });
     }
     
     if (!recipients || recipients.length === 0) {
+      console.log('❌ No recipients provided');
       return res.status(400).json({ error: 'At least one recipient is required' });
     }
     
     // Parse recipients from string to array
     const recipientIds = Array.isArray(recipients) ? recipients : JSON.parse(recipients);
+    console.log('🔢 Parsed recipient IDs:', recipientIds);
     
     // Validate recipients
     const validRecipients = await User.find({ _id: { $in: recipientIds } });
