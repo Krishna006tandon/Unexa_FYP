@@ -35,13 +35,15 @@ const ChatScreen = ({ route, navigation }) => {
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [recording, setRecording] = useState();
+  const [recording, setRecording] = useState(undefined);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [modalImage, setModalImage] = useState(null);
+  const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   const flatListRef = useRef(null);
   let recordingTimer = useRef(null);
-
-  const [modalImage, setModalImage] = useState(null);
+  const audioTimer = useRef(null);
 
   const playAudio = async (url) => {
     try {
@@ -51,6 +53,10 @@ const ChatScreen = ({ route, navigation }) => {
         allowsRecordingIOS: false,
         staysActiveInBackground: false
       });
+      
+      // Reset audio state
+      setCurrentAudioTime(0);
+      setIsPlayingAudio(true);
       
       // Create and play sound with proper format support
       const { sound } = await Audio.Sound.createAsync(
@@ -62,10 +68,33 @@ const ChatScreen = ({ route, navigation }) => {
         }
       );
       
+      // Set up playback status updates
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded) {
+          if (status.isPlaying) {
+            // Update current time every 100ms
+            if (audioTimer.current) clearInterval(audioTimer.current);
+            audioTimer.current = setInterval(() => {
+              sound.getStatusAsync().then((currentStatus) => {
+                if (currentStatus.isLoaded && currentStatus.isPlaying) {
+                  setCurrentAudioTime(Math.floor(currentStatus.positionMillis / 1000));
+                }
+              });
+            }, 100);
+          } else if (status.didJustFinish) {
+            // Audio finished playing
+            setIsPlayingAudio(false);
+            setCurrentAudioTime(0);
+            if (audioTimer.current) clearInterval(audioTimer.current);
+          }
+        }
+      });
+      
       await sound.playAsync();
       console.log('✅ Audio playing successfully');
     } catch (err) {
       console.error('❌ Error playing audio:', err);
+      setIsPlayingAudio(false);
       Alert.alert('Audio Error', 'Could not play audio: ' + err.message);
     }
   };
@@ -331,11 +360,36 @@ const ChatScreen = ({ route, navigation }) => {
              </TouchableOpacity>
           )}
           {item.messageType === 'audio' && (
-             <TouchableOpacity style={styles.audioContainer} onPress={() => playAudio(item.mediaUrl)}>
-                <Play color={THEME.colors.text} size={20} />
-                <View style={styles.waveform} />
-                <Text style={styles.messageText}>{item.voiceDuration}s</Text>
-             </TouchableOpacity>
+             <View style={styles.audioContainer}>
+               <TouchableOpacity 
+                 style={styles.playButton} 
+                 onPress={() => playAudio(item.mediaUrl)}
+               >
+                 <Play color={THEME.colors.text} size={20} />
+               </TouchableOpacity>
+               
+               {/* Waveform visualization */}
+               <View style={styles.waveformContainer}>
+                 <View style={styles.waveformBase} />
+                 <View style={[styles.waveformProgress, { width: `${(currentAudioTime / (item.voiceDuration || 1)) * 100}%` }]} />
+                 {/* Simulated waveform bars */}
+                 <View style={styles.waveformBars}>
+                   {[...Array(20)].map((_, i) => (
+                     <View 
+                       key={i} 
+                       style={[
+                         styles.waveformBar,
+                         { height: Math.random() * 20 + 10 }
+                       ]} 
+                     />
+                   ))}
+                 </View>
+               </View>
+               
+               <Text style={styles.durationText}>
+                 {isPlayingAudio ? currentAudioTime : item.voiceDuration}s
+               </Text>
+             </View>
           )}
           
           {item.content ? <Text style={[styles.messageText, isMine && { color: '#FFF' }]}>{item.content}</Text> : null}
@@ -526,19 +580,63 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     backgroundColor: 'rgba(255,255,255,0.05)', 
-    padding: 12, 
+    padding: 15, 
     borderRadius: 20, 
     marginBottom: 8,
     borderWidth: 1,
     borderColor: THEME.colors.border,
   },
-  waveform: { 
-    flex: 1, 
-    height: 3, 
-    backgroundColor: THEME.colors.primary, 
-    marginHorizontal: 10, 
-    width: 100,
-    borderRadius: 2,
+  playButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: THEME.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  waveformContainer: {
+    flex: 1,
+    height: 40,
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  waveformBase: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 1,
+  },
+  waveformProgress: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: 2,
+    backgroundColor: THEME.colors.primary,
+    borderRadius: 1,
+  },
+  waveformBars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 30,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+  },
+  waveformBar: {
+    width: 2,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 1,
+  },
+  durationText: {
+    color: THEME.colors.textDim,
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 12,
+    minWidth: 40,
   },
   messageText: { 
     color: THEME.colors.text, 
