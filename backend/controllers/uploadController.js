@@ -3,8 +3,8 @@ const { uploadToCloudinary } = require('../config/cloudinary');
 exports.uploadMedia = async (req, res) => {
   try {
     console.log('📤 Upload request received');
-    console.log('File:', req.file);
-    console.log('Body:', req.body);
+    console.log('📁 File:', req.file);
+    console.log('📄 Body:', req.body);
     
     const file = req.file;
 
