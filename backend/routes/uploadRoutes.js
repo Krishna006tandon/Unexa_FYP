@@ -94,6 +94,8 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
         console.log('  - Cloud name:', process.env.CLOUDINARY_CLOUD_NAME || '❌ MISSING');
         console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Present' : '❌ MISSING');
         console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Present' : '❌ MISSING');
+        console.log('  - File path:', req.file.path);
+        console.log('  - File exists:', fs.existsSync(req.file.path));
         
         const result = await cloudinary.uploader.upload(req.file.path, {
           folder: 'unexa/chat-media',
@@ -115,6 +117,8 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
       } catch (error) {
         console.error('❌ Cloudinary upload failed:', error);
         console.error('❌ Error details:', error.message);
+        console.error('❌ Error code:', error.code);
+        console.error('❌ Error stack:', error.stack);
         console.log('🔄 Using placeholder URL instead...');
         
         // Clean up local file even if upload failed
