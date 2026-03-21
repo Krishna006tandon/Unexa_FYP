@@ -45,11 +45,28 @@ const ChatScreen = ({ route, navigation }) => {
 
   const playAudio = async (url) => {
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      const { sound } = await Audio.Sound.createAsync({ uri: url }, { shouldPlay: true });
+      console.log('🎵 Playing audio from:', url);
+      await Audio.setAudioModeAsync({ 
+        playsInSilentModeIOS: true,
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false
+      });
+      
+      // Create and play sound with proper format support
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { 
+          shouldPlay: true,
+          isLooping: false,
+          volume: 1.0
+        }
+      );
+      
+      await sound.playAsync();
+      console.log('✅ Audio playing successfully');
     } catch (err) {
-      console.log('Error playing audio', err);
-      Alert.alert('Audio Error', 'Could not play audio from: ' + url);
+      console.error('❌ Error playing audio:', err);
+      Alert.alert('Audio Error', 'Could not play audio: ' + err.message);
     }
   };
 
