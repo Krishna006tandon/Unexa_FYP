@@ -366,7 +366,6 @@ const ChatScreen = ({ route, navigation }) => {
           data={messages}
           keyExtractor={item => item._id}
           renderItem={renderBubble}
-          inverted={true}
           contentContainerStyle={{ padding: 15 }}
         />
       )}
