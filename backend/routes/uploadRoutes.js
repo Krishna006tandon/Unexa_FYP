@@ -82,7 +82,7 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
     
     // Build the actual file URL
     const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'http://unexa-fyp.onrender.com'
+      ? 'https://unexa-fyp.onrender.com'
       : `http://localhost:${process.env.PORT || 5000}`;
     
     const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
