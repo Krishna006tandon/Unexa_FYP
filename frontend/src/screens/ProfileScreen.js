@@ -183,7 +183,7 @@ const ProfileScreen = ({ navigation }) => {
       {/* Cover Image */}
       <View style={styles.coverContainer}>
         {profile?.coverImage ? (
-          <Image source={{ uri: `${API_URL}${profile.coverImage}` }} style={styles.coverImage} />
+          <Image source={{ uri: profile.coverImage }} style={styles.coverImage} />
         ) : (
           <LinearGradient
             colors={[THEME.colors.primary, THEME.colors.secondary]}
@@ -204,7 +204,7 @@ const ProfileScreen = ({ navigation }) => {
       <View style={styles.avatarContainer}>
         <View style={styles.avatarWrapper}>
           {profile?.avatar ? (
-            <Image source={{ uri: `${API_URL}${profile.avatar}` }} style={styles.avatar} />
+            <Image source={{ uri: profile.avatar }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <User size={40} color={THEME.colors.textDim} />
