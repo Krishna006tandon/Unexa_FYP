@@ -25,6 +25,12 @@ const chatUpload = createUploadHandler({
   }
 });
 
+// Test route for debugging
+router.get('/test', (req, res) => {
+  console.log('🧪 Upload test route hit!');
+  res.json({ message: 'Upload routes working!' });
+});
+
 // Add error handling middleware
 router.use((error, req, res, next) => {
   console.log('🔍 Upload route error handler:', error);
@@ -41,6 +47,15 @@ router.use((error, req, res, next) => {
 
 router.route('/').post(protect, chatUpload.single('media'), (req, res, next) => {
   console.log('🎯 Upload route hit!');
+  console.log('📁 File received:', req.file ? '✅' : '❌');
+  if (req.file) {
+    console.log('📋 File details:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    });
+  }
   next();
 }, uploadMedia);
 

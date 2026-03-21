@@ -6,6 +6,13 @@ exports.uploadMedia = async (req, res) => {
     console.log('📁 File:', req.file);
     console.log('📄 Body:', req.body);
     
+    // Check Cloudinary configuration
+    console.log('☁️ Cloudinary config:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing',
+      api_key: process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing'
+    });
+    
     const file = req.file;
 
     if (!file) {
@@ -25,6 +32,11 @@ exports.uploadMedia = async (req, res) => {
     // The Cloudinary URL is available in req.file.path
     const mediaUrl = req.file.path;
 
+    if (!mediaUrl) {
+      console.log('❌ No Cloudinary URL received');
+      return res.status(500).json({ error: 'Failed to upload to Cloudinary' });
+    }
+
     console.log('✅ Cloudinary URL:', mediaUrl);
 
     res.status(200).json({ 
@@ -36,6 +48,7 @@ exports.uploadMedia = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Upload error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({ error: error.message });
   }
 };
