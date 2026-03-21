@@ -90,6 +90,11 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
     
     const cloudinaryUpload = async () => {
       try {
+        console.log('🔧 Cloudinary config check:');
+        console.log('  - Cloud name:', process.env.CLOUDINARY_CLOUD_NAME || '❌ MISSING');
+        console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Present' : '❌ MISSING');
+        console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Present' : '❌ MISSING');
+        
         const result = await cloudinary.uploader.upload(req.file.path, {
           folder: 'unexa/chat-media',
           resource_type: 'auto'
@@ -109,7 +114,16 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
         });
       } catch (error) {
         console.error('❌ Cloudinary upload failed:', error);
+        console.error('❌ Error details:', error.message);
+        console.error('❌ Error code:', error.code);
         console.log('🔄 Using placeholder URL instead...');
+        
+        // Clean up local file even if upload failed
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('❌ Failed to cleanup local file:', cleanupError);
+        }
         
         // Fallback to placeholder
         const placeholderUrl = `https://picsum.photos/200/300?random=${Date.now()}`;
