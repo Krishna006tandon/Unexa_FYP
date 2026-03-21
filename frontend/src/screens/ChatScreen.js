@@ -99,12 +99,25 @@ const ChatScreen = ({ route, navigation }) => {
       console.log('🔑 Token:', user.token ? '✅ Present' : '❌ Missing');
       
       const formData = new FormData();
-      formData.append('media', { uri, name: filename, type: mimeType });
+      
+      // React Native specific format for file upload
+      const fileData = {
+        uri: uri,
+        type: mimeType,
+        name: filename,
+      };
+      
+      formData.append('media', fileData);
       
       console.log('📡 Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
+      console.log('📦 FormData prepared:', fileData);
       
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${user.token}` }
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${user.token}` 
+        },
+        timeout: 30000, // 30 seconds timeout for large files
       });
       
       console.log('✅ Upload successful:', data);
@@ -148,10 +161,26 @@ const ChatScreen = ({ route, navigation }) => {
 
   // --- MEDIA PICKERS --- //
   const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 });
-    if (!result.canceled) {
-       const url = await uploadMediaAPI(result.assets[0].uri, 'image/jpeg', 'photo.jpg');
-       sendMediaMessage(url, 'image');
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({ 
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+        quality: 0.8,
+        allowsEditing: true
+      });
+      
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        console.log('📸 Image selected:', asset);
+        
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const filename = asset.fileName || `photo_${Date.now()}.jpg`;
+        
+        const url = await uploadMediaAPI(asset.uri, mimeType, filename);
+        await sendMediaMessage(url, 'image');
+      }
+    } catch (error) {
+      console.error('❌ Image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image: ' + error.message);
     }
   };
 
@@ -168,28 +197,24 @@ const ChatScreen = ({ route, navigation }) => {
   const openCamera = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaType,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         allowsEditing: true,
       });
       
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         const asset = result.assets[0];
-        const mediaType = asset.type === 'video' ? 'video' : 'image';
-        const fileName = asset.type === 'video' ? 'video.mp4' : 'photo.jpg';
-        const mimeType = asset.type === 'video' ? 'video/mp4' : 'image/jpeg';
+        console.log('📷 Camera photo captured:', asset);
         
-        const url = await uploadMediaAPI(asset.uri, mimeType, fileName);
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const filename = asset.fileName || `camera_${Date.now()}.jpg`;
         
-        // Send to chat
-        await sendMediaMessage(url, mediaType, asset.duration);
-        
-        // Update streak with this friend
-        await updateStreakWithChat();
+        const url = await uploadMediaAPI(asset.uri, mimeType, filename);
+        await sendMediaMessage(url, 'image');
       }
     } catch (error) {
-      console.log('Camera error:', error);
-      Alert.alert('Camera Error', 'Failed to capture media');
+      console.error('❌ Camera error:', error);
+      Alert.alert('Error', 'Failed to capture photo: ' + error.message);
     }
   };
 
