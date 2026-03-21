@@ -71,7 +71,7 @@ router.use((error, req, res, next) => {
   next();
 });
 
-router.route('/').post(protect, (req, res) => {
+router.route('/').post(protect, chatUpload.single('media'), (req, res) => {
   console.log('🎯 Upload route hit!');
   console.log('📁 File received:', req.file ? '✅' : '❌');
   console.log('📄 Request headers:', req.headers);
@@ -81,11 +81,16 @@ router.route('/').post(protect, (req, res) => {
   if (req.files && req.files.media) {
     console.log('📁 File found in req.files:', req.files.media);
     const file = req.files.media;
-    const placeholderUrl = 'https://picsum.photos/200/300?random=' + Date.now();
+    console.log('☁️ Uploading to Cloudinary...');
+    
+    // Return the actual Cloudinary URL from file.path
+    const cloudinaryUrl = file.path;
+    
+    console.log('✅ Cloudinary upload successful:', cloudinaryUrl);
     
     res.json({ 
       success: true, 
-      mediaUrl: placeholderUrl,
+      mediaUrl: cloudinaryUrl,
       fileName: file.name || 'unknown',
       fileSize: file.size || 0,
       mimetype: file.mimetype || 'unknown' 
@@ -96,11 +101,16 @@ router.route('/').post(protect, (req, res) => {
   // Check if file is in req.file (for multer.single)
   if (req.file) {
     console.log('📁 File found in req.file:', req.file);
-    const placeholderUrl = 'https://picsum.photos/200/300?random=' + Date.now();
+    console.log('☁️ Uploading to Cloudinary...');
+    
+    // Return the actual Cloudinary URL from req.file.path
+    const cloudinaryUrl = req.file.path;
+    
+    console.log('✅ Cloudinary upload successful:', cloudinaryUrl);
     
     res.json({ 
       success: true, 
-      mediaUrl: placeholderUrl,
+      mediaUrl: cloudinaryUrl,
       fileName: req.file.originalname || 'unknown',
       fileSize: req.file.size || 0,
       mimetype: req.file.mimetype || 'unknown' 
