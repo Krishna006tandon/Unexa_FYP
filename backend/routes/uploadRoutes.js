@@ -72,6 +72,16 @@ router.use((error, req, res, next) => {
   next();
 });
 
+// Auto-refresh every 5 seconds
+setInterval(() => {
+  console.log('🔄 Auto-refresh check at:', new Date().toISOString());
+  console.log('🔧 Cloudinary config check:');
+  console.log('  - Cloud name:', process.env.CLOUDINARY_CLOUD_NAME || '❌ MISSING');
+  console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Present' : '❌ MISSING');
+  console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Present' : '❌ MISSING');
+  console.log('  - NODE_ENV:', process.env.NODE_ENV || '❌ MISSING');
+}, 5000);
+
 router.route('/').post(protect, upload.single('media'), (req, res) => {
   console.log('🎯 Upload route hit!');
   console.log('📁 File received:', req.file ? '✅' : '❌');
