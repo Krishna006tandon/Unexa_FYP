@@ -1,7 +1,9 @@
 const Profile = require('../models/Profile');
 const User = require('../models/User');
-const { upload, uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudinary');
+const { deleteFromCloudinary } = require('../config/cloudinary');
+const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 // @desc    Create or update profile
 // @route   POST /api/profile
@@ -201,10 +203,33 @@ const getProfileByIdentifier = async (req, res) => {
 // @access  Private
 const uploadAvatar = async (req, res) => {
   try {
-    const uploadSingle = upload.single('avatar');
+    const uploadSingle = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          const uploadDir = path.join(__dirname, '../uploads');
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname));
+        }
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only image files are allowed'), false);
+        }
+      },
+      limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    }).single('avatar');
 
     uploadSingle(req, res, async function (err) {
       if (err) {
+        console.error('❌ Avatar upload error:', err);
         return res.status(400).json({ 
           success: false,
           message: err.message 
@@ -212,11 +237,14 @@ const uploadAvatar = async (req, res) => {
       }
 
       if (!req.file) {
+        console.log('❌ No file received for avatar upload');
         return res.status(400).json({ 
           success: false,
           message: 'No file uploaded' 
         });
       }
+
+      console.log('📁 Avatar file received:', req.file.originalname);
 
       try {
         // Get the current profile to check if there's an existing avatar
@@ -231,14 +259,33 @@ const uploadAvatar = async (req, res) => {
           
           try {
             await deleteFromCloudinary(`unexa/profiles/${publicId}`);
+            console.log('🗑️ Old avatar deleted from Cloudinary');
           } catch (deleteError) {
             console.log('Failed to delete old avatar:', deleteError.message);
             // Continue with upload even if deletion fails
           }
         }
 
-        // The file is already uploaded to Cloudinary via multer-storage-cloudinary
-        const avatarUrl = req.file.path; // Cloudinary URL
+        // Upload to Cloudinary directly
+        console.log('☁️ Uploading avatar to Cloudinary...');
+        const cloudinary = require('cloudinary').v2;
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET
+        });
+        
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'unexa/profiles',
+          resource_type: 'auto'
+        });
+        
+        const avatarUrl = result.secure_url;
+        console.log('✅ Avatar uploaded to Cloudinary:', avatarUrl);
+
+        // Clean up local file
+        fs.unlinkSync(req.file.path);
+        console.log('🗑️ Local file cleaned up');
 
         const profile = await Profile.findOneAndUpdate(
           { user: req.user.id },
@@ -246,12 +293,7 @@ const uploadAvatar = async (req, res) => {
           { new: true, runValidators: true }
         ).populate('user', 'name email');
 
-        // TODO: Fix socket.io integration
-        // req.io.emit('avatarUpdated', {
-        //   profileId: profile._id,
-        //   userId: req.user.id,
-        //   avatarUrl: avatarUrl
-        // });
+        console.log('✅ Profile updated with new avatar');
 
         res.status(200).json({
           success: true,
@@ -260,7 +302,7 @@ const uploadAvatar = async (req, res) => {
         });
 
       } catch (cloudinaryError) {
-        console.error('Cloudinary error:', cloudinaryError);
+        console.error('❌ Cloudinary error:', cloudinaryError);
         return res.status(500).json({
           success: false,
           message: 'Failed to upload avatar to cloud storage',
@@ -270,7 +312,7 @@ const uploadAvatar = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error in uploadAvatar:', error);
+    console.error('❌ Error in uploadAvatar:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
@@ -284,10 +326,33 @@ const uploadAvatar = async (req, res) => {
 // @access  Private
 const uploadCoverImage = async (req, res) => {
   try {
-    const uploadSingle = upload.single('coverImage');
+    const uploadSingle = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+          const uploadDir = path.join(__dirname, '../uploads');
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          cb(null, 'cover-' + uniqueSuffix + path.extname(file.originalname));
+        }
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+          cb(null, true);
+        } else {
+          cb(new Error('Only image files are allowed'), false);
+        }
+      },
+      limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+    }).single('coverImage');
 
     uploadSingle(req, res, async function (err) {
       if (err) {
+        console.error('❌ Cover image upload error:', err);
         return res.status(400).json({ 
           success: false,
           message: err.message 
@@ -295,11 +360,14 @@ const uploadCoverImage = async (req, res) => {
       }
 
       if (!req.file) {
+        console.log('❌ No file received for cover image upload');
         return res.status(400).json({ 
           success: false,
           message: 'No file uploaded' 
         });
       }
+
+      console.log('📁 Cover image file received:', req.file.originalname);
 
       try {
         // Get the current profile to check if there's an existing cover image
@@ -314,14 +382,33 @@ const uploadCoverImage = async (req, res) => {
           
           try {
             await deleteFromCloudinary(`unexa/profiles/${publicId}`);
+            console.log('🗑️ Old cover image deleted from Cloudinary');
           } catch (deleteError) {
             console.log('Failed to delete old cover image:', deleteError.message);
             // Continue with upload even if deletion fails
           }
         }
 
-        // The file is already uploaded to Cloudinary via multer-storage-cloudinary
-        const coverImageUrl = req.file.path; // Cloudinary URL
+        // Upload to Cloudinary directly
+        console.log('☁️ Uploading cover image to Cloudinary...');
+        const cloudinary = require('cloudinary').v2;
+        cloudinary.config({
+          cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+          api_key: process.env.CLOUDINARY_API_KEY,
+          api_secret: process.env.CLOUDINARY_API_SECRET
+        });
+        
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'unexa/profiles',
+          resource_type: 'auto'
+        });
+        
+        const coverImageUrl = result.secure_url;
+        console.log('✅ Cover image uploaded to Cloudinary:', coverImageUrl);
+
+        // Clean up local file
+        fs.unlinkSync(req.file.path);
+        console.log('🗑️ Local file cleaned up');
 
         const profile = await Profile.findOneAndUpdate(
           { user: req.user.id },
@@ -329,12 +416,7 @@ const uploadCoverImage = async (req, res) => {
           { new: true, runValidators: true }
         ).populate('user', 'name email');
 
-        // TODO: Fix socket.io integration
-        // req.io.emit('coverImageUpdated', {
-        //   profileId: profile._id,
-        //   userId: req.user.id,
-        //   coverImageUrl: coverImageUrl
-        // });
+        console.log('✅ Profile updated with new cover image');
 
         res.status(200).json({
           success: true,
@@ -343,7 +425,7 @@ const uploadCoverImage = async (req, res) => {
         });
 
       } catch (cloudinaryError) {
-        console.error('Cloudinary error:', cloudinaryError);
+        console.error('❌ Cloudinary error:', cloudinaryError);
         return res.status(500).json({
           success: false,
           message: 'Failed to upload cover image to cloud storage',
@@ -353,7 +435,7 @@ const uploadCoverImage = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error in uploadCoverImage:', error);
+    console.error('❌ Error in uploadCoverImage:', error);
     res.status(500).json({ 
       success: false,
       message: 'Server error', 
