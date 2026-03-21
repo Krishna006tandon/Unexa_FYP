@@ -74,24 +74,50 @@ router.use((error, req, res, next) => {
 router.route('/').post(protect, (req, res) => {
   console.log('🎯 Upload route hit!');
   console.log('📁 File received:', req.file ? '✅' : '❌');
-  if (req.file) {
-    console.log('📋 File details:', {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      path: req.file.path
+  console.log('📄 Request headers:', req.headers);
+  console.log('📄 Request body:', req.body);
+  
+  // Check if file is in req.files (for multer)
+  if (req.files && req.files.media) {
+    console.log('� File found in req.files:', req.files.media);
+    const file = req.files.media;
+    const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test_' + Date.now() + '.jpg';
+    
+    res.json({ 
+      success: true, 
+      mediaUrl: mockUrl,
+      fileName: file.name || 'unknown',
+      fileSize: file.size || 0,
+      mimetype: file.mimetype || 'unknown' 
     });
+    return;
   }
   
+  // Check if file is in req.file (for multer.single)
+  if (req.file) {
+    console.log('📁 File found in req.file:', req.file);
+    const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test_' + Date.now() + '.jpg';
+    
+    res.json({ 
+      success: true, 
+      mediaUrl: mockUrl,
+      fileName: req.file.originalname || 'unknown',
+      fileSize: req.file.size || 0,
+      mimetype: req.file.mimetype || 'unknown' 
+    });
+    return;
+  }
+  
+  console.log('❌ No file found in request');
   // Temporarily return mock URL to bypass Cloudinary issues
   const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test_' + Date.now() + '.jpg';
   
   res.json({ 
     success: true, 
     mediaUrl: mockUrl,
-    fileName: req.file ? req.file.originalname : 'unknown',
-    fileSize: req.file ? req.file.size : 0,
-    mimetype: req.file ? req.file.mimetype : 'unknown' 
+    fileName: 'mock_file',
+    fileSize: 0,
+    mimetype: 'image/jpeg' 
   });
 });
 
