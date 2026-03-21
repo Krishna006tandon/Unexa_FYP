@@ -4,20 +4,18 @@ services:
     name: unexa-backend
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm ci
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
       - key: MONGO_URI
-        sync: false
+        value: mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new
       - key: JWT_SECRET
-        sync: false
+        value: unexa_super_app_jwt_secret_key_2024_production
       - key: CLOUDINARY_CLOUD_NAME
-        sync: true
+        value: ddw7kbm3k
       - key: CLOUDINARY_API_KEY
-        sync: true
+        value: 225359785496153
       - key: CLOUDINARY_API_SECRET
-        sync: true
-      - key: PORT
-        value: 5000
+        value: BnwN8thE81szYpnMFxCMAXzDUuA

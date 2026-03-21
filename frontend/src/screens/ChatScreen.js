@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
-import { API_URL } from './AuthScreen';
+import ENVIRONMENT from '../config/environment';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-audio';
@@ -62,7 +62,7 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    socket = io(API_URL);
+    socket = io(ENVIRONMENT.API_URL);
     socket.emit("setup", user);
     socket.emit("join_chat", chatId);
 
@@ -86,7 +86,7 @@ const ChatScreen = ({ route, navigation }) => {
 
   const fetchMessages = async () => {
     try {
-      const { data } = await axios.get(`${API_URL}/api/message/${chatId}`, { headers: { Authorization: `Bearer ${user.token}` }});
+      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/message/${chatId}`, { headers: { Authorization: `Bearer ${user.token}` }});
       setMessages(data);
     } catch (e) { console.log(e); }
     setFetching(false);
@@ -97,7 +97,7 @@ const ChatScreen = ({ route, navigation }) => {
       const formData = new FormData();
       formData.append('media', { uri, name: filename, type: mimeType });
       
-      const { data } = await axios.post(`${API_URL}/api/upload`, formData, {
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${user.token}` }
       });
       return data.mediaUrl;
@@ -113,7 +113,7 @@ const ChatScreen = ({ route, navigation }) => {
   const sendMediaMessage = async (mediaUrl, type, duration = null) => {
     try {
       const msgPayload = { chatId, messageType: type, mediaUrl: mediaUrl, voiceDuration: duration };
-      const { data } = await axios.post(`${API_URL}/api/message`, msgPayload, { headers: { Authorization: `Bearer ${user.token}` }});
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, msgPayload, { headers: { Authorization: `Bearer ${user.token}` }});
       socket.emit("new_message", data);
       setMessages(prev => [data, ...prev]);
     } catch(err) { console.log(err); }
@@ -126,7 +126,7 @@ const ChatScreen = ({ route, navigation }) => {
       const text = newMessage;
       setNewMessage(""); // optimistic clear
 
-      const { data } = await axios.post(`${API_URL}/api/message`, { chatId, content: text, messageType: 'text' }, { headers: { Authorization: `Bearer ${user.token}` }});
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, { chatId, content: text, messageType: 'text' }, { headers: { Authorization: `Bearer ${user.token}` }});
       socket.emit("new_message", data);
       setMessages(prev => [data, ...prev]);
     } catch(err) { console.log(err); setNewMessage(text); } // restore if fail
@@ -188,8 +188,8 @@ const ChatScreen = ({ route, navigation }) => {
   // --- UPDATE STREAK FUNCTION --- //
   const updateStreakWithChat = async () => {
     try {
-      // Get the other user in this chat
-      const chatResponse = await axios.get(`${API_URL}/api/chat/${chatId}`, {
+      // Get other user in this chat
+      const chatResponse = await axios.get(`${ENVIRONMENT.API_URL}/api/chat/${chatId}`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       
@@ -202,7 +202,7 @@ const ChatScreen = ({ route, navigation }) => {
         formData.append('recipients', JSON.stringify([otherUser._id]));
         formData.append('caption', 'Shared via chat 📸');
         
-        await axios.post(`${API_URL}/api/media/share`, formData, {
+        await axios.post(`${ENVIRONMENT.API_URL}/api/media/share`, formData, {
           headers: { 
             'Content-Type': 'multipart/form-data', 
             Authorization: `Bearer ${user.token}` 

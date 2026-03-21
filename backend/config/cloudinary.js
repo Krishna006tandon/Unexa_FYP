@@ -15,6 +15,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'unexa/chat-media', // Default folder for chat media
     allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm', 'mp3', 'wav'],
+    resource_type: 'auto', // Add this line
     public_id: (req, file) => {
       // Generate unique filename based on route
       const route = req.route.path;

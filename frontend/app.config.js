@@ -1,5 +1,5 @@
 const config = {
-  name: 'UNEXA SuperApp',
+  name: 'UNEXA',
   slug: 'unexa',
   version: '1.0.0',
   orientation: 'portrait',

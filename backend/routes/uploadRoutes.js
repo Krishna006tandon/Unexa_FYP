@@ -13,13 +13,24 @@ const chatUpload = multer({
   storage: upload.storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
-    // Accept images and videos for chat
+    console.log('🔍 File filter check:', file.mimetype);
+    
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) {
       cb(null, true);
     } else {
+      console.log('❌ File type rejected:', file.mimetype);
       cb(new Error('Only images, videos, and audio files are allowed'), false);
     }
   }
+});
+
+// Add error handling middleware
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    console.error('❌ Multer error:', error.message);
+    return res.status(400).json({ error: error.message });
+  }
+  next();
 });
 
 router.route('/').post(protect, chatUpload.single('media'), uploadMedia);

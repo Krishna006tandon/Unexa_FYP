@@ -13,7 +13,7 @@ import {
   FlatList
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-import { API_URL } from './AuthScreen';
+import ENVIRONMENT from '../config/environment';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-video';
@@ -50,7 +50,7 @@ const MediaShareScreen = ({ navigation }) => {
 
   const fetchFriends = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/chat/friends`, {
+      const response = await axios.get(`${ENVIRONMENT.API_URL}/api/chat/friends`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setFriends(response.data.friends || []);
@@ -62,7 +62,7 @@ const MediaShareScreen = ({ navigation }) => {
   const fetchSharedMedia = async () => {
     try {
       const endpoint = activeTab === 'shared-with-me' ? '/shared-with-me' : '/my-shares';
-      const response = await axios.get(`${API_URL}/api/media${endpoint}`, {
+      const response = await axios.get(`${ENVIRONMENT.API_URL}/api/media${endpoint}`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setSharedMedia(response.data.mediaShares || []);
@@ -111,7 +111,7 @@ const MediaShareScreen = ({ navigation }) => {
       formData.append('recipients', JSON.stringify(selectedFriends));
       formData.append('caption', caption);
 
-      const response = await axios.post(`${API_URL}/api/media/share`, formData, {
+      const response = await axios.post(`${ENVIRONMENT.API_URL}/api/media/share`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${user.token}`
