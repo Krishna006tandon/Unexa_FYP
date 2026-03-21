@@ -9,9 +9,21 @@ const User = require('../models/User');
 const { protect } = require('../middlewares/authMiddleware');
 const { upload, deleteFromCloudinary } = require('../config/cloudinary');
 
-// Configure Cloudinary storage for media share
+// Configure local storage for media share (not Cloudinary storage)
 const mediaUpload = multer({
-  storage: upload.storage,
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(__dirname, '../uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, 'media-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
       cb(null, true);
@@ -54,8 +66,21 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
       return res.status(400).json({ error: 'Invalid recipients' });
     }
     
-    // The file is already uploaded to Cloudinary via multer-storage-cloudinary
-    const mediaUrl = req.file.path; // Cloudinary URL
+    // The file is saved locally, now upload to Cloudinary directly
+    console.log('🔄 Uploading to Cloudinary...');
+    const cloudinary = require('cloudinary').v2;
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+    
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'unexa/media-share',
+      resource_type: 'auto'
+    });
+    
+    const mediaUrl = result.secure_url;
     const mediaType = req.file.mimetype.startsWith('image/') ? 'image' : 'video';
     
     console.log('☁️ Cloudinary upload successful!');
@@ -65,6 +90,10 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
       mimetype: req.file.mimetype,
       size: req.file.size
     });
+    
+    // Clean up local file
+    fs.unlinkSync(req.file.path);
+    console.log('🗑️ Local file cleaned up');
     
     // Create media share
     const mediaShare = new MediaShare({
