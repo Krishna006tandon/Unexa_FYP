@@ -120,10 +120,15 @@ const ChatScreen = ({ route, navigation }) => {
         formData.append('media', fileObject, filename);
       }
       
-      console.log('📦 FormData entries count:', formData._parts.length);
+      // Debug FormData (works for both web and React Native)
+      console.log('📦 FormData entries count:', formData.entries ? Array.from(formData.entries()).length : 'N/A');
       console.log('📋 FormData content:');
-      for (let [key, value] of formData._parts) {
-        console.log(`  ${key}:`, value);
+      if (formData.entries) {
+        for (let [key, value] of formData.entries()) {
+          console.log(`  ${key}:`, value);
+        }
+      } else {
+        console.log('  FormData not iterable');
       }
       
       console.log('� Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
