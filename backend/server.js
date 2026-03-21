@@ -41,6 +41,7 @@ const limiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
   // Skip rate limiting for health checks
   skip: (req) => {
     return req.path === '/' || req.path === '/api/test';
@@ -52,6 +53,7 @@ const messageLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
   max: 20, // 20 messages per minute
   message: "Too many messages sent from this IP, please try again after a minute",
+  validate: { trustProxy: false },
   // Skip rate limiting for development
   skip: (req) => {
     return process.env.NODE_ENV === 'development';
