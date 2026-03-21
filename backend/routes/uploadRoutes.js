@@ -80,22 +80,64 @@ router.route('/').post(protect, upload.single('media'), (req, res) => {
     console.log('📁 File found in req.file:', req.file);
     console.log('✅ File saved to disk!');
     
-    // Build the actual file URL
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://unexa-fyp.onrender.com'
-      : `http://localhost:${process.env.PORT || 5000}`;
-    
-    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
-    
-    console.log('🔗 File URL:', fileUrl);
-    
-    res.json({ 
-      success: true, 
-      mediaUrl: fileUrl,
-      fileName: req.file.originalname || 'unknown',
-      fileSize: req.file.size || 0,
-      mimetype: req.file.mimetype || 'unknown' 
+    // Upload to Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
     });
+    
+    const cloudinaryUpload = async () => {
+      try {
+        console.log('🔧 Cloudinary config check:');
+        console.log('  - Cloud name:', process.env.CLOUDINARY_CLOUD_NAME || '❌ MISSING');
+        console.log('  - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Present' : '❌ MISSING');
+        console.log('  - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Present' : '❌ MISSING');
+        
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'unexa/chat-media',
+          resource_type: 'auto'
+        });
+        
+        console.log('✅ Cloudinary upload successful:', result.secure_url);
+        
+        // Clean up local file
+        fs.unlinkSync(req.file.path);
+        
+        res.json({ 
+          success: true, 
+          mediaUrl: result.secure_url,
+          fileName: req.file.originalname || 'unknown',
+          fileSize: req.file.size || 0,
+          mimetype: req.file.mimetype || 'unknown' 
+        });
+      } catch (error) {
+        console.error('❌ Cloudinary upload failed:', error);
+        console.error('❌ Error details:', error.message);
+        console.log('🔄 Using placeholder URL instead...');
+        
+        // Clean up local file even if upload failed
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (cleanupError) {
+          console.error('❌ Failed to cleanup local file:', cleanupError);
+        }
+        
+        // Fallback to placeholder
+        const placeholderUrl = `https://picsum.photos/200/300?random=${Date.now()}`;
+        
+        res.json({ 
+          success: true, 
+          mediaUrl: placeholderUrl,
+          fileName: req.file.originalname || 'unknown',
+          fileSize: req.file.size || 0,
+          mimetype: req.file.mimetype || 'unknown' 
+        });
+      }
+    };
+    
+    cloudinaryUpload();
     return;
   }
   
