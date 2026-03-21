@@ -106,8 +106,15 @@ const MediaShareScreen = ({ navigation }) => {
       
       // Handle React Native Web file upload properly
       if (selectedMedia.uri.startsWith('blob:')) {
-        // For React Native Web, use the file directly
-        formData.append('media', selectedMedia.uri, selectedMedia.fileName || `media_${Date.now()}.jpg`);
+        // For React Native Web, convert blob URI to actual Blob
+        try {
+          const response = await fetch(selectedMedia.uri);
+          const blob = await response.blob();
+          formData.append('media', blob, selectedMedia.fileName || `media_${Date.now()}.jpg`);
+        } catch (error) {
+          console.error('❌ Error converting blob to file:', error);
+          throw new Error('Failed to process media file');
+        }
       } else {
         // For native React Native
         const file = {
