@@ -31,6 +31,32 @@ router.get('/test', (req, res) => {
   res.json({ message: 'Upload routes working!' });
 });
 
+// Simple POST test
+router.post('/test', (req, res) => {
+  console.log('🧪 Upload POST test route hit!');
+  console.log('📄 Headers:', req.headers);
+  console.log('📄 Body:', req.body);
+  res.json({ message: 'Upload POST route working!' });
+});
+
+// Bypass upload route for testing
+router.post('/bypass', protect, (req, res) => {
+  console.log('🚀 Bypass upload route hit!');
+  console.log('📄 Headers:', req.headers);
+  console.log('📄 Body:', req.body);
+  
+  // Return a mock Cloudinary URL for testing
+  const mockUrl = 'https://res.cloudinary.com/ddw7kbm3k/image/upload/test.jpg';
+  
+  res.json({ 
+    success: true, 
+    mediaUrl: mockUrl,
+    fileName: 'test.jpg',
+    fileSize: 12345,
+    mimetype: 'image/jpeg' 
+  });
+});
+
 // Add error handling middleware
 router.use((error, req, res, next) => {
   console.log('🔍 Upload route error handler:', error);
