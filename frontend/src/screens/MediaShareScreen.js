@@ -103,13 +103,20 @@ const MediaShareScreen = ({ navigation }) => {
     
     try {
       const formData = new FormData();
-      formData.append('media', {
+      
+      // Create proper file object for React Native
+      const file = {
         uri: selectedMedia.uri,
         type: selectedMedia.type || 'image/jpeg',
-        name: selectedMedia.fileName || 'media.jpg'
-      });
+        name: selectedMedia.fileName || `media_${Date.now()}.jpg`
+      };
+      
+      formData.append('media', file);
       formData.append('recipients', JSON.stringify(selectedFriends));
       formData.append('caption', caption);
+
+      console.log('📤 Uploading media:', file);
+      console.log('👥 Recipients:', selectedFriends);
 
       const response = await axios.post(`${ENVIRONMENT.API_URL}/api/media/share`, formData, {
         headers: {
