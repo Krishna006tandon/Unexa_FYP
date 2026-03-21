@@ -14,8 +14,16 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'unexa/chat-media', // Default folder for chat media
-    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm', 'mp3', 'wav'],
-    resource_type: 'auto', // Add this line
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'webm', 'mp3', 'wav', 'm4a', 'pdf'],
+    resource_type: (req, file) => {
+      if (file.mimetype === 'application/pdf') {
+        return 'raw';
+      } else if (file.mimetype.startsWith('audio/')) {
+        return 'video'; // Cloudinary uses 'video' for audio files
+      } else {
+        return 'auto';
+      }
+    },
     public_id: (req, file) => {
       // Generate unique filename based on route
       const route = req.route.path;

@@ -15,11 +15,11 @@ const chatUpload = multer({
   fileFilter: (req, file, cb) => {
     console.log('🔍 File filter check:', file.mimetype);
     
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/')) {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/') || file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
       console.log('❌ File type rejected:', file.mimetype);
-      cb(new Error('Only images, videos, and audio files are allowed'), false);
+      cb(new Error('Only images, videos, audio, and PDF files are allowed'), false);
     }
   }
 });
