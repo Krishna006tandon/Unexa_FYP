@@ -94,15 +94,23 @@ const ChatScreen = ({ route, navigation }) => {
 
   const uploadMediaAPI = async (uri, mimeType, filename) => {
     try {
+      console.log('📤 Starting upload...');
+      console.log('📁 File info:', { uri, mimeType, filename });
+      console.log('🔑 Token:', user.token ? '✅ Present' : '❌ Missing');
+      
       const formData = new FormData();
       formData.append('media', { uri, name: filename, type: mimeType });
+      
+      console.log('📡 Sending request to:', `${ENVIRONMENT.API_URL}/api/upload`);
       
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${user.token}` }
       });
+      
+      console.log('✅ Upload successful:', data);
       return data.mediaUrl;
     } catch (error) {
-      console.log('Upload error:', error);
+      console.log('❌ Upload error:', error);
       console.log('Error response:', error.response);
       console.log('Error status:', error.response?.status);
       console.log('Error data:', error.response?.data);
