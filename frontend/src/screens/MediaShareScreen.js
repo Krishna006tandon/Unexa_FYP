@@ -104,18 +104,25 @@ const MediaShareScreen = ({ navigation }) => {
     try {
       const formData = new FormData();
       
-      // Create proper file object for React Native
-      const file = {
-        uri: selectedMedia.uri,
-        type: selectedMedia.type || 'image/jpeg',
-        name: selectedMedia.fileName || `media_${Date.now()}.jpg`
-      };
+      // Handle React Native Web file upload properly
+      if (selectedMedia.uri.startsWith('blob:')) {
+        // For React Native Web, use the file directly
+        formData.append('media', selectedMedia.uri, selectedMedia.fileName || `media_${Date.now()}.jpg`);
+      } else {
+        // For native React Native
+        const file = {
+          uri: selectedMedia.uri,
+          type: selectedMedia.type || 'image/jpeg',
+          name: selectedMedia.fileName || `media_${Date.now()}.jpg`
+        };
+        formData.append('media', file);
+      }
       
-      formData.append('media', file);
       formData.append('recipients', JSON.stringify(selectedFriends));
       formData.append('caption', caption);
 
-      console.log('📤 Uploading media:', file);
+      console.log('📤 Uploading media URI:', selectedMedia.uri);
+      console.log('📤 Media type:', selectedMedia.type);
       console.log('👥 Recipients:', selectedFriends);
 
       const response = await axios.post(`${ENVIRONMENT.API_URL}/api/media/share`, formData, {
