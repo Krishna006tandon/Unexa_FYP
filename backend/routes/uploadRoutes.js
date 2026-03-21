@@ -27,13 +27,21 @@ const chatUpload = createUploadHandler({
 
 // Add error handling middleware
 router.use((error, req, res, next) => {
+  console.log('🔍 Upload route error handler:', error);
   if (error instanceof multer.MulterError) {
     console.error('❌ Multer error:', error.message);
+    return res.status(400).json({ error: error.message });
+  }
+  if (error) {
+    console.error('❌ General upload error:', error.message);
     return res.status(400).json({ error: error.message });
   }
   next();
 });
 
-router.route('/').post(protect, chatUpload.single('media'), uploadMedia);
+router.route('/').post(protect, chatUpload.single('media'), (req, res, next) => {
+  console.log('🎯 Upload route hit!');
+  next();
+}, uploadMedia);
 
 module.exports = router;
