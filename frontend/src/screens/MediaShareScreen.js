@@ -131,13 +131,18 @@ const MediaShareScreen = ({ navigation }) => {
       console.log('📤 Uploading media URI:', selectedMedia.uri);
       console.log('📤 Media type:', selectedMedia.type);
       console.log('👥 Recipients:', selectedFriends);
+      console.log('🌐 Sending request to:', `${ENVIRONMENT.API_URL}/api/media/share`);
+      console.log('📝 FormData prepared, size:', formData.get('media') ? 'File present' : 'No file');
 
       const response = await axios.post(`${ENVIRONMENT.API_URL}/api/media/share`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${user.token}`
-        }
+        },
+        timeout: 60000 // 60 second timeout
       });
+
+      console.log('✅ Media share response:', response.data);
 
       Alert.alert('Success', `Media shared with ${selectedFriends.length} friends! Streaks updated: ${response.data.streaksUpdated}`);
       
