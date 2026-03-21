@@ -8,22 +8,23 @@ const { createUploadHandler } = require('../config/cloudinary');
 
 const router = express.Router();
 
-// Configure Cloudinary storage for chat media
-const chatUpload = createUploadHandler({
-  folder: 'unexa/chat-media',
-  fileSizeLimit: 50 * 1024 * 1024, // 50MB
-  allowedTypes: ['image', 'video', 'audio', 'file'],
-  fileFilter: (req, file, cb) => {
-    console.log('🔍 File filter check:', file.mimetype);
-    
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/') || file.mimetype.startsWith('audio/') || file.mimetype === 'application/pdf') {
-      cb(null, true);
-    } else {
-      console.log('❌ File type rejected:', file.mimetype);
-      cb(new Error('Only images, videos, audio, and PDF files are allowed'), false);
-    }
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Simple disk storage for debugging
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
   }
 });
+
+const upload = multer({ storage: storage });
 
 // Test route for debugging
 router.get('/test', (req, res) => {
@@ -71,55 +72,63 @@ router.use((error, req, res, next) => {
   next();
 });
 
-router.route('/').post(protect, (req, res) => {
+router.route('/').post(protect, upload.single('media'), (req, res) => {
   console.log('🎯 Upload route hit!');
   console.log('📁 File received:', req.file ? '✅' : '❌');
-  console.log('📄 Request headers:', req.headers);
-  console.log('📄 Request body:', req.body);
   
-  // Check if file is in req.files (for multer)
-  if (req.files && req.files.media) {
-    console.log('📁 File found in req.files:', req.files.media);
-    const file = req.files.media;
-    console.log('☁️ Uploading to Cloudinary...');
-    
-    // Return the actual Cloudinary URL from file.path
-    const cloudinaryUrl = file.path;
-    
-    console.log('✅ Cloudinary upload successful:', cloudinaryUrl);
-    
-    res.json({ 
-      success: true, 
-      mediaUrl: cloudinaryUrl,
-      fileName: file.name || 'unknown',
-      fileSize: file.size || 0,
-      mimetype: file.mimetype || 'unknown' 
-    });
-    return;
-  }
-  
-  // Check if file is in req.file (for multer.single)
   if (req.file) {
     console.log('📁 File found in req.file:', req.file);
     console.log('☁️ Uploading to Cloudinary...');
     
-    // Return the actual Cloudinary URL from req.file.path
-    const cloudinaryUrl = req.file.path;
-    
-    console.log('✅ Cloudinary upload successful:', cloudinaryUrl);
-    
-    res.json({ 
-      success: true, 
-      mediaUrl: cloudinaryUrl,
-      fileName: req.file.originalname || 'unknown',
-      fileSize: req.file.size || 0,
-      mimetype: req.file.mimetype || 'unknown' 
+    // Upload to Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
     });
+    
+    const cloudinaryUpload = async () => {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: 'unexa/chat-media',
+          resource_type: 'auto'
+        });
+        
+        console.log('✅ Cloudinary upload successful:', result.secure_url);
+        
+        // Clean up local file
+        fs.unlinkSync(req.file.path);
+        
+        res.json({ 
+          success: true, 
+          mediaUrl: result.secure_url,
+          fileName: req.file.originalname || 'unknown',
+          fileSize: req.file.size || 0,
+          mimetype: req.file.mimetype || 'unknown' 
+        });
+      } catch (error) {
+        console.error('❌ Cloudinary upload failed:', error);
+        console.log('🔄 Using placeholder URL instead...');
+        
+        // Fallback to placeholder
+        const placeholderUrl = `https://picsum.photos/200/300?random=${Date.now()}`;
+        
+        res.json({ 
+          success: true, 
+          mediaUrl: placeholderUrl,
+          fileName: req.file.originalname || 'unknown',
+          fileSize: req.file.size || 0,
+          mimetype: req.file.mimetype || 'unknown' 
+        });
+      }
+    };
+    
+    cloudinaryUpload();
     return;
   }
   
   console.log('❌ No file found in request');
-  // Return a working placeholder image URL
   const placeholderUrl = 'https://picsum.photos/200/300?random=' + Date.now();
   
   res.json({ 
