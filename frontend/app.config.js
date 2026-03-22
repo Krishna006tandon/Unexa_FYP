@@ -3,10 +3,10 @@ const config = {
   slug: 'unexa',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.png',
+  icon: './assets/icon.jpg',
   userInterfaceStyle: 'light',
   splash: {
-    image: './assets/splash.png',
+    image: './assets/splash.jpg',
     resizeMode: 'contain',
     backgroundColor: '#000000'
   },
@@ -23,7 +23,7 @@ const config = {
   android: {
     adaptiveIcon: {
       backgroundColor: '#000000',
-      foregroundImage: './assets/adaptive-icon.png'
+      foregroundImage: './assets/adaptive-icon.jpg'
     },
     package: 'com.unexa.superapp',
     permissions: [
@@ -38,7 +38,7 @@ const config = {
     ]
   },
   web: {
-    favicon: './assets/favicon.png',
+    favicon: './assets/favicon.jpg',
     bundler: 'metro'
   },
   plugins: [
