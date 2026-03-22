@@ -23,7 +23,9 @@ const THEME = {
     textDim: '#A0A0A0',
     glass: 'rgba(255, 255, 255, 0.05)',
     glassBorder: 'rgba(255, 255, 255, 0.1)',
-    readBlue: '#34B7F1'
+    border: 'rgba(255, 255, 255, 0.1)',
+    readBlue: '#34B7F1',
+    danger: '#FF4B4B',
   }
 };
 
@@ -209,9 +211,9 @@ const ChatScreen = ({ route, navigation }) => {
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
+    const text = newMessage; // declare before try so catch can access it
     try {
       socket.emit("stop_typing", chatId);
-      const text = newMessage;
       setNewMessage(""); // optimistic clear
 
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, { chatId, content: text, messageType: 'text' }, { headers: { Authorization: `Bearer ${user.token}` }});

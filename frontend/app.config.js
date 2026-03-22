@@ -50,7 +50,7 @@ const config = {
       projectId: '00e58f94-d139-4858-ae55-077ea71f067e'
     },
     // Environment variables for Expo
-    apiUrl: process.env.API_URL || 'https://unexa-fyp.onrender.com',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000',
     cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
     cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
   },

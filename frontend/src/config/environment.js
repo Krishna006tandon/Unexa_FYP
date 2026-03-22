@@ -2,8 +2,8 @@ import Constants from 'expo-constants';
 
 // Environment variables for Expo app
 const ENVIRONMENT = {
-  // API Configuration
-  API_URL: Constants.expoConfig?.extra?.apiUrl || 'https://unexa-fyp.onrender.com',
+  // API Configuration (PRODUCTION)
+  API_URL: 'https://unexa-fyp.onrender.com',
   
   // Cloudinary Configuration
   CLOUDINARY_CLOUD_NAME: Constants.expoConfig?.extra?.cloudinaryCloudName,
@@ -20,10 +20,7 @@ const ENVIRONMENT = {
 };
 
 // Validation
-console.log('🔧 Environment Configuration:');
+console.log('🔧 Environment Configuration (PRODUCTION):');
 console.log('   API_URL:', ENVIRONMENT.API_URL);
-console.log('   CLOUDINARY_CLOUD_NAME:', ENVIRONMENT.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Not set');
-console.log('   CLOUDINARY_API_KEY:', ENVIRONMENT.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Not set');
-console.log('   IS_DEV:', ENVIRONMENT.IS_DEV);
 
 export default ENVIRONMENT;

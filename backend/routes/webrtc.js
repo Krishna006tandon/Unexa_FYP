@@ -82,6 +82,48 @@ const setupWebRTCSignaling = (io) => {
   });
 };
 
+const { RtcTokenBuilder, RtcRole } = require('agora-access-token');
+
+// Agora Token Generation Endpoint
+router.post('/token', protect, (req, res) => {
+  const { channelName, uid } = req.body;
+  
+  if (!channelName) {
+    return res.status(400).json({ success: false, message: 'Channel name is required' });
+  }
+
+  const appId = process.env.AGORA_APP_ID;
+  const appCertificate = process.env.AGORA_PRIMARY_CERTIFICATE;
+  
+  if (!appId || !appCertificate) {
+    return res.status(500).json({ success: false, message: 'Agora credentials missing on server' });
+  }
+
+  // Token duration (1 hour)
+  const expirationTimeInSeconds = 3600;
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+  try {
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid || 0,
+      RtcRole.PUBLISHER,
+      privilegeExpiredTs
+    );
+
+    res.json({
+      success: true,
+      token,
+      appId
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Failed to generate token' });
+  }
+});
+
 // Get active call status
 router.get('/status/:chatId', protect, (req, res) => {
   const { chatId } = req.params;

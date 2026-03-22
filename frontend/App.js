@@ -43,7 +43,6 @@ const ChatStack = () => (
     <Stack.Screen name="ChatList" component={ChatListScreen} />
     <Stack.Screen name="ChatScreen" component={ChatScreen} />
     <Stack.Screen name="NewChat" component={NewChatScreen} />
-    <Stack.Screen name="CallScreen" component={CallScreen} options={{ presentation: 'fullScreenModal' }} />
     <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
     <Stack.Screen name="MediaShare" component={MediaShareScreen} options={{ presentation: 'modal' }} />
     <Stack.Screen name="Streaks" component={StreaksScreen} options={{ presentation: 'modal' }} />
@@ -87,6 +86,7 @@ const AppNavigator = () => {
         {user ? (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="CallScreen" component={CallScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
           </>
         ) : (

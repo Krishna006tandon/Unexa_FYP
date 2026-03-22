@@ -51,22 +51,22 @@ exports.getStories = async (req, res) => {
     // Group stories by user
     const storiesByUser = {};
     stories.forEach(story => {
-      const userId = story.user._id.toString();
-      if (!storiesByUser[userId]) {
-        storiesByUser[userId] = {
+      const storyUserId = story.user._id.toString();
+      if (!storiesByUser[storyUserId]) {
+        storiesByUser[storyUserId] = {
           user: story.user,
           stories: [],
           hasUnviewed: false
         };
       }
-      storiesByUser[userId].stories.push(story);
+      storiesByUser[storyUserId].stories.push(story);
       
       // Check if current user has viewed this story
       const hasViewed = story.views.some(view => 
-        view.user.toString() === userId
+        view.user.toString() === userId.toString()
       );
       if (!hasViewed) {
-        storiesByUser[userId].hasUnviewed = true;
+        storiesByUser[storyUserId].hasUnviewed = true;
       }
     });
 

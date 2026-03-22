@@ -2,9 +2,10 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import profileService from '../services/profileService';
+import { AuthContext } from './AuthContext';
+import ENVIRONMENT from '../config/environment';
 
-// Import API_URL from AuthScreen
-const API_URL = 'https://unexa-fyp.onrender.com'; // Production backend
+const API_URL = ENVIRONMENT.API_URL;
 
 const ProfileContext = createContext();
 
@@ -286,6 +287,8 @@ export const ProfileProvider = ({ children }) => {
     }
   };
 
+  const { user: authUser } = useContext(AuthContext);
+
   const value = {
     ...state,
     loadProfile,
@@ -303,9 +306,14 @@ export const ProfileProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    console.log('🔄 ProfileContext useEffect triggered');
-    loadProfile();
-  }, []);
+    if (authUser) {
+      console.log('🔄 ProfileContext: Authenticated user found, loading profile...');
+      loadProfile();
+    } else if (!state.profile && !state.loading) {
+      // Clean reset if user logs out
+      dispatch({ type: 'RESET_STATE' });
+    }
+  }, [authUser]);
 
   return (
     <ProfileContext.Provider value={value}>
