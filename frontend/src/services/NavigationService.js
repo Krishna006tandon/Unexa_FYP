@@ -14,3 +14,7 @@ export function goBack() {
     navigationRef.current.goBack();
   }
 }
+
+export function getCurrentRouteName() {
+  return navigationRef.current?.getCurrentRoute()?.name;
+}
