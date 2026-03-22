@@ -28,6 +28,7 @@ const io = new Server(server, {
 require('./sockets/presenceSocket')(io);
 require('./sockets/chatSocket')(io);
 require('./sockets/profileSocket')(io);
+require('./routes/webrtc').setupWebRTCSignaling(io);
 
 // Middlewares
 app.use(express.json());
@@ -72,6 +73,7 @@ const storyRoutes = require('./routes/storyRoutes');
 const mediaShareRoutes = require('./routes/mediaShare');
 const streakRoutes = require('./routes/streaks');
 const profileRoutes = require('./routes/profileRoutes');
+const webrtcRoutes = require('./routes/webrtc');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -96,6 +98,7 @@ app.use('/api/story', storyRoutes);
 app.use('/api/media', mediaShareRoutes);
 app.use('/api/streaks', streakRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/webrtc', webrtcRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {
