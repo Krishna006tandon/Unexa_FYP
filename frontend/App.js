@@ -9,6 +9,8 @@ import { ProfileProvider } from './src/context/ProfileContext';
 import { CallProvider } from './src/context/CallContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Font from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -115,6 +117,14 @@ const AppNavigator = () => {
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
+  const [fontsLoaded] = Font.useFonts({
+    ...Ionicons.font,
+  });
+
+  if (!fontsLoaded) {
+    return null; // Keep splash screen visible until fonts are loaded
+  }
+
   return (
     <SafeAreaProvider>
       <AuthProvider>
