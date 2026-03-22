@@ -44,6 +44,7 @@ const config = {
   plugins: [
     'expo-audio',
     'expo-video',
+    'expo-font',
     [
       'expo-camera',
       {
