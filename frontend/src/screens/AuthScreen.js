@@ -1,3 +1,4 @@
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
