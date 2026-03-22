@@ -7,38 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { CallProvider } from './src/context/CallContext';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as SplashScreen from 'expo-splash-screen';
 import AuthScreen from './src/screens/AuthScreen';
-
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    this.setState({ errorInfo });
-    console.error("Crash Caught by Boundary:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={{ flex: 1, backgroundColor: '#AA0000', padding: 20, justifyContent: 'center' }}>
-          <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>APP CRASHED!</Text>
-          <Text style={{ color: 'white', marginTop: 20 }}>{this.state.error && this.state.error.toString()}</Text>
-          <Text style={{ color: '#FFCCCC', marginTop: 10, fontSize: 10 }}>{this.state.errorInfo && this.state.errorInfo.componentStack}</Text>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import NewChatScreen from './src/screens/NewChatScreen';
@@ -49,6 +18,31 @@ import MediaShareScreen from './src/screens/MediaShareScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import StreaksScreen from './src/screens/StreaksScreen';
 import { Home, MessageCircle, SquarePlus, Video, User } from 'lucide-react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("Crash Caught:", error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#AA0000', padding: 20, justifyContent: 'center' }}>
+          <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>App Crash Caught!</Text>
+          <Text style={{ color: 'white', marginTop: 20 }}>{this.state.error?.toString()}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const THEME = {
   colors: {
@@ -111,18 +105,6 @@ const MainTabs = () => (
 const AppNavigator = () => {
   const { user, loading } = useContext(AuthContext);
 
-  React.useEffect(() => {
-    if (!loading) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-    
-    // Safety Net: Force hide splash after 3 seconds no matter what
-    const timer = setTimeout(() => {
-      SplashScreen.hideAsync().catch(() => {});
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [loading]);
-
   if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
 
   return (
@@ -145,9 +127,6 @@ const AppNavigator = () => {
     </NavigationContainer>
   );
 };
-
-// Prevent Splash screen from hiding automatically
-SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function App() {
   return (
