@@ -70,7 +70,7 @@ const AuthScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.headerArea}>
             <Image 
-                source={require('../../assets/icon.png')} 
+                source={require('../../assets/icon.jpg')} 
                 style={styles.logo}
                 resizeMode="contain"
             />
