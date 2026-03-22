@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
-import { StyleSheet, Text, View, StatusBar, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { navigationRef } from './src/services/NavigationService';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
+import { CallProvider } from './src/context/CallContext';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -15,9 +17,7 @@ import StoryScreen from './src/screens/StoryScreen';
 import MediaShareScreen from './src/screens/MediaShareScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import StreaksScreen from './src/screens/StreaksScreen';
-import { Home, MessageCircle, PlusSquare, Video, User } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Home, MessageCircle, SquarePlus, Video, User } from 'lucide-react-native';
 
 const THEME = {
   colors: {
@@ -26,8 +26,6 @@ const THEME = {
     secondary: '#3DDCFF',
     text: '#FFFFFF',
     textDim: '#A0A0A0',
-    glass: 'rgba(255, 255, 255, 0.05)',
-    glassBorder: 'rgba(255, 255, 255, 0.1)',
   }
 };
 
@@ -43,9 +41,6 @@ const ChatStack = () => (
     <Stack.Screen name="ChatList" component={ChatListScreen} />
     <Stack.Screen name="ChatScreen" component={ChatScreen} />
     <Stack.Screen name="NewChat" component={NewChatScreen} />
-    <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
-    <Stack.Screen name="MediaShare" component={MediaShareScreen} options={{ presentation: 'modal' }} />
-    <Stack.Screen name="Streaks" component={StreaksScreen} options={{ presentation: 'modal' }} />
   </Stack.Navigator>
 );
 
@@ -59,7 +54,7 @@ const MainTabs = () => (
         let IconComponent;
         if (route.name === 'Home') IconComponent = Home;
         else if (route.name === 'Chats') IconComponent = MessageCircle;
-        else if (route.name === 'Create') IconComponent = PlusSquare;
+        else if (route.name === 'Create') IconComponent = SquarePlus;
         else if (route.name === 'Videos') IconComponent = Video;
         else if (route.name === 'Profile') IconComponent = User;
         return <IconComponent color={focused ? THEME.colors.secondary : THEME.colors.textDim} size={28} />;
@@ -80,7 +75,10 @@ const AppNavigator = () => {
   if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
 
   return (
-    <NavigationContainer theme={{ colors: { background: THEME.colors.background }}}>
+    <NavigationContainer 
+      ref={navigationRef} 
+      theme={{ colors: { background: THEME.colors.background }}}
+    >
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
@@ -101,28 +99,16 @@ export default function App() {
   return (
     <AuthProvider>
       <ProfileProvider>
-        <AppNavigator />
+        <CallProvider>
+          <AppNavigator />
+        </CallProvider>
       </ProfileProvider>
     </AuthProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: THEME.colors.background,
-    paddingTop: 50,
-  },
-  title: {
-    color: THEME.colors.text,
-    fontSize: 24,
-    alignSelf: 'center',
-    marginTop: 100,
-  },
-  tabBar: {
-    backgroundColor: 'rgba(10, 10, 10, 0.9)',
-    borderTopWidth: 0,
-    elevation: 0,
-    height: 90,
-  }
+  container: { flex: 1, backgroundColor: THEME.colors.background, paddingTop: 50 },
+  title: { color: THEME.colors.text, fontSize: 24, alignSelf: 'center', marginTop: 100 },
+  tabBar: { backgroundColor: 'rgba(10, 10, 10, 0.9)', borderTopWidth: 0, elevation: 0, height: 90 },
 });

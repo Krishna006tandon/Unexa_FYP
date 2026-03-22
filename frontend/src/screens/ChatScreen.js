@@ -424,10 +424,18 @@ const ChatScreen = ({ route, navigation }) => {
            <Text style={styles.headerStatus}>{isTyping ? "typing..." : "online"}</Text>
         </View>
         <View style={styles.headerActions}>
-           <TouchableOpacity onPress={() => navigation.navigate('CallScreen', { chatId, type: 'video', name, profilePhoto: 'https://i.pravatar.cc/300' })}>
+           {/* Passing receiverId to CallScreen for initiating invitations */}
+           <TouchableOpacity onPress={() => {
+              const receiverId = messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
+              navigation.navigate('CallScreen', { chatId, type: 'video', name, receiverId });
+           }}>
               <Video color={THEME.colors.primary} size={24} style={{ marginRight: 20 }} />
            </TouchableOpacity>
-           <TouchableOpacity onPress={() => navigation.navigate('CallScreen', { chatId, type: 'audio', name, profilePhoto: 'https://i.pravatar.cc/300' })}>
+           
+           <TouchableOpacity onPress={() => {
+              const receiverId = messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
+              navigation.navigate('CallScreen', { chatId, type: 'audio', name, receiverId });
+           }}>
               <Phone color={THEME.colors.secondary} size={24} style={{ marginRight: 10 }} />
            </TouchableOpacity>
         </View>

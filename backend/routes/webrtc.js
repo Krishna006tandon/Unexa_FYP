@@ -11,26 +11,37 @@ const setupWebRTCSignaling = (io) => {
   io.on('connection', (socket) => {
     console.log('🔗 WebRTC client connected:', socket.id);
 
-    // Join call room
-    socket.on('join-call', (data) => {
-      const { chatId, userId } = data;
-      const room = `call-${chatId}`;
-      
-      socket.join(room);
-      
-      // Store user in call
-      if (!activeCalls.has(chatId)) {
-        activeCalls.set(chatId, new Set());
-      }
-      activeCalls.get(chatId).add(userId);
-      peerConnections.set(socket.id, { userId, chatId });
-      
-      console.log(`📞 User ${userId} joined call room ${room}`);
-      
-      // Notify others in the room
-      socket.to(room).emit('user-joined-call', { userId });
+    socket.on('setup', (userData) => {
+      socket.join(userData?._id || userData?.id);
+      socket.userId = userData?._id || userData?.id;
+      console.log('User joined profile room:', socket.userId);
     });
 
+    // WEBRTC CALL SIGNALING (Incoming vs Calling)
+    socket.on('call-invite', (data) => {
+      const { callerId, receiverId, callerName, chatId, type } = data;
+      console.log(`🔔 Sending Call Invite from ${callerName} to User ${receiverId}`);
+      // Send to the specific profile room (ProfileContext socket uses profile_${userId})
+      socket.to(`profile_${receiverId}`).emit('call-invite', {
+        callerId,
+        callerName,
+        chatId,
+        type
+      });
+    });
+
+    socket.on('call-decline', (data) => {
+      const { callerId, chatId } = data;
+      console.log(`🚫 Call Declined for Chat ${chatId}`);
+      socket.to(`profile_${callerId}`).emit('call-cancelled', { chatId });
+    });
+
+    socket.on('cancel-call', (data) => {
+      const { receiverId, chatId } = data;
+      console.log(`🚫 Call Cancelled by caller for Chat ${chatId}`);
+      socket.to(`profile_${receiverId}`).emit('call-cancelled', { chatId });
+    });
+      
     // WebRTC Signaling Events
     socket.on('offer', (data) => {
       const { offer, chatId, userId } = data;

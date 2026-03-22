@@ -37,7 +37,8 @@ const config = {
     [
       'expo-camera',
       {
-        cameraPermission: 'Allow UNEXA to access your camera'
+        cameraPermission: 'Allow UNEXA to access your camera',
+        microphonePermission: 'Allow UNEXA to access your microphone'
       }
     ]
   ],
