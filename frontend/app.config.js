@@ -53,15 +53,15 @@ const config = {
     ]
   ],
   updates: {
-    url: 'https://u.expo.dev/00e58f94-d139-4858-ae55-077ea71f067e'
+    url: 'https://u.expo.dev/16ce1f59-3a00-442f-94a7-50bf0c6d17a9'
   },
   runtimeVersion: '1.0.0',
   extra: {
     eas: {
-      projectId: '00e58f94-d139-4858-ae55-077ea71f067e'
+      projectId: '16ce1f59-3a00-442f-94a7-50bf0c6d17a9'
     },
     // Environment variables for Expo
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://unexa-fyp.onrender.com',
     cloudinaryCloudName: process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME,
     cloudinaryApiKey: process.env.EXPO_PUBLIC_CLOUDINARY_API_KEY,
   },
