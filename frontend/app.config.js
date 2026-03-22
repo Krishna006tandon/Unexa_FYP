@@ -3,10 +3,10 @@ const config = {
   slug: 'unexa',
   version: '1.0.0',
   orientation: 'portrait',
-  icon: './assets/icon.jpg',
+  icon: './assets/Unexalogo.png',
   userInterfaceStyle: 'light',
   splash: {
-    image: './assets/splash.jpg',
+    image: './assets/Unexalogo.png',
     resizeMode: 'contain',
     backgroundColor: '#000000'
   },
@@ -23,7 +23,7 @@ const config = {
   android: {
     adaptiveIcon: {
       backgroundColor: '#000000',
-      foregroundImage: './assets/adaptive-icon.jpg'
+      foregroundImage: './assets/Unexalogo.png'
     },
     package: 'com.unexa.superapp',
     permissions: [
@@ -38,7 +38,7 @@ const config = {
     ]
   },
   web: {
-    favicon: './assets/favicon.jpg',
+    favicon: './assets/Unexalogo.png',
     bundler: 'metro'
   },
   plugins: [
@@ -62,8 +62,8 @@ const config = {
     },
     // Environment variables for Expo
     apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000',
-    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
+    cloudinaryCloudName: process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    cloudinaryApiKey: process.env.EXPO_PUBLIC_CLOUDINARY_API_KEY,
   },
   scheme: 'unexa'
 };
