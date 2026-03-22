@@ -12,6 +12,35 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import AuthScreen from './src/screens/AuthScreen';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({ errorInfo });
+    console.error("Crash Caught by Boundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: '#AA0000', padding: 20, justifyContent: 'center' }}>
+          <Text style={{ color: 'white', fontSize: 24, fontWeight: 'bold' }}>APP CRASHED!</Text>
+          <Text style={{ color: 'white', marginTop: 20 }}>{this.state.error && this.state.error.toString()}</Text>
+          <Text style={{ color: '#FFCCCC', marginTop: 10, fontSize: 10 }}>{this.state.errorInfo && this.state.errorInfo.componentStack}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import NewChatScreen from './src/screens/NewChatScreen';
@@ -126,15 +155,17 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <ProfileProvider>
-          <CallProvider>
-            <AppNavigator />
-          </CallProvider>
-        </ProfileProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <ProfileProvider>
+            <CallProvider>
+              <AppNavigator />
+            </CallProvider>
+          </ProfileProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 
