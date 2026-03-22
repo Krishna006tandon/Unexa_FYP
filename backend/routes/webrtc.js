@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/authMiddleware');
+const { protect } = require('../middlewares/authMiddleware');
 
 // Store active calls and peer connections
 const activeCalls = new Map();
