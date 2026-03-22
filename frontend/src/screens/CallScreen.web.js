@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { PhoneOff, MicOff, VideoOff, Camera, Mic, Video as VideoIcon } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
@@ -33,6 +33,8 @@ const CallScreenWeb = ({ route, navigation }) => {
   const [callStatus, setCallStatus] = useState('Connecting...');
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(type === 'audio');
   
   const client = useRef(null);
   const tracks = useRef({ video: null, audio: null });
@@ -40,32 +42,73 @@ const CallScreenWeb = ({ route, navigation }) => {
 
   useEffect(() => {
     fetchAgoraToken();
-    if (socket && receiverId) {
-      const payload = {
-        callerId: user._id || user.id,
-        receiverId,
-        callerName: user.fullName || user.username || 'Friend',
-        chatId,
-        type
-      };
-      console.log(`[FRONTEND-WEB] 📡 Emitting call-invite with payload:`, payload);
-      socket.emit('call-invite', payload);
+    if (socket) {
+      if (receiverId) {
+        const payload = {
+          callerId: user._id || user.id,
+          receiverId,
+          callerName: user.fullName || user.username || 'Friend',
+          chatId,
+          type
+        };
+        console.log(`[FRONTEND-WEB] 📡 Emitting call-invite with payload:`, payload);
+        socket.emit('call-invite', payload);
+      }
+
+      // Sync End Call
+      socket.on('call-ended', (data) => {
+         if (data.chatId === chatId) {
+            console.log('🛑 [SOCKET-WEB] Call ended by other party');
+            navigation.goBack();
+         }
+      });
     }
+
     return () => {
-      if (socket && receiverId) {
-        socket.emit('cancel-call', { receiverId, chatId });
+      if (socket) {
+        if (receiverId) socket.emit('cancel-call', { receiverId, chatId });
+        socket.off('call-ended');
       }
       stopRinging();
-      if (client.current) {
-        Object.values(tracks.current).forEach(t => { if(t) { t.stop(); t.close(); } });
-        client.current.leave();
+      if (tracks.current.audio) {
+        tracks.current.audio.stop();
+        tracks.current.audio.close();
       }
+      if (tracks.current.video) {
+        tracks.current.video.stop();
+        tracks.current.video.close();
+      }
+      if (client.current) client.current.leave();
     };
   }, []);
 
   useEffect(() => {
     if (agoraToken && !loading) startCall();
   }, [agoraToken, loading]);
+
+  const toggleMute = async () => {
+    if (tracks.current.audio) {
+      const nextMuted = !isMuted;
+      await tracks.current.audio.setEnabled(!nextMuted);
+      setIsMuted(nextMuted);
+    }
+  };
+
+  const toggleVideo = async () => {
+    if (tracks.current.video) {
+        const nextVideoOff = !isVideoOff;
+        await tracks.current.video.setEnabled(!nextVideoOff);
+        setIsVideoOff(nextVideoOff);
+    }
+  };
+
+  const endCall = () => {
+    console.log('[WEB] Ending call...');
+    if (socket && receiverId) {
+       socket.emit('call-ended', { receiverId, chatId });
+    }
+    navigation.goBack();
+  };
 
   const fetchAgoraToken = async () => {
     try {
@@ -79,21 +122,46 @@ const CallScreenWeb = ({ route, navigation }) => {
   const startCall = async () => {
     try {
       client.current = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-      [tracks.current.audio, tracks.current.video] = await AgoraRTC.createMicrophoneAndCameraTracks();
       
+      let tracksToPublish = [];
+      if (type === 'video') {
+        [tracks.current.audio, tracks.current.video] = await AgoraRTC.createMicrophoneAndCameraTracks();
+        tracksToPublish = [tracks.current.audio, tracks.current.video];
+        tracks.current.video.play('local-video-web');
+      } else {
+        tracks.current.audio = await AgoraRTC.createMicrophoneAudioTrack();
+        tracksToPublish = [tracks.current.audio];
+      }
+      
+      console.log(`[AGORA-WEB] Joining as ${uid} in channel ${chatId}`);
       await client.current.join(appId, chatId, agoraToken, uid);
-      await client.current.publish(Object.values(tracks.current));
+      await client.current.publish(tracksToPublish);
       
-      tracks.current.video.play('local-video-web');
       setCallStatus('Ongoing');
       setInterval(() => setTimerSeconds(p => p + 1), 1000);
 
       client.current.on('user-published', async (user, mediaType) => {
+        console.log(`[AGORA-WEB] Remote user published: ${user.uid} (${mediaType})`);
         await client.current.subscribe(user, mediaType);
-        if (mediaType === 'video') user.videoTrack.play('remote-video-web');
-        if (mediaType === 'audio') user.audioTrack.play();
+        
+        if (mediaType === 'video' && type === 'video') {
+          user.videoTrack.play('remote-video-web');
+        }
+        if (mediaType === 'audio') {
+          user.audioTrack.play();
+          console.log(`[AGORA-WEB] Playing remote audio from ${user.uid}`);
+        }
       });
-    } catch (e) { console.error(e); }
+
+      // Handle Autoplay restrictions on Web
+      AgoraRTC.onAutoplayFailed = () => {
+        console.warn('[AGORA-WEB] Autoplay failed - user must click');
+        Alert.alert('Playback Blocked', 'Click OK to enable audio for this call.');
+      };
+    } catch (e) { 
+      console.error('[AGORA WEB SDK ERROR]', e); 
+      setCallStatus('Failed');
+    }
   };
 
   if (loading) {
@@ -110,8 +178,8 @@ const CallScreenWeb = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-       <View nativeID="remote-video-web" style={StyleSheet.absoluteFill} />
-       <View nativeID="local-video-web" style={styles.localPreview} />
+       <View id="remote-video-web" style={StyleSheet.absoluteFill} />
+       <View id="local-video-web" style={styles.localPreview} />
        
        <View style={styles.overlay}>
           <View style={styles.header}>
@@ -120,8 +188,16 @@ const CallScreenWeb = ({ route, navigation }) => {
           </View>
 
           <View style={styles.footer}>
-             <TouchableOpacity style={[styles.btn, styles.endBtn]} onPress={() => navigation.goBack()}>
+             <TouchableOpacity style={styles.btn} onPress={toggleMute}>
+                {isMuted ? <MicOff color="#FFF" /> : <Mic color="#FFF" />}
+             </TouchableOpacity>
+
+             <TouchableOpacity style={[styles.btn, styles.endBtn]} onPress={endCall}>
                 <PhoneOff color="#FFF" size={32} />
+             </TouchableOpacity>
+
+             <TouchableOpacity style={styles.btn} onPress={toggleVideo}>
+                {isVideoOff ? <VideoOff color="#FFF" /> : <VideoIcon color="#FFF" />}
              </TouchableOpacity>
           </View>
        </View>
@@ -135,10 +211,12 @@ const styles = StyleSheet.create({
   loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#FFF', fontSize: 20, marginBottom: 20 },
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', paddingVertical: 60, alignItems: 'center', zIndex: 20 },
-  statusText: { color: THEME.colors.secondary, fontWeight: 'bold' },
-  timerText: { color: '#FFF', fontSize: 32, fontWeight: '300' },
-  btn: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center' },
-  endBtn: { backgroundColor: THEME.colors.danger },
+  header: { alignItems: 'center', marginTop: 20 },
+  statusText: { color: THEME.colors.secondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1.5 },
+  timerText: { color: '#FFF', fontSize: 36, fontWeight: '300', marginTop: 10 },
+  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 40, marginBottom: 40 },
+  btn: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  endBtn: { width: 76, height: 76, borderRadius: 38, backgroundColor: THEME.colors.danger, elevation: 10, shadowColor: '#FF4B4B', shadowOpacity: 0.5, shadowRadius: 15 },
 });
 
 export default CallScreenWeb;

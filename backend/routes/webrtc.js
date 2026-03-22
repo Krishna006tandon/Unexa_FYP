@@ -44,6 +44,12 @@ const setupWebRTCSignaling = (io) => {
       console.log(`🚫 Call Cancelled by caller for Chat ${chatId}`);
       socket.to(`profile_${receiverId}`).emit('call-cancelled', { chatId });
     });
+
+    socket.on('call-ended', (data) => {
+      const { receiverId, chatId } = data;
+      console.log(`🔚 Call Ended for Chat ${chatId}`);
+      socket.to(`profile_${receiverId}`).emit('call-ended', { chatId });
+    });
       
     // WebRTC Signaling Events
     socket.on('offer', (data) => {

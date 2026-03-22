@@ -81,7 +81,8 @@ export const CallProvider = ({ children }) => {
       chatId: callData.chatId,
       type: callData.type,
       name: callData.callerName,
-      isIncoming: true
+      isIncoming: true,
+      receiverId: incomingCall.callerId
     });
   };
 

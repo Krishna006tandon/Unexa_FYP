@@ -55,8 +55,10 @@ const ChatListScreen = ({ navigation }) => {
     const otherUser = item.users.find(u => u._id !== user._id) || item.users[0];
     
     const name = isGroup ? item.chatName : otherUser.username;
-    // Default avatar if missing
-    const avatarInfo = isGroup ? { uri: 'https://i.pravatar.cc/150?u=group' } : { uri: otherUser.profilePhoto || 'https://i.pravatar.cc/150' };
+    // Real avatar from backend avatar field
+    const avatarInfo = isGroup 
+      ? { uri: 'https://i.pravatar.cc/150?u=group' } 
+      : { uri: otherUser.avatar || otherUser.profilePhoto || 'https://i.pravatar.cc/150' };
 
     const lastMsgContent = item.latestMessage 
        ? (item.latestMessage.messageType !== 'text' ? `[${item.latestMessage.messageType}]` : item.latestMessage.content)

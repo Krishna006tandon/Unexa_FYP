@@ -42,6 +42,7 @@ const CallScreen = ({ route, navigation }) => {
 
   const webViewRef = useRef(null);
   const callTimer = useRef(null);
+  const callConnected = useRef(false); // Track if Agora channel was joined
   const uid = useMemo(() => Math.floor(Math.random() * 100000), []);
 
   useEffect(() => {
@@ -52,22 +53,37 @@ const CallScreen = ({ route, navigation }) => {
     };
     init();
 
-    if (socket && receiverId) {
-      const payload = {
-        callerId: user._id || user.id,
-        receiverId,
-        callerName: user.fullName || user.username || 'Friend',
-        chatId,
-        type
-      };
-      console.log(`[FRONTEND-MOBILE] 📡 Emitting call-invite with payload:`, payload);
-      socket.emit('call-invite', payload);
+    if (socket) {
+      // Send call invite (only if we are the caller, not receiver)
+      if (receiverId) {
+        const payload = {
+          callerId: user._id || user.id,
+          receiverId,
+          callerName: user.fullName || user.username || 'Friend',
+          chatId,
+          type
+        };
+        console.log(`[FRONTEND-MOBILE] 📡 Emitting call-invite with payload:`, payload);
+        socket.emit('call-invite', payload);
+      }
+
+      // Listen for call ended from other party
+      socket.on('call-ended', (data) => {
+         if (data.chatId === chatId) {
+            console.log('🛑 [SOCKET] Call ended by other party');
+            endCall();
+         }
+      });
     }
 
     return () => {
       if (callTimer.current) clearInterval(callTimer.current);
-      if (socket && receiverId) {
-        socket.emit('cancel-call', { receiverId, chatId });
+      if (socket) {
+        if (!callConnected.current && receiverId) {
+          // Still ringing — cancel the invite
+          socket.emit('cancel-call', { receiverId, chatId });
+        }
+        socket.off('call-ended');
       }
       stopRinging();
     };
@@ -90,6 +106,7 @@ const CallScreen = ({ route, navigation }) => {
   };
 
   const startTimer = () => {
+    if (callTimer.current) return; // Prevent double timer
     callTimer.current = setInterval(() => {
       setTimerSeconds(prev => prev + 1);
     }, 1000);
@@ -102,8 +119,24 @@ const CallScreen = ({ route, navigation }) => {
   };
 
   const endCall = () => {
+    console.log('🏁 Ending call...');
+    if (socket && receiverId) {
+       socket.emit('call-ended', { receiverId, chatId });
+    }
     if (callTimer.current) clearInterval(callTimer.current);
     navigation.goBack();
+  };
+
+  const toggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    webViewRef.current?.postMessage(JSON.stringify({ type: 'toggle-audio', isMuted: nextMuted }));
+  };
+
+  const toggleVideo = () => {
+    const nextVideoOff = !isVideoOff;
+    setIsVideoOff(nextVideoOff);
+    webViewRef.current?.postMessage(JSON.stringify({ type: 'toggle-video', isVideoOff: nextVideoOff }));
   };
 
   const agoraHtmlString = `
@@ -126,25 +159,100 @@ const CallScreen = ({ route, navigation }) => {
         <div id="remote-video-container"></div>
         <div id="local-video-container"></div>
         <script>
+            // Console Bridge to Metro
+            (function() {
+              const originalLog = console.log;
+              const originalWarn = console.warn;
+              const originalError = console.error;
+              
+              console.log = (...args) => {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'debug', level: 'log', msg: args.join(' ') }));
+                originalLog.apply(console, args);
+              };
+              console.warn = (...args) => {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'debug', level: 'warn', msg: args.join(' ') }));
+                originalWarn.apply(console, args);
+              };
+              console.error = (...args) => {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'debug', level: 'error', msg: args.join(' ') }));
+                originalError.apply(console, args);
+              };
+            })();
+
             let client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
             let localTracks = { videoTrack: null, audioTrack: null };
 
+            // Listen for Native Control Messages
+            window.addEventListener('message', async (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'toggle-audio') {
+                        if (localTracks.audioTrack) {
+                            await localTracks.audioTrack.setEnabled(!data.isMuted);
+                            console.log("[AGORA] Audio enabled:", !data.isMuted);
+                        }
+                    }
+                    if (data.type === 'toggle-video') {
+                        if (localTracks.videoTrack) {
+                            await localTracks.videoTrack.setEnabled(!data.isVideoOff);
+                            console.log("[AGORA] Video enabled:", !data.isVideoOff);
+                        }
+                    }
+                } catch (e) { console.error("Control Error:", e); }
+            });
+
             async function join() {
                 try {
-                    await new Promise(r => setTimeout(r, 1500));
-                    [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-                    await localTracks.videoTrack.play("local-video-container");
+                    console.log("[AGORA] Initializing tracks for type: ${type}");
+                    await new Promise(r => setTimeout(r, 1000));
+                    
+                    let tracksToPublish = [];
+                    if ("${type}" === "video") {
+                        [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+                        await localTracks.videoTrack.play("local-video-container");
+                        tracksToPublish = [localTracks.audioTrack, localTracks.videoTrack];
+                    } else {
+                        localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                        tracksToPublish = [localTracks.audioTrack];
+                    }
+                    
+                    console.log("[AGORA] Joining channel: ${chatId}");
                     await client.join("${appId}", "${chatId}", "${agoraToken}", ${uid});
-                    await client.publish(Object.values(localTracks));
+                    
+                    console.log("[AGORA] Publishing tracks...");
+                    await client.publish(tracksToPublish);
+                    
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'joined' }));
 
                     client.on("user-published", async (user, mediaType) => {
+                        console.log("[AGORA] User published:", user.uid, mediaType);
                         await client.subscribe(user, mediaType);
-                        if (mediaType === "video") user.videoTrack.play("remote-video-container");
-                        if (mediaType === "audio") user.audioTrack.play();
+                        console.log("[AGORA] Subscribed to:", user.uid, mediaType);
+                        
+                        if (mediaType === "video" && "${type}" === "video") {
+                            user.videoTrack.play("remote-video-container");
+                        }
+                        if (mediaType === "audio") {
+                            user.audioTrack.play();
+                            console.log("[AGORA] Playing remote audio track");
+                        }
                     });
-                } catch (e) { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', msg: e.message })); }
+
+                    client.on("user-unpublished", (user) => {
+                        console.log("[AGORA] User unpublished:", user.uid);
+                    });
+
+                } catch (e) { 
+                    console.error("[AGORA ERROR]", e);
+                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', msg: e.message || String(e) })); 
+                }
             }
+
+            // Handle Autoplay restrictions
+            AgoraRTC.onAutoplayFailed = () => {
+                console.warn("[AGORA] Autoplay blocked - user interaction required");
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'autoplay-failed' }));
+            };
         </script>
     </body>
     </html>
@@ -179,7 +287,30 @@ const CallScreen = ({ route, navigation }) => {
         allowsInlineMediaPlayback={true}
         onMessage={(e) => {
           const data = JSON.parse(e.nativeEvent.data);
-          if (data.type === 'joined') { setCallStatus('Ongoing'); startTimer(); }
+          
+          if (data.type === 'debug') {
+            const prefix = `[WebView ${data.level?.toUpperCase() || 'LOG'}]`;
+            console.log(`${prefix} ${data.msg}`);
+            return; // Don't process debug logs as regular actions
+          }
+
+          console.log(`[WebView Response] Type: ${data.type}`, data);
+          
+          if (data.type === 'joined') { 
+            setCallStatus('Ongoing'); 
+            startTimer();
+            callConnected.current = true; // Mark call as live
+          }
+          if (data.type === 'autoplay-failed') {
+            console.warn('[AUTOPLAY BLOCKED] User must interact with WebView');
+            setCallStatus('Tap to Unmute');
+            Alert.alert('Audio Blocked', 'Click OK to enable audio.');
+          }
+          if (data.type === 'error') {
+            console.error('[AGORA WEBVIEW ERROR]', data.msg);
+            setCallStatus('Failed');
+            Alert.alert('Call Error', data.msg);
+          }
         }}
       />
 
@@ -190,13 +321,13 @@ const CallScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles.bottomHUD}>
-          <TouchableOpacity style={styles.controlBtn} onPress={() => setIsMuted(!isMuted)}>
+          <TouchableOpacity style={styles.controlBtn} onPress={toggleMute}>
             {isMuted ? <MicOff color="#FFF" /> : <Mic color="#FFF" />}
           </TouchableOpacity>
           <TouchableOpacity style={[styles.controlBtn, styles.endCallBtn]} onPress={endCall}>
             <PhoneOff color="#FFF" size={32} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlBtn} onPress={() => setIsVideoOff(!isVideoOff)}>
+          <TouchableOpacity style={styles.controlBtn} onPress={toggleVideo}>
             {isVideoOff ? <VideoOff color="#FFF" /> : <VideoIcon color="#FFF" />}
           </TouchableOpacity>
         </View>

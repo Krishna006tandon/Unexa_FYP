@@ -34,7 +34,15 @@ const Stack = createNativeStackNavigator();
 
 const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
 const CreateScreen = ({ navigation }) => <MediaShareScreen navigation={navigation} />;
-const VideoScreen = () => <View style={styles.container}><Text style={styles.title}>Stream</Text></View>;
+const VideoScreen = () => (
+  <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
+    <Video color="#7B61FF" size={64} strokeWidth={1.5} />
+    <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold', marginTop: 20 }}>Live Streams</Text>
+    <Text style={{ color: '#A0A0A0', fontSize: 14, marginTop: 10, textAlign: 'center', paddingHorizontal: 40 }}>
+      Live streaming feature is coming soon. Stay tuned!
+    </Text>
+  </View>
+);
 
 const ChatStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: THEME.colors.background } }}>

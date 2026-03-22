@@ -200,7 +200,7 @@ const StoriesListScreen = ({ navigation }) => {
           colors={isViewed ? ['#333', '#555'] : [THEME.colors.primary, THEME.colors.secondary]}
           style={styles.storyRing}
         >
-          <Image source={{ uri: item.user.profilePhoto }} style={styles.storyAvatar} />
+          <Image source={{ uri: item.user.avatar || item.user.profilePhoto || 'https://i.pravatar.cc/150' }} style={styles.storyAvatar} />
         </LinearGradient>
         <Text style={styles.storyUsername} numberOfLines={1}>
           {item.user.username}
