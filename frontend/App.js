@@ -7,6 +7,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { CallProvider } from './src/context/CallContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as SplashScreen from 'expo-splash-screen';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
@@ -80,6 +82,12 @@ const MainTabs = () => (
 const AppNavigator = () => {
   const { user, loading } = useContext(AuthContext);
 
+  React.useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [loading]);
+
   if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
 
   return (
@@ -103,15 +111,20 @@ const AppNavigator = () => {
   );
 };
 
+// Prevent Splash screen from hiding automatically
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function App() {
   return (
-    <AuthProvider>
-      <ProfileProvider>
-        <CallProvider>
-          <AppNavigator />
-        </CallProvider>
-      </ProfileProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <ProfileProvider>
+          <CallProvider>
+            <AppNavigator />
+          </CallProvider>
+        </ProfileProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
 
