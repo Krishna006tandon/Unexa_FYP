@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, ActivityIndicator, Alert } from 'react-native';
-import { PhoneOff, MicOff, VideoOff, Camera, Mic, Video as VideoIcon } from 'lucide-react-native';
+import { PhoneOff, MicOff, VideoOff, Camera, Mic, Video as VideoIcon, Volume2, VolumeX } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import ProfileContext from '../context/ProfileContext';
@@ -10,6 +10,9 @@ import ENVIRONMENT from '../config/environment';
 
 // DIRECT IMPORT ONLY ON WEB
 import AgoraRTC from 'agora-rtc-sdk-ng';
+
+// Set Agora log level for debugging
+AgoraRTC.setLogLevel(0);
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,7 +26,7 @@ const THEME = {
 };
 
 const CallScreenWeb = ({ route, navigation }) => {
-  const { chatId, type, name, receiverId } = route.params || {};
+  const { chatId, type, name, receiverId, isIncoming } = route.params || {};
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
   const { stopRinging } = useContext(CallContext);
@@ -35,19 +38,24 @@ const CallScreenWeb = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(type === 'audio');
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   
   const client = useRef(null);
   const tracks = useRef({ video: null, audio: null });
-  const uid = useMemo(() => Math.floor(Math.random() * 100000), []);
+  const callJoined = useRef(false); // Track if we've officially joined
+  const uid = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
+
+  const toggleSpeaker = () => setIsSpeakerOn(!isSpeakerOn);
 
   useEffect(() => {
     fetchAgoraToken();
     if (socket) {
-      if (receiverId) {
+      if (!isIncoming && receiverId) {
         const payload = {
           callerId: user._id || user.id,
           receiverId,
           callerName: user.fullName || user.username || 'Friend',
+          callerAvatar: user.profilePhoto || user.avatar, // NEW
           chatId,
           type
         };
@@ -66,7 +74,11 @@ const CallScreenWeb = ({ route, navigation }) => {
 
     return () => {
       if (socket) {
-        if (receiverId) socket.emit('cancel-call', { receiverId, chatId });
+        // ONLY Caller can cancel a ringing call
+        if (!isIncoming && !callJoined.current && receiverId) {
+          console.log('🚫 [CLEANUP-WEB] Cancelling call signal');
+          socket.emit('cancel-call', { receiverId, chatId });
+        }
         socket.off('call-ended');
       }
       stopRinging();
@@ -112,44 +124,94 @@ const CallScreenWeb = ({ route, navigation }) => {
 
   const fetchAgoraToken = async () => {
     try {
-      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/webrtc/token`, { channelName: chatId, uid }, { headers: { Authorization: `Bearer ${user.token}` }});
+      console.log(`📡 [FRONTEND-WEB] Requesting token from: ${ENVIRONMENT.API_URL}/api/webrtc/token`);
+      console.log(`   - Channel: ${chatId}, UID: ${uid}`);
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/webrtc/token`, 
+        { channelName: chatId, uid }, 
+        { headers: { Authorization: `Bearer ${user.token}` }}
+      );
+      console.log(`✅ [FRONTEND-WEB] Token received (length: ${data.token?.length})`);
       setAgoraToken(data.token);
       setAppId(data.appId);
       setLoading(false);
-    } catch (e) { navigation.goBack(); }
+    } catch (e) { 
+      console.error('❌ [FRONTEND-WEB] Token Fetch Error:', e.response?.data || e.message);
+      navigation.goBack(); 
+    }
   };
 
   const startCall = async () => {
     try {
+      console.log('🚀 [AGORA-WEB] Initializing AgoraRTC Client...');
       client.current = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
       
       let tracksToPublish = [];
-      if (type === 'video') {
-        [tracks.current.audio, tracks.current.video] = await AgoraRTC.createMicrophoneAndCameraTracks();
-        tracksToPublish = [tracks.current.audio, tracks.current.video];
-        tracks.current.video.play('local-video-web');
-      } else {
-        tracks.current.audio = await AgoraRTC.createMicrophoneAudioTrack();
-        tracksToPublish = [tracks.current.audio];
+      try {
+        if (type === 'video') {
+          console.log('📷 [AGORA-WEB] Creating Mic and Cam Tracks...');
+          [tracks.current.audio, tracks.current.video] = await AgoraRTC.createMicrophoneAndCameraTracks();
+          tracksToPublish = [tracks.current.audio, tracks.current.video];
+          tracks.current.video.play('local-video-web');
+          console.log('✅ [AGORA-WEB] Local tracks created and playing');
+        } else {
+          console.log('🎙️ [AGORA-WEB] Creating Mic Only track...');
+          tracks.current.audio = await AgoraRTC.createMicrophoneAudioTrack();
+          tracksToPublish = [tracks.current.audio];
+          console.log('✅ [AGORA-WEB] Local audio track created');
+        }
+      } catch (trackError) {
+        console.warn("[AGORA-WEB] Camera/Mic access failed, trying audio-only fallback...", trackError);
+        // Fallback to audio only if video fails (usually due to hardware occupancy)
+        if (type === 'video') {
+            try {
+                tracks.current.audio = await AgoraRTC.createMicrophoneAudioTrack();
+                tracksToPublish = [tracks.current.audio];
+                setIsVideoOff(true); 
+                setCallStatus('Ongoing (Voice Only)');
+                Alert.alert('Camera Hint', 'Your camera is occupied by another app. Switching to Voice Call.');
+            } catch (audioError) {
+                throw audioError; // If even audio fails, we have a real problem
+            }
+        } else {
+            throw trackError;
+        }
       }
       
       console.log(`[AGORA-WEB] Joining as ${uid} in channel ${chatId}`);
       await client.current.join(appId, chatId, agoraToken, uid);
+      callJoined.current = true;
       await client.current.publish(tracksToPublish);
       
       setCallStatus('Ongoing');
       setInterval(() => setTimerSeconds(p => p + 1), 1000);
 
       client.current.on('user-published', async (user, mediaType) => {
-        console.log(`[AGORA-WEB] Remote user published: ${user.uid} (${mediaType})`);
-        await client.current.subscribe(user, mediaType);
-        
-        if (mediaType === 'video' && type === 'video') {
-          user.videoTrack.play('remote-video-web');
-        }
-        if (mediaType === 'audio') {
-          user.audioTrack.play();
-          console.log(`[AGORA-WEB] Playing remote audio from ${user.uid}`);
+        console.log(`📡 [AGORA-WEB] Remote user published: ${user.uid} (${mediaType})`);
+        try {
+          await client.current.subscribe(user, mediaType);
+          console.log(`✅ [AGORA-WEB] Subscribed to ${user.uid} - ${mediaType}`);
+          
+          if (mediaType === 'video' && type === 'video') {
+            user.videoTrack.play('remote-video-web');
+          }
+          if (mediaType === 'audio') {
+            console.log(`🎙️ [AGORA-WEB] Attempting to play audio from ${user.uid}`);
+            try {
+              await user.audioTrack.play();
+              console.log(`🔊 [AGORA-WEB] Audio playing success for ${user.uid}`);
+            } catch (playError) {
+              console.warn(`⏳ [AGORA-WEB] Autoplay blocked for ${user.uid}. Clicking anywhere on screen will enable audio.`);
+              const resumeAudio = () => {
+                user.audioTrack.play().then(() => {
+                  console.log(`🔊 [AGORA-WEB] Audio resumed for ${user.uid} after click`);
+                  document.removeEventListener('click', resumeAudio);
+                }).catch(e => console.error("Resume failed:", e));
+              };
+              document.addEventListener('click', resumeAudio);
+            }
+          }
+        } catch (subError) {
+           console.error(`❌ [AGORA-WEB] Subscription failed for ${user.uid}`, subError);
         }
       });
 
@@ -189,16 +251,31 @@ const CallScreenWeb = ({ route, navigation }) => {
 
           <View style={styles.footer}>
              <TouchableOpacity style={styles.btn} onPress={toggleMute}>
-                {isMuted ? <MicOff color="#FFF" /> : <Mic color="#FFF" />}
+                <View style={styles.iconCircle}>
+                  {isMuted ? <MicOff color="#FFF" /> : <Mic color="#FFF" />}
+                </View>
+                <Text style={styles.btnLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
+             </TouchableOpacity>
+
+             <TouchableOpacity style={styles.btn} onPress={toggleSpeaker}>
+                <View style={styles.iconCircle}>
+                  {isSpeakerOn ? <Mic color="#FFF" /> : <MicOff color="#FFF" />}
+                </View>
+                <Text style={styles.btnLabel}>{isSpeakerOn ? 'Speaker' : 'Ear'}</Text>
              </TouchableOpacity>
 
              <TouchableOpacity style={[styles.btn, styles.endBtn]} onPress={endCall}>
-                <PhoneOff color="#FFF" size={32} />
+                <PhoneOff color="#FFF" size={28} />
              </TouchableOpacity>
 
-             <TouchableOpacity style={styles.btn} onPress={toggleVideo}>
-                {isVideoOff ? <VideoOff color="#FFF" /> : <VideoIcon color="#FFF" />}
-             </TouchableOpacity>
+              {type === 'video' && (
+                <TouchableOpacity style={styles.btn} onPress={toggleVideo}>
+                    <View style={styles.iconCircle}>
+                      {isVideoOff ? <VideoOff color="#FFF" /> : <VideoIcon color="#FFF" />}
+                    </View>
+                    <Text style={styles.btnLabel}>{isVideoOff ? 'Cam On' : 'Cam Off'}</Text>
+                </TouchableOpacity>
+              )}
           </View>
        </View>
     </View>
@@ -207,16 +284,18 @@ const CallScreenWeb = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  localPreview: { width: 150, height: 220, position: 'absolute', top: 40, right: 30, borderRadius: 16, overflow: 'hidden', border: '3px solid #7B61FF', zIndex: 10 },
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 20, zIndex: 100 },
+  localPreview: { width: 120, height: 160, position: 'absolute', top: 30, right: 20, zIndex: 999, borderRadius: 12, overflow: 'hidden', border: '2px solid #7B61FF' },
+  header: { alignItems: 'center', marginTop: 30 },
+  statusText: { color: THEME.colors.secondary, fontSize: 16, fontWeight: 'bold' },
+  timerText: { color: '#FFF', fontSize: 32, fontWeight: '300', marginTop: 10 },
+  footer: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', padding: 20, width: '100%', maxWidth: 500, alignSelf: 'center' },
+  btn: { alignItems: 'center', minWidth: 70 },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  btnLabel: { color: '#FFF', fontSize: 11, opacity: 0.8 },
+  endBtn: { backgroundColor: THEME.colors.danger, width: 68, height: 68, borderRadius: 34, justifyContent: 'center' },
   loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#FFF', fontSize: 20, marginBottom: 20 },
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', paddingVertical: 60, alignItems: 'center', zIndex: 20 },
-  header: { alignItems: 'center', marginTop: 20 },
-  statusText: { color: THEME.colors.secondary, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1.5 },
-  timerText: { color: '#FFF', fontSize: 36, fontWeight: '300', marginTop: 10 },
-  footer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 40, marginBottom: 40 },
-  btn: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
-  endBtn: { width: 76, height: 76, borderRadius: 38, backgroundColor: THEME.colors.danger, elevation: 10, shadowColor: '#FF4B4B', shadowOpacity: 0.5, shadowRadius: 15 },
+  loadingText: { color: '#FFF', marginBottom: 20, fontSize: 18 }
 });
 
 export default CallScreenWeb;

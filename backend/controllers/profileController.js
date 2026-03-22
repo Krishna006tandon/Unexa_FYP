@@ -289,11 +289,22 @@ const uploadAvatar = async (req, res) => {
 
         const profile = await Profile.findOneAndUpdate(
           { user: req.user.id },
-          { avatar: avatarUrl },
-          { new: true, runValidators: true }
-        ).populate('user', 'name email');
+          { 
+            avatar: avatarUrl,
+            // Also ensure basic fields are set if this is an upsert
+            $setOnInsert: { 
+               username: req.user.username || `user_${req.user.id.toString().substring(0,6)}`,
+               fullName: req.user.username || 'New User',
+               email: req.user.email || ''
+            }
+          },
+          { new: true, runValidators: true, upsert: true }
+        ).populate('user', 'username email');
 
-        console.log('✅ Profile updated with new avatar');
+        // SYNC: Update the User model's profilePhoto as well for Chat/Global compatibility
+        await User.findByIdAndUpdate(req.user.id, { profilePhoto: avatarUrl });
+
+        console.log('✅ Profile (Upserted) and User models updated with new avatar');
 
         res.status(200).json({
           success: true,

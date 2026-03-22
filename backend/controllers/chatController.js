@@ -50,8 +50,22 @@ exports.accessChat = async (req, res) => {
       select: 'username profilePhoto email',
     });
 
-    if (isChat.length > 0) {
-      res.send(isChat[0]);
+    const Profile = require('../models/Profile');
+    const enrichedChat = await Promise.all(isChat.map(async (chat) => {
+      const chatObj = chat.toObject();
+      chatObj.users = await Promise.all(chatObj.users.map(async (u) => {
+         const userProfile = await Profile.findOne({ user: u._id }).select('avatar');
+         if (userProfile && userProfile.avatar) {
+            u.avatar = userProfile.avatar;
+            u.profilePhoto = userProfile.avatar;
+         }
+         return u;
+      }));
+      return chatObj;
+    }));
+
+    if (enrichedChat.length > 0) {
+      res.send(enrichedChat[0]);
     } else {
       let chatData = {
         chatName: 'sender',
@@ -75,8 +89,8 @@ exports.accessChat = async (req, res) => {
 exports.fetchChats = async (req, res) => {
   try {
     Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
-      .populate('users', '-passwordHash')
-      .populate('groupAdmin', '-passwordHash')
+      .populate('users', 'username profilePhoto email') // Get basic user info
+      .populate('groupAdmin', 'username profilePhoto email')
       .populate('latestMessage')
       .sort({ updatedAt: -1 })
       .then(async (results) => {
@@ -84,7 +98,33 @@ exports.fetchChats = async (req, res) => {
           path: 'latestMessage.sender',
           select: 'username profilePhoto email',
         });
-        res.status(200).send(results);
+
+        // DEEP SYNC: Ensure real profile pictures (avatars) are used
+        const mongoose = require('mongoose');
+        const Profile = mongoose.model('Profile');
+        console.log(`[BACKEND-CHAT] ⚙️ Starting Deep Sync for ${results.length} chats...`);
+        
+        const enrichedResults = await Promise.all(results.map(async (chat) => {
+          const chatObj = chat.toObject();
+          chatObj.users = await Promise.all(chatObj.users.map(async (u) => {
+             try {
+                const userProfile = await Profile.findOne({ user: u._id });
+                if (userProfile && userProfile.avatar) {
+                   console.log(`   ✅ SUCCESS: Found Avatar for ${u.username} (${u._id}): ${userProfile.avatar}`);
+                   u.avatar = userProfile.avatar;
+                   u.profilePhoto = userProfile.avatar;
+                } else {
+                   console.log(`   ⚠️ WARNING: No Avatar in Profile for ${u.username} (${u._id})`);
+                }
+             } catch (err) {
+                console.log(`   ❌ ERROR syncing profile for ${u.username}:`, err.message);
+             }
+             return u;
+          }));
+          return chatObj;
+        }));
+
+        res.status(200).send(enrichedResults);
       });
   } catch (error) {
     res.status(500).json({ error: error.message });

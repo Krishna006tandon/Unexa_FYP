@@ -30,7 +30,7 @@ const THEME = {
 };
 
 const ChatScreen = ({ route, navigation }) => {
-  const { chatId, name, receiverId: passedReceiverId } = route.params;
+  const { chatId, name, receiverId: passedReceiverId, avatar } = route.params;
   const { user } = useContext(AuthContext);
   
   const [messages, setMessages] = useState([]);
@@ -418,18 +418,28 @@ const ChatScreen = ({ route, navigation }) => {
       </Modal>
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.backButton}>{"< "}</Text></TouchableOpacity>
-        <View style={styles.headerInfo}>
-           <Text style={styles.headerName}>{name}</Text>
-           <Text style={styles.headerStatus}>{isTyping ? "typing..." : "online"}</Text>
+        <TouchableOpacity style={styles.backContainer} onPress={() => navigation.goBack()}>
+           <Text style={styles.backButton}>{"<"}</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.headerProfile}>
+           <Image 
+             source={{ uri: avatar || 'https://i.pravatar.cc/150' }} 
+             style={styles.headerAvatar} 
+           />
+           <View style={styles.headerInfo}>
+              <Text style={styles.headerName} numberOfLines={1}>{name}</Text>
+              <Text style={styles.headerStatus}>{isTyping ? "typing..." : "online"}</Text>
+           </View>
         </View>
+
         <View style={styles.headerActions}>
            {/* Passing receiverId to CallScreen for initiating invitations */}
            <TouchableOpacity onPress={() => {
               const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
               console.log(`[FRONTEND] Starting Video Call with Receiver ID: ${receiverId}`);
               if (!receiverId) Alert.alert("Error", "Could not identify the user to call.");
-              else navigation.navigate('CallScreen', { chatId, type: 'video', name, receiverId });
+              else navigation.navigate('CallScreen', { chatId, type: 'video', name, receiverId, isIncoming: false });
            }}>
               <Video color={THEME.colors.primary} size={24} style={{ marginRight: 20 }} />
            </TouchableOpacity>
@@ -438,7 +448,7 @@ const ChatScreen = ({ route, navigation }) => {
               const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
               console.log(`[FRONTEND] Starting Audio Call with Receiver ID: ${receiverId}`);
               if (!receiverId) Alert.alert("Error", "Could not identify the user to call.");
-              else navigation.navigate('CallScreen', { chatId, type: 'audio', name, receiverId });
+               else navigation.navigate('CallScreen', { chatId, type: 'audio', name, receiverId, isIncoming: false });
            }}>
               <Phone color={THEME.colors.secondary} size={24} style={{ marginRight: 10 }} />
            </TouchableOpacity>
@@ -499,25 +509,37 @@ const styles = StyleSheet.create({
   header: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    padding: 20, 
-    borderBottomWidth: 1, 
-    borderColor: THEME.colors.border, 
-    backgroundColor: THEME.colors.glass, 
-    paddingTop: Platform.OS === 'android' ? 60 : 50,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: THEME.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  backContainer: {
+    paddingRight: 10,
+    justifyContent: 'center',
+  },
+  headerProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    marginRight: 10,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.primary,
   },
   backButton: { 
     color: THEME.colors.primary, 
     fontSize: 24, 
-    marginRight: 15,
-    fontWeight: '600',
+    fontWeight: 'bold' 
   },
   headerInfo: { 
-    flex: 1 
+    flex: 1,
+    justifyContent: 'center'
   },
   headerActions: { 
     flexDirection: 'row', 

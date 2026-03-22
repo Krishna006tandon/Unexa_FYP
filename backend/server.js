@@ -19,8 +19,9 @@ const server = http.createServer(app);
 const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
-    origin: '*', // For development. Update in production.
-    methods: ['GET', 'POST']
+    origin: ["http://localhost:8081", "https://unexa-fyp.onrender.com"], // Match frontend domains
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -33,11 +34,25 @@ require('./routes/webrtc').setupWebRTCSignaling(io);
 // Middlewares
 app.use(express.json());
 app.use(cors({
-  origin: ['http://localhost:8081', 'https://unexa-fyp.onrender.com'],
+  origin: (origin, callback) => {
+    const allowed = ["http://localhost:8081", "https://unexa-fyp.onrender.com"];
+    if (!origin || allowed.indexOf(origin) !== -1 || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('❌ [CORS] Deployment error: Origin not allowed'));
+    }
+  },
   credentials: true
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Expose uploads folder
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Required for WebRTC/Agora script execution
+}));
+
+// Critical Environment Check
+console.log('🚀 [DEPLOY-READY] Checking Infrastructure...');
+console.log('   AGORA_APP_ID:', process.env.AGORA_APP_ID ? '✅ READY' : '❌ MISSING (Check Render Envs)');
+console.log('   MONGO_URI:', process.env.MONGO_URI ? '✅ READY' : '⚠️ USING FALLBACK');
 
 // Rate Limiting for overall API
 const limiter = rateLimit({

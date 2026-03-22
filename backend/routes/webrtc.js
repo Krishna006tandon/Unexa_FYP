@@ -20,12 +20,13 @@ const setupWebRTCSignaling = (io) => {
     // WEBRTC CALL SIGNALING (Incoming vs Calling)
     socket.on('call-invite', (data) => {
       console.log(`[BACKEND] 📡 Received call-invite:`, data);
-      const { callerId, receiverId, callerName, chatId, type } = data;
+      const { callerId, receiverId, callerName, callerAvatar, chatId, type } = data;
       console.log(`🔔 Sending Call Invite from ${callerName} to User ${receiverId}`);
       // Send to the specific profile room (ProfileContext socket uses profile_${userId})
       socket.to(`profile_${receiverId}`).emit('call-invite', {
         callerId,
         callerName,
+        callerAvatar, // NEW: Include avatar URL
         chatId,
         type
       });

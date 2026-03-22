@@ -24,9 +24,16 @@ export const CallProvider = ({ children }) => {
 
     // Listen for Incoming Call Signals
     socket.on('call-invite', (data) => {
+      // GUARD: If already on CallScreen, don't show another invitation
+      const currentRoute = NavigationService.getCurrentRouteName?.();
+      if (currentRoute === 'CallScreen') {
+        console.log('📱 [CallContext] Already in a call, ignoring invite');
+        return;
+      }
+
       console.log(' [FRONTEND] 🚨 INCOMING SIGNAL RECEIVED:', data);
       setIncomingCall(data);
-      startRinging();
+      startRinging(data.type);
     });
 
     socket.on('call-cancelled', () => {
@@ -73,6 +80,7 @@ export const CallProvider = ({ children }) => {
 
   const acceptCall = () => {
     const callData = incomingCall;
+    console.log('✅ [CallContext] Accepting call from:', callData.callerName);
     stopRinging();
     setIncomingCall(null);
     
@@ -82,7 +90,8 @@ export const CallProvider = ({ children }) => {
       type: callData.type,
       name: callData.callerName,
       isIncoming: true,
-      receiverId: incomingCall.callerId
+      receiverId: callData.callerId,
+      avatar: callData.callerAvatar // PASS AVATAR
     });
   };
 
@@ -96,7 +105,7 @@ export const CallProvider = ({ children }) => {
   };
 
   return (
-    <CallContext.Provider value={{ setIncomingCall, incomingCall, stopRinging }}>
+    <CallContext.Provider value={{ setIncomingCall, incomingCall, stopRinging, acceptCall, declineCall }}>
       {children}
       
       {/* GLOBAL INCOMING CALL MODAL */}
@@ -107,8 +116,14 @@ export const CallProvider = ({ children }) => {
           <View style={styles.content}>
             <View style={styles.callerInfo}>
               <View style={styles.avatarGlow}>
-                <View style={[styles.avatarCircle, { backgroundColor: '#7B61FF' }]}>
-                  <Text style={styles.avatarInitial}>{incomingCall?.callerName?.[0] || 'U'}</Text>
+                <View style={styles.avatarCircle}>
+                   {incomingCall?.callerAvatar ? (
+                     <Image source={{ uri: incomingCall.callerAvatar }} style={styles.avatarImg} />
+                   ) : (
+                     <View style={[styles.avatarCircle, { backgroundColor: '#7B61FF', width: '100%', height: '100%' }]}>
+                        <Text style={styles.avatarInitial}>{incomingCall?.callerName?.[0] || 'U'}</Text>
+                     </View>
+                   )}
                 </View>
               </View>
               <Text style={styles.callerName}>{incomingCall?.callerName || 'Unknown Caller'}</Text>
@@ -138,7 +153,8 @@ const styles = StyleSheet.create({
   content: { flex: 1, width: '100%', justifyContent: 'space-between', paddingVertical: 100, alignItems: 'center' },
   callerInfo: { alignItems: 'center' },
   avatarGlow: { width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(123, 97, 255, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  avatarCircle: { width: 110, height: 110, borderRadius: 55, justifyContent: 'center', alignItems: 'center' },
+  avatarCircle: { width: 110, height: 110, borderRadius: 55, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarImg: { width: 110, height: 110, borderRadius: 55 },
   avatarInitial: { color: '#FFF', fontSize: 48, fontWeight: 'bold' },
   callerName: { color: '#FFF', fontSize: 32, fontWeight: 'bold', marginBottom: 10 },
   callTypeText: { color: '#3DDCFF', fontSize: 18, fontWeight: '600' },

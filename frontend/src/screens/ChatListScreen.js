@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import { Plus } from 'lucide-react-native';
 import axios from 'axios';
-import { API_URL } from './AuthScreen';
+import ENVIRONMENT from '../config/environment';
 
 const THEME = {
   colors: {
@@ -35,7 +35,8 @@ const ChatListScreen = ({ navigation }) => {
   const fetchChats = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data } = await axios.get(`${API_URL}/api/chat`, config);
+      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/chat`, config);
+      console.log('📡 [FRONTEND-CHATLIST] Received Data:', JSON.stringify(data, null, 2));
       setChats(data);
     } catch (e) {
       console.log("Error fetching chats", e);
@@ -67,10 +68,16 @@ const ChatListScreen = ({ navigation }) => {
     return (
       <TouchableOpacity 
         style={styles.chatCard} 
-        onPress={() => navigation.navigate('ChatScreen', { chatId: item._id, name: name, receiverId: otherUser._id })}
+        onPress={() => navigation.navigate('ChatScreen', { 
+          chatId: item._id, 
+          name: name, 
+          receiverId: otherUser._id,
+          avatar: avatarInfo.uri 
+        })}
       >
         <LinearGradient colors={[THEME.colors.primary, THEME.colors.secondary]} style={styles.avatarGradient}>
             <Image source={avatarInfo} style={styles.avatar} />
+            <View style={[styles.statusBadge, { backgroundColor: otherUser.isOnline ? '#00FF00' : '#808080' }]} />
         </LinearGradient>
 
         <View style={styles.chatDetails}>
@@ -115,8 +122,9 @@ const styles = StyleSheet.create({
   header: { color: THEME.colors.text, fontSize: 28, fontWeight: 'bold' },
   fab: { backgroundColor: THEME.colors.primary, padding: 10, borderRadius: 20 },
   chatCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderColor: THEME.colors.glassBorder },
-  avatarGradient: { width: 54, height: 54, borderRadius: 27, padding: 2, marginRight: 15 },
+  avatarGradient: { width: 54, height: 54, borderRadius: 27, padding: 2, marginRight: 15, position: 'relative' },
   avatar: { width: '100%', height: '100%', borderRadius: 27, backgroundColor: '#1E1E1E' },
+  statusBadge: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: THEME.colors.background },
   chatDetails: { flex: 1, justifyContent: 'center' },
   chatName: { color: THEME.colors.text, fontSize: 16, fontWeight: '600', marginBottom: 5 },
   lastMessage: { color: THEME.colors.textDim, fontSize: 14 },

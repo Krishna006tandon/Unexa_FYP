@@ -25,7 +25,17 @@ const config = {
       backgroundColor: '#0A0A0A',
       foregroundImage: './assets/adaptive-icon.png'
     },
-    package: 'com.unexa.superapp'
+    package: 'com.unexa.superapp',
+    permissions: [
+      "RECORD_AUDIO",
+      "CAMERA",
+      "MODIFY_AUDIO_SETTINGS",
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE",
+      "VIBRATE",
+      "ACCESS_NETWORK_STATE",
+      "INTERNET"
+    ]
   },
   web: {
     favicon: './assets/favicon.png',
