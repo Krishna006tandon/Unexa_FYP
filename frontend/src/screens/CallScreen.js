@@ -229,16 +229,6 @@ const CallScreen = ({ route, navigation }) => {
               };
             })();
 
-            // Polyfill for localStorage in some WebView restricted environments
-            if (!window.localStorage) {
-                window.localStorage = {
-                    getItem: () => null,
-                    setItem: () => null,
-                    removeItem: () => null,
-                    clear: () => null
-                };
-            }
-
             const APP_ID = "${appId}";
             const TOKEN = "${agoraToken}";
             const CHANNEL = "${chatId}";
@@ -247,26 +237,29 @@ const CallScreen = ({ route, navigation }) => {
 
             const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
             let localTracks = { videoTrack: null, audioTrack: null };
+            let remoteUsers = {}; // TRACK USERS FOR AUDIO RESUME
 
-            // Listen for Native Control Messages (Robust Bridge for both iOS/Android)
+            // GLOBAL CLICK LISTENER TO RESUME BLOCKED AUDIO (IMPORTANT FOR MOBILE)
+            document.body.addEventListener('click', () => {
+                console.log("[AGORA-WEBVIEW] Screen tapped - Attempting audio resume...");
+                Object.values(remoteUsers).forEach(user => {
+                    if (user.audioTrack && !user.audioTrack.isPlaying) {
+                        user.audioTrack.play();
+                    }
+                });
+            });
+
+            // Listen for Native Control Messages
             const handleNativeMessage = async (event) => {
                 try {
-                    console.log("[AGORA-WEBVIEW] Received Native Msg:", event.data);
                     const data = JSON.parse(typeof event.data === 'string' ? event.data : JSON.stringify(event.data));
-                    
-                    if (data.type === 'toggle-audio') {
-                        if (localTracks.audioTrack) {
-                            await localTracks.audioTrack.setEnabled(!data.isMuted);
-                            console.log("[AGORA-WEBVIEW] Audio enabled state set to:", !data.isMuted);
-                        }
+                    if (data.type === 'toggle-audio' && localTracks.audioTrack) {
+                        await localTracks.audioTrack.setEnabled(!data.isMuted);
                     }
-                    if (data.type === 'toggle-video') {
-                        if (localTracks.videoTrack) {
-                            await localTracks.videoTrack.setEnabled(!data.isVideoOff);
-                            console.log("[AGORA-WEBVIEW] Video enabled state set to:", !data.isVideoOff);
-                        }
+                    if (data.type === 'toggle-video' && localTracks.videoTrack) {
+                        await localTracks.videoTrack.setEnabled(!data.isVideoOff);
                     }
-                } catch (e) { console.error("[AGORA-WEBVIEW] Message Parsing Error:", e); }
+                } catch (e) { console.error("[MSG ERROR]", e); }
             };
 
             window.addEventListener('message', handleNativeMessage);
@@ -274,81 +267,56 @@ const CallScreen = ({ route, navigation }) => {
 
             async function join() {
                 try {
-                    console.log("[AGORA] Initializing tracks for type: ${type}");
-                    await new Promise(r => setTimeout(r, 1000));
+                    console.log("[AGORA] Initializing join...");
                     
                     let tracksToPublish = [];
                     if ("${type}" === "video") {
                         try {
-                            console.log("[AGORA] Creating Mic + Cam tracks...");
                             [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
-                            await localTracks.audioTrack.setEnabled(true);
-                            await localTracks.videoTrack.setEnabled(true);
                             await localTracks.videoTrack.play("local-video-container");
                             tracksToPublish = [localTracks.audioTrack, localTracks.videoTrack];
-                            console.log("[AGORA] Video tracks created successfully");
                         } catch (e) {
-                            console.warn("[AGORA] Camera access failed, falling back to Audio Only", e);
                             localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                            await localTracks.audioTrack.setEnabled(true);
                             tracksToPublish = [localTracks.audioTrack];
                         }
                     } else {
-                        console.log("[AGORA] Creating Mic only track...");
                         localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-                        await localTracks.audioTrack.setEnabled(true);
                         tracksToPublish = [localTracks.audioTrack];
-                        console.log("[AGORA] Audio track created successfully");
                     }
                     
-                    console.log("[AGORA] Joining channel: ${chatId} as UID: ${uid}");
                     await client.join("${appId}", "${chatId}", "${agoraToken}", ${uid});
-                    
-                    console.log("[AGORA] Publishing tracks...");
                     await client.publish(tracksToPublish);
                     
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'joined' }));
 
                     client.on("user-published", async (user, mediaType) => {
-                        console.log("📡 [AGORA-WEBVIEW] New publication: " + user.uid + " - " + mediaType);
+                        console.log("📡 [STREAM] New publication: " + user.uid + " - " + mediaType);
                         try {
                             await client.subscribe(user, mediaType);
-                            console.log("✅ [AGORA-WEBVIEW] Subscribed to " + user.uid);
+                            remoteUsers[user.uid] = user; 
                             
-                            if (mediaType === "video") {
-                                user.videoTrack.play("remote-video-container");
-                            }
+                            if (mediaType === "video") user.videoTrack.play("remote-video-container");
                             if (mediaType === "audio") {
+                                user.audioTrack.setVolume(100);
                                 try {
                                     await user.audioTrack.play();
-                                    console.log("🔊 [AGORA-WEBVIEW] Audio success for " + user.uid);
                                 } catch (playError) {
-                                    console.warn("⏳ [AGORA-WEBVIEW] Autoplay blocked for " + user.uid + " - User interaction needed");
-                                    const resume = () => {
-                                        user.audioTrack.play();
-                                        document.removeEventListener('touchstart', resume);
-                                    };
-                                    document.addEventListener('touchstart', resume);
+                                    console.warn("⏳ [PLAY BLOCKED] " + user.uid);
+                                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'autoplay-failed' }));
                                 }
                             }
-                        } catch (e) { console.error("❌ [AGORA-WEBVIEW] Sub/Play Error:", e); }
+                        } catch (e) { console.error("[SUB ERROR]", e); }
                     });
 
-                    client.on("user-unpublished", (user) => {
-                        console.log("[AGORA] User unpublished:", user.uid);
+                    client.on("user-left", (user) => {
+                        console.log("[AGORA] User left:", user.uid);
+                        delete remoteUsers[user.uid];
                     });
 
                 } catch (e) { 
-                    console.error("[AGORA ERROR]", e);
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', msg: e.message || String(e) })); 
                 }
             }
-
-            // Handle Autoplay restrictions
-            AgoraRTC.onAutoplayFailed = () => {
-                console.warn("[AGORA] Autoplay blocked - user interaction required");
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'autoplay-failed' }));
-            };
         </script>
     </body>
     </html>

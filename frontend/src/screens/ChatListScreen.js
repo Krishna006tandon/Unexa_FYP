@@ -117,17 +117,92 @@ const ChatListScreen = ({ navigation }) => {
 export default ChatListScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.colors.background },
-  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 60, paddingHorizontal: 20 },
-  header: { color: THEME.colors.text, fontSize: 28, fontWeight: 'bold' },
-  fab: { backgroundColor: THEME.colors.primary, padding: 10, borderRadius: 20 },
-  chatCard: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderColor: THEME.colors.glassBorder },
-  avatarGradient: { width: 54, height: 54, borderRadius: 27, padding: 2, marginRight: 15, position: 'relative' },
-  avatar: { width: '100%', height: '100%', borderRadius: 27, backgroundColor: '#1E1E1E' },
-  statusBadge: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: THEME.colors.background },
-  chatDetails: { flex: 1, justifyContent: 'center' },
-  chatName: { color: THEME.colors.text, fontSize: 16, fontWeight: '600', marginBottom: 5 },
-  lastMessage: { color: THEME.colors.textDim, fontSize: 14 },
-  metaData: { alignItems: 'flex-end', justifyContent: 'center' },
-  timestamp: { color: THEME.colors.textDim, fontSize: 12, marginBottom: 5 }
+  container: { 
+    flex: 1, 
+    backgroundColor: THEME.colors.background 
+  },
+  headerContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginTop: 65, 
+    paddingHorizontal: 25,
+    marginBottom: 10
+  },
+  header: { 
+    color: THEME.colors.text, 
+    fontSize: 32, 
+    fontWeight: 'bold',
+    letterSpacing: 0.5
+  },
+  fab: { 
+    backgroundColor: THEME.colors.primary, 
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: THEME.colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5
+  },
+  chatCard: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 18, 
+    borderBottomWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  avatarGradient: { 
+    width: 60, 
+    height: 60, 
+    borderRadius: 30, 
+    padding: 2, 
+    marginRight: 16, 
+    position: 'relative' 
+  },
+  avatar: { 
+    width: '100%', 
+    height: '100%', 
+    borderRadius: 28, 
+    backgroundColor: '#1E1E1E' 
+  },
+  statusBadge: { 
+    position: 'absolute', 
+    bottom: 2, 
+    right: 2, 
+    width: 14, 
+    height: 14, 
+    borderRadius: 7, 
+    borderWidth: 2, 
+    borderColor: THEME.colors.background 
+  },
+  chatDetails: { 
+    flex: 1, 
+    justifyContent: 'center' 
+  },
+  chatName: { 
+    color: THEME.colors.text, 
+    fontSize: 18, 
+    fontWeight: '700', 
+    marginBottom: 4 
+  },
+  lastMessage: { 
+    color: THEME.colors.textDim, 
+    fontSize: 14,
+    lineHeight: 18
+  },
+  metaData: { 
+    alignItems: 'flex-end', 
+    justifyContent: 'flex-start',
+    height: '100%',
+    paddingTop: 5,
+    paddingLeft: 10
+  },
+  timestamp: { 
+    color: THEME.colors.textDim, 
+    fontSize: 12, 
+    fontWeight: '500'
+  }
 });

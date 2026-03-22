@@ -234,6 +234,7 @@ const StoriesListScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {renderHeader()}
       <FlatList
         data={storiesData}
         renderItem={renderStoryItem}
@@ -242,7 +243,6 @@ const StoriesListScreen = ({ navigation }) => {
         showsHorizontalScrollIndicator={false}
         ListHeaderComponent={renderAddStoryItem}
         contentContainerStyle={styles.storiesList}
-        ListHeaderComponentStyle={styles.listHeader}
       />
       
       {uploading && (
@@ -268,50 +268,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingHorizontal: 25,
+    paddingTop: 65,
+    paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.glassBorder,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   headerTitle: {
-    color: THEME.colors.text,
-    fontSize: 24,
+    color: '#FFF',
+    fontSize: 28,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   storiesList: {
-    paddingHorizontal: 20,
-  },
-  listHeader: {
-    marginRight: 15,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
   },
   storyItem: {
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 20,
   },
   storyRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     padding: 3,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: THEME.colors.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 8,
   },
   addStoryRing: {
-    backgroundColor: THEME.colors.glass,
-    borderWidth: 2,
-    borderColor: THEME.colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   storyAvatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 32,
+    borderRadius: 34,
     backgroundColor: '#1E1E1E',
   },
   storyUsername: {
-    color: THEME.colors.text,
-    fontSize: 12,
-    marginTop: 8,
-    maxWidth: 70,
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 10,
+    maxWidth: 72,
     textAlign: 'center',
   },
   uploadingOverlay: {
@@ -320,14 +325,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1000,
   },
   uploadingText: {
-    color: THEME.colors.text,
-    marginTop: 10,
+    color: '#FFF',
+    marginTop: 12,
     fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -1,23 +1,20 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // Production cloud backend URL
 export const API_URL = "https://unexa-fyp.onrender.com"; // Production backend
-// export const API_URL = "http://10.0.2.2:5000"; //android emulator
-// export const API_URL = "http://localhost:5000"; //local testing
-// export const API_URL = "http://10.168.102.180:5001"; //mobile
 
 const THEME = {
   colors: {
-    background: '#0A0A0A',
+    background: '#000000',
     primary: '#7B61FF',
     secondary: '#3DDCFF',
     text: '#FFFFFF',
     textDim: '#A0A0A0',
     glass: 'rgba(255, 255, 255, 0.05)',
+    glassBorder: 'rgba(255, 255, 255, 0.1)',
   }
 };
 
@@ -42,7 +39,6 @@ const AuthScreen = () => {
 
       const { data } = await axios.post(`${API_URL}${endpoint}`, payload);
 
-      Alert.alert("Success", "Authenticated Successfully");
       await login(data); // Move to main app automatically
       
       // Auto-create profile after successful login
@@ -54,15 +50,9 @@ const AuthScreen = () => {
           bio: 'Welcome to UNEXA! 🎉',
         };
         
-        const profileResponse = await axios.post(`${API_URL}/api/profile`, profileData, {
+        await axios.post(`${API_URL}/api/profile`, profileData, {
           headers: { Authorization: `Bearer ${data.token}` }
         });
-        
-        if (profileResponse.status === 200) {
-          console.log('✅ Auto-profile created successfully');
-        } else {
-          console.log('❌ Auto-profile creation failed');
-        }
       } catch (profileError) {
         console.log('❌ Auto-profile error:', profileError.message);
       }
@@ -73,103 +63,144 @@ const AuthScreen = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>UNEXA</Text>
-      <Text style={styles.subtitle}>{isLogin ? "Welcome Back" : "Create Account"}</Text>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerArea}>
+            <Image 
+                source={require('../../assets/icon.png')} 
+                style={styles.logo}
+                resizeMode="contain"
+            />
+            <Text style={styles.title}>UNEXA</Text>
+            <Text style={styles.subtitle}>{isLogin ? "Welcome Back" : "Create Account"}</Text>
+        </View>
 
-      <View style={styles.formContainer}>
-        {!isLogin && (
-          <TextInput
-            style={styles.input}
-            placeholder="Username"
-            placeholderTextColor={THEME.colors.textDim}
-            value={username}
-            onChangeText={setUsername}
-          />
-        )}
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor={THEME.colors.textDim}
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          placeholderTextColor={THEME.colors.textDim}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        <View style={styles.formContainer}>
+            {!isLogin && (
+            <TextInput
+                style={styles.input}
+                placeholder="Username"
+                placeholderTextColor={THEME.colors.textDim}
+                value={username}
+                onChangeText={setUsername}
+            />
+            )}
+            <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={THEME.colors.textDim}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+            />
+            <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor={THEME.colors.textDim}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+            />
 
-        <TouchableOpacity onPress={handleSubmit} disabled={isLoading}>
-          <LinearGradient colors={[THEME.colors.primary, THEME.colors.secondary]} style={styles.button}>
-            {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>{isLogin ? "Login" : "Sign Up"}</Text>}
-          </LinearGradient>
-        </TouchableOpacity>
+            <TouchableOpacity onPress={handleSubmit} disabled={isLoading} activeOpacity={0.8}>
+            <LinearGradient colors={[THEME.colors.primary, THEME.colors.secondary]} style={styles.button}>
+                {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>{isLogin ? "Login" : "Sign Up"}</Text>}
+            </LinearGradient>
+            </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={{ marginTop: 20 }}>
-          <Text style={styles.switchText}>
-            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+            <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={{ marginTop: 25 }}>
+            <Text style={styles.switchText}>
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+                <Text style={{fontWeight: 'bold', color: THEME.colors.secondary}}>
+                    {isLogin ? "Sign Up" : "Login"}
+                </Text>
+            </Text>
+            </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
-
-export default AuthScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: THEME.colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 25,
+    paddingVertical: 40,
+  },
+  headerArea: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 15,
   },
   title: {
     color: '#FFF',
-    fontSize: 42,
+    fontSize: 40,
     fontWeight: 'bold',
     textAlign: 'center',
-    letterSpacing: 2,
-    marginBottom: 5,
+    letterSpacing: 3,
   },
   subtitle: {
     color: THEME.colors.textDim,
-    fontSize: 18,
+    fontSize: 16,
     textAlign: 'center',
-    marginBottom: 40,
+    marginTop: 5,
   },
   formContainer: {
     backgroundColor: THEME.colors.glass,
-    padding: 20,
-    borderRadius: 20,
+    padding: 25,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: THEME.colors.glassBorder,
+    shadowColor: THEME.colors.primary,
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 5,
   },
   input: {
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     color: '#FFF',
-    padding: 15,
-    borderRadius: 10,
+    padding: 16,
+    borderRadius: 15,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    fontSize: 16,
   },
   button: {
-    padding: 15,
-    borderRadius: 10,
+    padding: 18,
+    borderRadius: 15,
     alignItems: 'center',
     marginTop: 10,
+    shadowColor: THEME.colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
   },
   buttonText: {
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: 1,
   },
   switchText: {
-    color: THEME.colors.secondary,
+    color: THEME.colors.textDim,
     textAlign: 'center',
     fontSize: 14,
   }
 });
+
+export default AuthScreen;

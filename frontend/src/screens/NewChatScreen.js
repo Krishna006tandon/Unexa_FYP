@@ -78,13 +78,13 @@ const NewChatScreen = ({ navigation }) => {
          data={results}
          keyExtractor={item => item._id}
          renderItem={({item}) => (
-            <TouchableOpacity style={styles.userCard} onPress={() => accessChat(item._id)}>
-                 <Image source={{uri: item.profilePhoto}} style={styles.avatar} />
-                 <View>
-                    <Text style={styles.name}>{item.username}</Text>
-                    <Text style={styles.email}>{item.email}</Text>
-                 </View>
-            </TouchableOpacity>
+             <TouchableOpacity style={styles.userCard} onPress={() => accessChat(item._id)}>
+                  <Image source={{uri: item.profilePhoto}} style={styles.avatar} />
+                  <View style={styles.userInfo}>
+                     <Text style={styles.name}>{item.username}</Text>
+                     <Text style={styles.email}>{item.email}</Text>
+                  </View>
+             </TouchableOpacity>
          )}
        />
     </View>
@@ -94,13 +94,67 @@ const NewChatScreen = ({ navigation }) => {
 export default NewChatScreen;
 
 const styles = StyleSheet.create({
-   container: { flex: 1, backgroundColor: THEME.colors.background, paddingTop: 50 },
-   header: { flexDirection: 'row', alignItems: 'center', padding: 20 },
-   backButton: { color: THEME.colors.primary, fontSize: 24, marginRight: 15 },
-   title: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-   input: { backgroundColor: THEME.colors.glass, color: '#FFF', padding: 15, marginHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: THEME.colors.glassBorder },
-   userCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderColor: THEME.colors.glassBorder },
-   avatar: { width: 50, height: 50, borderRadius: 25, marginRight: 15 },
-   name: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-   email: { color: THEME.colors.textDim, fontSize: 14 }
+   container: { 
+     flex: 1, 
+     backgroundColor: THEME.colors.background, 
+     paddingTop: 65 
+   },
+   header: { 
+     flexDirection: 'row', 
+     alignItems: 'center', 
+     paddingHorizontal: 25, 
+     paddingBottom: 20 
+   },
+   backButton: { 
+     color: THEME.colors.primary, 
+     fontSize: 28, 
+     fontWeight: 'bold', 
+     marginRight: 15 
+   },
+   title: { 
+     color: '#FFF', 
+     fontSize: 24, 
+     fontWeight: 'bold',
+     letterSpacing: 0.5 
+   },
+   input: { 
+     backgroundColor: 'rgba(255,255,255,0.05)', 
+     color: '#FFF', 
+     padding: 18, 
+     marginHorizontal: 25, 
+     borderRadius: 15, 
+     borderWidth: 1, 
+     borderColor: 'rgba(255,255,255,0.08)',
+     fontSize: 16,
+     marginBottom: 15
+   },
+   userCard: { 
+     flexDirection: 'row', 
+     alignItems: 'center', 
+     paddingVertical: 18, 
+     paddingHorizontal: 25, 
+     borderBottomWidth: 1, 
+     borderColor: 'rgba(255,255,255,0.05)' 
+   },
+   avatar: { 
+     width: 54, 
+     height: 54, 
+     borderRadius: 27, 
+     marginRight: 15,
+     backgroundColor: '#1E1E1E' 
+   },
+   userInfo: {
+     flex: 1,
+     justifyContent: 'center'
+   },
+   name: { 
+     color: '#FFF', 
+     fontSize: 17, 
+     fontWeight: '700',
+     marginBottom: 2 
+   },
+   email: { 
+     color: THEME.colors.textDim, 
+     fontSize: 14 
+   }
 });

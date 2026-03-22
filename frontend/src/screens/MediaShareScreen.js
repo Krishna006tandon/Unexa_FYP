@@ -10,8 +10,10 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  FlatList
+  FlatList,
+  Dimensions
 } from 'react-native';
+
 import { AuthContext } from '../context/AuthContext';
 import ENVIRONMENT from '../config/environment';
 import axios from 'axios';
@@ -19,6 +21,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 const THEME = {
   colors: {
@@ -297,116 +301,121 @@ const MediaShareScreen = ({ navigation }) => {
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'shared-with-me' && styles.activeTab]}
-          onPress={() => setActiveTab('shared-with-me')}
-        >
-          <Text style={[styles.tabText, activeTab === 'shared-with-me' && styles.activeTabText]}>
-            📥 Received
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'my-shares' && styles.activeTab]}
-          onPress={() => setActiveTab('my-shares')}
-        >
-          <Text style={[styles.tabText, activeTab === 'my-shares' && styles.activeTabText]}>
-            📤 My Shares
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {activeTab === 'my-shares' && (
-        <View style={styles.shareSection}>
-          <TouchableOpacity style={styles.mediaPicker} onPress={pickMedia}>
-            {selectedMedia ? (
-              <Image 
-                source={{ uri: selectedMedia.uri }} 
-                style={styles.selectedMedia}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.mediaPickerPlaceholder}>
-                <Ionicons name="camera" size={48} color={THEME.colors.primary} />
-                <Text style={styles.mediaPickerText}>📸 Tap to select photo/video</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TextInput
-            style={styles.captionInput}
-            placeholder="✍️ What's on your mind?"
-            placeholderTextColor={THEME.colors.textDim}
-            value={caption}
-            onChangeText={setCaption}
-            multiline
-            maxLength={500}
-          />
-
-          {/* Quick Share Buttons */}
-          <View style={styles.quickShareSection}>
-            <Text style={styles.quickShareTitle}>🔥 Quick Share:</Text>
-            <View style={styles.quickShareButtons}>
-              {friends.slice(0, 4).map(friend => (
-                <TouchableOpacity 
-                  key={friend._id}
-                  style={[
-                    styles.quickShareButton,
-                    selectedFriends.includes(friend._id) && styles.quickShareButtonSelected
-                  ]}
-                  onPress={() => toggleFriendSelection(friend._id)}
-                >
-                  <Image 
-                    source={{ uri: friend.profilePhoto }} 
-                    style={styles.quickShareAvatar}
-                  />
-                  <Text style={styles.quickShareName}>{friend.username}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity 
-              style={styles.selectAllButton}
-              onPress={() => {
-                if (selectedFriends.length === friends.length) {
-                  setSelectedFriends([]);
-                } else {
-                  setSelectedFriends(friends.map(f => f._id));
-                }
-              }}
-            >
-              <Text style={styles.selectAllText}>
-                {selectedFriends.length === friends.length ? '🚫 Deselect All' : '✅ Select All'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.tabContainer}>
           <TouchableOpacity 
-            style={[styles.shareButton, selectedFriends.length > 0 && styles.shareButtonActive]}
-            onPress={shareMedia}
-            disabled={isLoading || !selectedMedia || selectedFriends.length === 0}
+            style={[styles.tab, activeTab === 'shared-with-me' && styles.activeTab]}
+            onPress={() => setActiveTab('shared-with-me')}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <LinearGradient 
-                colors={selectedFriends.length > 0 ? [THEME.colors.primary, THEME.colors.secondary] : ['#333', '#555']}
-                style={styles.shareButtonGradient}
-              >
-                <Text style={styles.shareButtonText}>
-                  Share with {selectedFriends.length} friends
-                </Text>
-              </LinearGradient>
-            )}
+            <Text style={[styles.tabText, activeTab === 'shared-with-me' && styles.activeTabText]}>
+              📥 Received
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'my-shares' && styles.activeTab]}
+            onPress={() => setActiveTab('my-shares')}
+          >
+            <Text style={[styles.tabText, activeTab === 'my-shares' && styles.activeTabText]}>
+              📤 My Shares
+            </Text>
           </TouchableOpacity>
         </View>
-      )}
 
-      <ScrollView style={styles.mediaList}>
-        {sharedMedia.map(item => (
-          <View key={item._id}>
-            {renderMediaItem({ item })}
+        {activeTab === 'my-shares' && (
+          <View style={styles.shareSection}>
+            <TouchableOpacity style={styles.mediaPicker} onPress={pickMedia}>
+              {selectedMedia ? (
+                <Image 
+                  source={{ uri: selectedMedia.uri }} 
+                  style={styles.selectedMedia}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.mediaPickerPlaceholder}>
+                  <Ionicons name="camera" size={48} color={THEME.colors.primary} />
+                  <Text style={styles.mediaPickerText}>📸 Tap to select photo/video</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TextInput
+              style={styles.captionInput}
+              placeholder="✍️ What's on your mind?"
+              placeholderTextColor={THEME.colors.textDim}
+              value={caption}
+              onChangeText={setCaption}
+              multiline
+              maxLength={500}
+            />
+
+            {/* Quick Share Buttons */}
+            <View style={styles.quickShareSection}>
+              <Text style={styles.quickShareTitle}>🔥 Quick Share:</Text>
+              <View style={styles.quickShareButtons}>
+                {friends.slice(0, 4).map(friend => (
+                  <TouchableOpacity 
+                    key={friend._id}
+                    style={[
+                      styles.quickShareButton,
+                      selectedFriends.includes(friend._id) && styles.quickShareButtonSelected
+                    ]}
+                    onPress={() => toggleFriendSelection(friend._id)}
+                  >
+                    <Image 
+                      source={{ uri: friend.profilePhoto }} 
+                      style={styles.quickShareAvatar}
+                    />
+                    <Text style={styles.quickShareName}>{friend.username}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity 
+                style={styles.selectAllButton}
+                onPress={() => {
+                  if (selectedFriends.length === friends.length) {
+                    setSelectedFriends([]);
+                  } else {
+                    setSelectedFriends(friends.map(f => f._id));
+                  }
+                }}
+              >
+                <Text style={styles.selectAllText}>
+                  {selectedFriends.length === friends.length ? '🚫 Deselect All' : '✅ Select All'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.shareButton, selectedFriends.length > 0 && styles.shareButtonActive]}
+              onPress={shareMedia}
+              disabled={isLoading || !selectedMedia || selectedFriends.length === 0}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <LinearGradient 
+                  colors={selectedFriends.length > 0 ? [THEME.colors.primary, THEME.colors.secondary] : ['#333', '#555']}
+                  style={styles.shareButtonGradient}
+                >
+                  <Text style={styles.shareButtonText}>
+                    Share with {selectedFriends.length} friends
+                  </Text>
+                </LinearGradient>
+              )}
+            </TouchableOpacity>
           </View>
-        ))}
+        )}
+
+        <View style={styles.mediaList}>
+          {sharedMedia.map(item => (
+            <View key={item._id}>
+              {renderMediaItem({ item })}
+            </View>
+          ))}
+        </View>
+        
+        {/* Extra Bottom Padding */}
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <Modal
@@ -442,60 +451,69 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: THEME.colors.background,
   },
+  scrollContainer: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingTop: 50,
-    backgroundColor: THEME.colors.glass,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   headerTitle: {
-    color: THEME.colors.text,
-    fontSize: 22,
-    fontWeight: '700',
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   tabContainer: {
     flexDirection: 'row',
     marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 12,
-    padding: 4,
+    marginTop: 20,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 15,
+    padding: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   tab: {
     flex: 1,
     paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 12,
   },
   activeTab: {
     backgroundColor: THEME.colors.primary,
+    shadowColor: THEME.colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
   tabText: {
     color: THEME.colors.textDim,
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   activeTabText: {
     color: '#FFF',
-    fontWeight: '600',
   },
   shareSection: {
     padding: 20,
   },
   mediaPicker: {
-    height: 220,
-    borderRadius: 20,
+    height: 240,
+    borderRadius: 25,
     overflow: 'hidden',
     marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   selectedMedia: {
     width: '100%',
@@ -505,172 +523,212 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: THEME.colors.glass,
     borderStyle: 'dashed',
     borderWidth: 2,
-    borderColor: THEME.colors.primary,
-    borderRadius: 20,
+    borderColor: 'rgba(123, 97, 255, 0.3)',
+    borderRadius: 25,
   },
   mediaPickerText: {
     color: THEME.colors.textDim,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    marginTop: 10,
+    marginTop: 12,
+    textAlign: 'center',
   },
   captionInput: {
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 15,
-    padding: 15,
-    color: THEME.colors.text,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    padding: 18,
+    color: '#FFF',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
-    marginBottom: 20,
-    minHeight: 80,
+    borderColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 25,
+    minHeight: 100,
     textAlignVertical: 'top',
   },
   quickShareSection: {
-    marginBottom: 20,
+    marginBottom: 25,
   },
   quickShareTitle: {
-    color: THEME.colors.text,
+    color: '#FFF',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: 15,
   },
   quickShareButtons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 15,
   },
   quickShareButton: {
-    width: '48%',
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 12,
-    padding: 12,
+    width: (width - 52) / 2, // Perfect 2-column grid with gap
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 15,
+    padding: 15,
     alignItems: 'center',
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   quickShareButtonSelected: {
     backgroundColor: THEME.colors.primary,
     borderColor: THEME.colors.primary,
   },
   quickShareAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     marginBottom: 8,
+    backgroundColor: '#333',
   },
   quickShareName: {
-    color: THEME.colors.text,
-    fontSize: 12,
-    fontWeight: '500',
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   selectAllButton: {
     alignSelf: 'center',
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: 'rgba(123, 97, 255, 0.1)',
   },
   selectAllText: {
     color: THEME.colors.primary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   shareButton: {
-    borderRadius: 15,
+    borderRadius: 20,
     overflow: 'hidden',
-    elevation: 4,
-    shadowColor: THEME.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  shareButtonActive: {
-    elevation: 6,
-    shadowOpacity: 0.4,
+    marginTop: 10,
   },
   shareButtonGradient: {
     paddingVertical: 18,
-    paddingHorizontal: 30,
     alignItems: 'center',
-    borderRadius: 15,
   },
   shareButtonText: {
     color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   mediaList: {
     flex: 1,
     paddingHorizontal: 20,
   },
   mediaItem: {
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 20,
-    padding: 15,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 25,
+    padding: 18,
     marginBottom: 20,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
   },
-  mediaImage: {
-    width: '100%',
-    height: 250,
-    borderRadius: 15,
+  mediaHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 15,
+  },
+  senderInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  senderAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#333',
+  },
+  senderName: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  shareTime: {
+    color: THEME.colors.textDim,
+    fontSize: 12,
+  },
+  streakBadge: {
+    backgroundColor: 'rgba(255, 75, 75, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  streakText: {
+    color: '#FF4B4B',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  mediaContent: {
+    width: '100%',
+    height: 300,
+    borderRadius: 20,
+    backgroundColor: '#000',
+  },
+  videoContainer: {
+    width: '100%',
+    height: 300,
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   mediaCaption: {
-    color: THEME.colors.text,
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 15,
-    lineHeight: 22,
+    color: '#FFF',
+    fontSize: 15,
+    marginTop: 15,
+    lineHeight: 20,
   },
   mediaActions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 15,
+    marginTop: 15,
     borderTopWidth: 1,
-    borderTopColor: THEME.colors.border,
+    borderTopColor: 'rgba(255,255,255,0.05)',
   },
   actionButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   actionText: {
     color: THEME.colors.textDim,
-    fontSize: 12,
-    marginTop: 5,
+    fontSize: 13,
+    fontWeight: '600',
   },
   recipientsInfo: {
     marginTop: 15,
     paddingTop: 15,
     borderTopWidth: 1,
-    borderTopColor: THEME.colors.border,
+    borderTopColor: 'rgba(255,255,255,0.05)',
   },
   recipientsLabel: {
     color: THEME.colors.textDim,
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 10,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   recipientChip: {
     alignItems: 'center',
     marginRight: 15,
+    width: 50,
   },
   recipientAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    marginBottom: 5,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    marginBottom: 4,
+    backgroundColor: '#333',
   },
   recipientName: {
     color: THEME.colors.textDim,
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    textAlign: 'center',
   },
   modalContainer: {
     flex: 1,
@@ -680,21 +738,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingTop: 50,
-    backgroundColor: THEME.colors.glass,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   modalTitle: {
-    color: THEME.colors.text,
+    color: '#FFF',
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   modalDone: {
     color: THEME.colors.primary,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   friendsList: {
     flex: 1,
@@ -703,41 +761,38 @@ const styles = StyleSheet.create({
   friendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 12,
-    marginBottom: 10,
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 18,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  friendItemSelected: {
+    borderColor: THEME.colors.primary,
+    backgroundColor: 'rgba(123, 97, 255, 0.05)',
   },
   friendAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     marginRight: 15,
-  },
-  friendInfo: {
-    flex: 1,
+    backgroundColor: '#333',
   },
   friendName: {
-    color: THEME.colors.text,
+    flex: 1,
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  friendStatus: {
-    color: THEME.colors.textDim,
-    fontSize: 14,
-  },
-  friendCheckbox: {
+  checkbox: {
     width: 24,
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: THEME.colors.border,
+    borderColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  friendCheckboxSelected: {
-    backgroundColor: THEME.colors.primary,
-    borderColor: THEME.colors.primary,
   },
 });
 
