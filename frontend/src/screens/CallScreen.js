@@ -53,13 +53,15 @@ const CallScreen = ({ route, navigation }) => {
     init();
 
     if (socket && receiverId) {
-      socket.emit('call-invite', {
+      const payload = {
         callerId: user._id || user.id,
         receiverId,
         callerName: user.fullName || user.username || 'Friend',
         chatId,
         type
-      });
+      };
+      console.log(`[FRONTEND-MOBILE] 📡 Emitting call-invite with payload:`, payload);
+      socket.emit('call-invite', payload);
     }
 
     return () => {

@@ -30,7 +30,7 @@ const THEME = {
 };
 
 const ChatScreen = ({ route, navigation }) => {
-  const { chatId, name } = route.params;
+  const { chatId, name, receiverId: passedReceiverId } = route.params;
   const { user } = useContext(AuthContext);
   
   const [messages, setMessages] = useState([]);
@@ -426,15 +426,19 @@ const ChatScreen = ({ route, navigation }) => {
         <View style={styles.headerActions}>
            {/* Passing receiverId to CallScreen for initiating invitations */}
            <TouchableOpacity onPress={() => {
-              const receiverId = messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
-              navigation.navigate('CallScreen', { chatId, type: 'video', name, receiverId });
+              const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
+              console.log(`[FRONTEND] Starting Video Call with Receiver ID: ${receiverId}`);
+              if (!receiverId) Alert.alert("Error", "Could not identify the user to call.");
+              else navigation.navigate('CallScreen', { chatId, type: 'video', name, receiverId });
            }}>
               <Video color={THEME.colors.primary} size={24} style={{ marginRight: 20 }} />
            </TouchableOpacity>
            
            <TouchableOpacity onPress={() => {
-              const receiverId = messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
-              navigation.navigate('CallScreen', { chatId, type: 'audio', name, receiverId });
+              const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
+              console.log(`[FRONTEND] Starting Audio Call with Receiver ID: ${receiverId}`);
+              if (!receiverId) Alert.alert("Error", "Could not identify the user to call.");
+              else navigation.navigate('CallScreen', { chatId, type: 'audio', name, receiverId });
            }}>
               <Phone color={THEME.colors.secondary} size={24} style={{ marginRight: 10 }} />
            </TouchableOpacity>

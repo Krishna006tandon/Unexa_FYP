@@ -24,7 +24,7 @@ export const CallProvider = ({ children }) => {
 
     // Listen for Incoming Call Signals
     socket.on('call-invite', (data) => {
-      console.log('📡 INCOMING CALL SIGNAL:', data.callerName);
+      console.log(' [FRONTEND] 🚨 INCOMING SIGNAL RECEIVED:', data);
       setIncomingCall(data);
       startRinging();
     });

@@ -65,7 +65,7 @@ const ChatListScreen = ({ navigation }) => {
     return (
       <TouchableOpacity 
         style={styles.chatCard} 
-        onPress={() => navigation.navigate('ChatScreen', { chatId: item._id, name: name })}
+        onPress={() => navigation.navigate('ChatScreen', { chatId: item._id, name: name, receiverId: otherUser._id })}
       >
         <LinearGradient colors={[THEME.colors.primary, THEME.colors.secondary]} style={styles.avatarGradient}>
             <Image source={avatarInfo} style={styles.avatar} />

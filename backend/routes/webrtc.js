@@ -19,6 +19,7 @@ const setupWebRTCSignaling = (io) => {
 
     // WEBRTC CALL SIGNALING (Incoming vs Calling)
     socket.on('call-invite', (data) => {
+      console.log(`[BACKEND] 📡 Received call-invite:`, data);
       const { callerId, receiverId, callerName, chatId, type } = data;
       console.log(`🔔 Sending Call Invite from ${callerName} to User ${receiverId}`);
       // Send to the specific profile room (ProfileContext socket uses profile_${userId})
@@ -31,12 +32,14 @@ const setupWebRTCSignaling = (io) => {
     });
 
     socket.on('call-decline', (data) => {
+      console.log(`[BACKEND] 🚫 Received call-decline:`, data);
       const { callerId, chatId } = data;
       console.log(`🚫 Call Declined for Chat ${chatId}`);
       socket.to(`profile_${callerId}`).emit('call-cancelled', { chatId });
     });
 
     socket.on('cancel-call', (data) => {
+      console.log(`[BACKEND] 🚫 Received cancel-call:`, data);
       const { receiverId, chatId } = data;
       console.log(`🚫 Call Cancelled by caller for Chat ${chatId}`);
       socket.to(`profile_${receiverId}`).emit('call-cancelled', { chatId });
