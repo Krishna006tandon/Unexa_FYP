@@ -647,12 +647,16 @@ const followUser = async (req, res) => {
     if (!currentUser.following.includes(targetUserId)) {
       currentUser.following.push(targetUserId);
       await currentUser.save();
+      // Update Profile count
+      await Profile.findOneAndUpdate({ user: currentUserId }, { $inc: { followingCount: 1 } });
     }
 
     // Add to followers
     if (!targetUser.followers.includes(currentUserId)) {
       targetUser.followers.push(currentUserId);
       await targetUser.save();
+      // Update Profile count
+      await Profile.findOneAndUpdate({ user: targetUserId }, { $inc: { followersCount: 1 } });
     }
 
     res.json({ success: true, message: "Following user" });
@@ -675,12 +679,20 @@ const unfollowUser = async (req, res) => {
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     // Remove from following
-    currentUser.following = currentUser.following.filter(id => id.toString() !== targetUserId);
-    await currentUser.save();
+    if (currentUser.following.includes(targetUserId)) {
+      currentUser.following = currentUser.following.filter(id => id.toString() !== targetUserId);
+      await currentUser.save();
+      // Update Profile count
+      await Profile.findOneAndUpdate({ user: currentUserId }, { $inc: { followingCount: -1 } });
+    }
 
     // Remove from followers
-    targetUser.followers = targetUser.followers.filter(id => id.toString() !== currentUserId);
-    await targetUser.save();
+    if (targetUser.followers.includes(currentUserId)) {
+      targetUser.followers = targetUser.followers.filter(id => id.toString() !== currentUserId);
+      await targetUser.save();
+      // Update Profile count
+      await Profile.findOneAndUpdate({ user: targetUserId }, { $inc: { followersCount: -1 } });
+    }
 
     res.json({ success: true, message: "Unfollowed user" });
   } catch (error) {

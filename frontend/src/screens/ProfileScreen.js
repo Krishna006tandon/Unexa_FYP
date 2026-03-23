@@ -190,6 +190,15 @@ const ProfileScreen = ({ navigation, route }) => {
       await axios.post(url, {}, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
+      
+      // Update follow count in UI immediately
+      if (!isMyProfile) {
+        setOtherProfile(prev => ({
+          ...prev,
+          followersCount: isFollowing ? (prev.followersCount - 1) : (prev.followersCount + 1)
+        }));
+      }
+      
       setIsFollowing(!isFollowing);
     } catch (e) {
       console.log('❌ [FOLLOW] Error:', e.response?.status, e.message);
@@ -786,6 +795,11 @@ const ProfileScreen = ({ navigation, route }) => {
                  style={[styles.archiveItem, selectedArchiveStories.includes(item._id) && { borderColor: THEME.colors.primary, borderWidth: 2 }]}
                >
                  <Image source={{ uri: item.mediaUrl }} style={styles.archiveThumb} />
+                 {item.mediaType === 'video' && (
+                   <View style={styles.videoIndicator}>
+                      <Video color="#FFF" size={20} />
+                   </View>
+                 )}
                </TouchableOpacity>
              )}
            />
@@ -828,27 +842,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     paddingTop: 65,
     paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: THEME.colors.background,
   },
   headerTitle: {
     color: '#FFF',
     fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   logoutButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255, 75, 75, 0.1)',
-    borderRadius: 15,
+    backgroundColor: 'rgba(255, 75, 75, 0.08)',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 75, 75, 0.2)',
+    borderColor: 'rgba(255, 75, 75, 0.15)',
   },
   logoutText: {
     color: '#FF4B4B',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   content: {
     flex: 1,
@@ -857,8 +871,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   coverContainer: {
-    height: 200,
+    height: 220,
     position: 'relative',
+    overflow: 'hidden',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
   coverImage: {
     width: '100%',
@@ -870,50 +887,49 @@ const styles = StyleSheet.create({
   },
   cameraButton: {
     position: 'absolute',
-    bottom: 15,
-    right: 15,
-    backgroundColor: THEME.colors.primary,
-    borderRadius: 25,
-    padding: 12,
-    borderWidth: 2,
-    borderColor: THEME.colors.background,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    bottom: 20,
+    right: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backdropFilter: 'blur(10px)',
   },
   avatarContainer: {
     alignItems: 'center',
-    marginTop: -50,
+    marginTop: -60,
   },
   avatarWrapper: {
     position: 'relative',
+    padding: 4,
+    backgroundColor: THEME.colors.background,
+    borderRadius: 60,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    borderColor: THEME.colors.background,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   avatarPlaceholder: {
     backgroundColor: THEME.colors.glass,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: THEME.colors.glassBorder,
   },
   verifiedBadge: {
     position: 'absolute',
-    bottom: 5,
-    right: 5,
+    bottom: 8,
+    right: 8,
     backgroundColor: THEME.colors.primary,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: THEME.colors.background,
   },
   avatarCameraButton: {
     position: 'absolute',
@@ -927,79 +943,85 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: THEME.colors.background,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
   profileInfo: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 25,
     marginTop: 15,
   },
   nameRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
   },
   fullName: {
     color: THEME.colors.text,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  editButton: {
-    padding: 8,
+    fontSize: 26,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   username: {
-    color: THEME.colors.textDim,
-    fontSize: 16,
-    marginTop: 5,
+    color: THEME.colors.primary,
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 4,
   },
   bio: {
-    color: THEME.colors.text,
+    color: THEME.colors.textDim,
     fontSize: 14,
-    marginTop: 10,
-    lineHeight: 20,
+    marginTop: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    paddingHorizontal: 10,
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 20,
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    marginTop: 25,
+    marginBottom: 25,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
   },
   statItem: {
     alignItems: 'center',
+    flex: 1,
   },
   statNumber: {
     color: THEME.colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '800',
   },
   statLabel: {
     color: THEME.colors.textDim,
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 3,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingVertical: 15,
-    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    gap: 10,
+    borderColor: 'rgba(255,255,255,0.1)',
+    gap: 8,
   },
   actionButtonText: {
     color: '#FFF',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
   },
   qrShareButton: {
     flexDirection: 'row',
@@ -1432,6 +1454,12 @@ const styles = StyleSheet.create({
     top: 50,
     right: 20,
     padding: 10,
+  },
+  videoIndicator: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

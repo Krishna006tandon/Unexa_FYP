@@ -23,15 +23,24 @@ module.exports = (io) => {
 
     // Send generic new message
     socket.on('new_message', (newMessageReceived) => {
-      var chat = newMessageReceived.chat;
-      if (!chat || !chat.users) return;
+      const chat = newMessageReceived.chat;
+      if (!chat) return;
 
-      chat.users.forEach((user) => {
-        if (user._id == newMessageReceived.sender._id) return;
-        
-        socket.in(user._id).emit('message_received', newMessageReceived);
-        socket.in(chat._id).emit('message_received', newMessageReceived);
-      });
+      console.log(`✉️ [SOCKET] New message from ${newMessageReceived.sender.username} in room ${chat._id || chat}`);
+      
+      // Broadcast to the whole chat room
+      const roomId = chat._id || chat;
+      socket.in(roomId).emit('message_received', newMessageReceived);
+
+      // Also ensure delivery to individual user rooms if they aren't active in the chat room
+      if (chat.users) {
+        chat.users.forEach((user) => {
+          const targetUserId = user._id || user;
+          if (targetUserId.toString() === newMessageReceived.sender._id.toString()) return;
+          
+          socket.in(targetUserId.toString()).emit('message_received', newMessageReceived);
+        });
+      }
 
       // Handle Vanish Mode (Auto-delete)
       if (newMessageReceived.expiresAt) {

@@ -174,11 +174,10 @@ exports.getArchivedStories = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // We fetch stories that have expiresAt < new Date()
+    // We fetch ALL stories for the user to select for highlights
     const stories = await Story.find({
       user: userId,
-      isDeleted: false,
-      expiresAt: { $lt: new Date() }
+      isDeleted: false
     })
     .populate('user', 'username profilePhoto')
     .sort({ createdAt: -1 });
