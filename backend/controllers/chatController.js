@@ -89,7 +89,7 @@ exports.accessChat = async (req, res) => {
 exports.fetchChats = async (req, res) => {
   try {
     Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
-      .populate('users', 'username profilePhoto email') // Get basic user info
+      .populate('users', 'username profilePhoto email isOnline lastSeen') // Get basic user info + status
       .populate('groupAdmin', 'username profilePhoto email')
       .populate('latestMessage')
       .sort({ updatedAt: -1 })

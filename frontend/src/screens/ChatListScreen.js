@@ -49,22 +49,36 @@ const ChatListScreen = ({ navigation }) => {
 
     const handleNewMessage = (newMessage) => {
       setChats(prev => {
-        const updated = prev.map(chat => {
-          if (chat._id === newMessage.chat._id) {
-            return { ...chat, latestMessage: newMessage };
-          }
-          return chat;
-        });
-        // Sort so latest message chat comes on top
-        return updated.sort((a, b) =>
-          new Date(b.latestMessage?.createdAt || b.updatedAt) -
-          new Date(a.latestMessage?.createdAt || a.updatedAt)
-        );
+        const chatIdx = prev.findIndex(c => c._id === (newMessage.chat._id || newMessage.chat));
+        if (chatIdx === -1) return prev;
+        
+        const updatedChats = [...prev];
+        updatedChats[chatIdx] = { 
+          ...updatedChats[chatIdx], 
+          latestMessage: newMessage,
+          updatedAt: new Date().toISOString() 
+        };
+        
+        const chat = updatedChats.splice(chatIdx, 1)[0];
+        updatedChats.unshift(chat);
+        return updatedChats;
       });
     };
 
+    const handlePresence = (data) => {
+      setChats(prev => prev.map(chat => ({
+        ...chat,
+        users: chat.users.map(u => u._id === data.userId ? { ...u, isOnline: data.isOnline } : u)
+      })));
+    };
+
     socket.on('message_received', handleNewMessage);
-    return () => socket.off('message_received', handleNewMessage);
+    socket.on('user_online_status', handlePresence);
+
+    return () => {
+      socket.off('message_received', handleNewMessage);
+      socket.off('user_online_status', handlePresence);
+    };
   }, [socket]);
 
   const formatTime = (isoString) => {
@@ -124,13 +138,32 @@ const ChatListScreen = ({ navigation }) => {
          </TouchableOpacity>
       </View>
 
-      {loading ? <ActivityIndicator size="large" color={THEME.colors.primary} style={{marginTop: 50}} /> : (
+      {loading ? (
+        <View style={{ padding: 20 }}>
+          {[...Array(6)].map((_, i) => (
+            <View key={i} style={[styles.chatCard, { opacity: 0.3 }]}>
+              <View style={[styles.avatarGradient, { backgroundColor: '#222' }]} />
+              <View style={{ flex: 1, gap: 10 }}>
+                <View style={{ height: 15, width: '40%', backgroundColor: '#222', borderRadius: 4 }} />
+                <View style={{ height: 12, width: '70%', backgroundColor: '#222', borderRadius: 4 }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : (
         <FlatList
           data={chats}
           keyExtractor={item => item._id}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: 20 }}
-          ListEmptyComponent={<Text style={{color: THEME.colors.textDim, textAlign: 'center'}}>No chats yet. Click the + to start chatting!</Text>}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+               <Text style={styles.emptyText}>No conversations yet.</Text>
+               <Text style={styles.emptySubText}>Start a new chat to begin!</Text>
+            </View>
+          }
+          initialNumToRender={10}
+          maxToRenderPerBatch={5}
         />
       )}
     </View>
@@ -227,5 +260,21 @@ const styles = StyleSheet.create({
     color: THEME.colors.textDim, 
     fontSize: 12, 
     fontWeight: '500'
+  },
+  emptyContainer: {
+    padding: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  emptySubText: {
+    color: THEME.colors.textDim,
+    fontSize: 14,
+    textAlign: 'center',
   }
 });

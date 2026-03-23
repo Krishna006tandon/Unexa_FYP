@@ -60,8 +60,8 @@ exports.allMessages = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    // Sort ascending before sending back to match typical UI without inversion if not using flatlist inverted
-    res.json(messages.reverse());
+    // Return descending order (Newest first) for FlatList inverted performance
+    res.json(messages);
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

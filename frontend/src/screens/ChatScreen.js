@@ -48,6 +48,8 @@ const ChatScreen = ({ route, navigation }) => {
   const [vanishMode, setVanishMode] = useState(false);
   const [modalImage, setModalImage] = useState(null);
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
+  const [receiverStatus, setReceiverStatus] = useState("offline");
+  const [lastSeen, setLastSeen] = useState(null);
 
   const flatListRef = useRef(null);
   let recordingTimer = useRef(null);
@@ -144,11 +146,20 @@ const ChatScreen = ({ route, navigation }) => {
     socket.on("message_edited_update", handleMessageEdited);
 
     fetchMessages();
+    fetchReceiverStatus();
     
     // Also fetch messages when screen is focused to stay synced
     const unsubscribeFocus = navigation.addListener('focus', () => {
       fetchMessages();
+      fetchReceiverStatus();
       socket.emit("join_chat", chatId);
+    });
+
+    socket.on('user_online_status', (data) => {
+      if (data.userId === passedReceiverId) {
+        setReceiverStatus(data.isOnline ? "online" : "offline");
+        if (data.lastSeen) setLastSeen(data.lastSeen);
+      }
     });
 
     return () => {
@@ -157,6 +168,7 @@ const ChatScreen = ({ route, navigation }) => {
       socket.off('message_received', handleMessageReceived);
       socket.off('message_deleted_update', handleMessageDeleted);
       socket.off('message_edited_update', handleMessageEdited);
+      socket.off('user_online_status');
       socket.emit("leave_chat", chatId);
       unsubscribeFocus();
       if (recordingTimer.current) clearInterval(recordingTimer.current);
@@ -178,6 +190,17 @@ const ChatScreen = ({ route, navigation }) => {
       setMessages(data);
     } catch (e) { console.log(e); }
     setFetching(false);
+  };
+
+  const fetchReceiverStatus = async () => {
+    try {
+      if (!passedReceiverId) return;
+      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/profile/${passedReceiverId}`, { headers: { Authorization: `Bearer ${user.token}` }});
+      if (data.data && data.data.user) {
+        setReceiverStatus(data.data.user.isOnline ? "online" : "offline");
+        if (data.data.user.lastSeen) setLastSeen(data.data.user.lastSeen);
+      }
+    } catch (e) { console.log("Error fetching receiver status", e); }
   };
 
   const uploadMediaAPI = async (uri, mimeType, filename) => {
@@ -241,30 +264,71 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const sendMediaMessage = async (mediaUrl, type, duration = null) => {
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMsg = {
+      _id: tempId,
+      sender: user,
+      content: '',
+      chat: chatId,
+      messageType: type,
+      mediaUrl: mediaUrl,
+      voiceDuration: duration,
+      sending: true,
+      createdAt: new Date().toISOString()
+    };
+
+    setMessages(prev => [optimisticMsg, ...prev]);
+
     try {
       const msgPayload = { chatId, messageType: type, mediaUrl: mediaUrl, voiceDuration: duration };
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, msgPayload, { headers: { Authorization: `Bearer ${user.token}` }});
+      
+      setMessages(prev => prev.map(m => m._id === tempId ? data : m));
       socket.emit("new_message", data);
-      setMessages(prev => [data, ...prev]);
-    } catch(err) { console.log(err); }
+    } catch(err) { 
+      console.log(err);
+      setMessages(prev => prev.filter(m => m._id !== tempId));
+      Alert.alert("Error", "Failed to send media");
+    }
   };
 
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
-    const text = newMessage; // declare before try so catch can access it
-    try {
-      socket.emit("stop_typing", chatId);
-      setNewMessage(""); // optimistic clear
+    const text = newMessage;
+    const tempId = `temp_${Date.now()}`;
+    
+    socket.emit("stop_typing", chatId);
+    setNewMessage("");
 
+    const optimisticMsg = {
+      _id: tempId,
+      sender: user,
+      content: text,
+      chat: chatId,
+      messageType: 'text',
+      sending: true,
+      createdAt: new Date().toISOString()
+    };
+
+    if (vanishMode) {
+      optimisticMsg.expiresAt = new Date(Date.now() + 2 * 60 * 1000);
+    }
+
+    setMessages(prev => [optimisticMsg, ...prev]);
+
+    try {
       const payload = { chatId, content: text, messageType: 'text' };
-      if (vanishMode) {
-        payload.expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 mins for demo Vanish Mode
-      }
+      if (vanishMode) payload.expiresAt = optimisticMsg.expiresAt;
 
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, payload, { headers: { Authorization: `Bearer ${user.token}` }});
+      
+      setMessages(prev => prev.map(m => m._id === tempId ? data : m));
       socket.emit("new_message", data);
-      setMessages(prev => [data, ...prev]);
-    } catch(err) { console.log(err); setNewMessage(text); } // restore if fail
+    } catch(err) { 
+      console.log(err); 
+      setMessages(prev => prev.filter(m => m._id !== tempId));
+      setNewMessage(text); 
+    }
   };
 
   const handleLongPress = (msg) => {
@@ -436,11 +500,19 @@ const ChatScreen = ({ route, navigation }) => {
     const isMine = item.sender._id === user._id || item.sender === user._id;
 
     return (
-      <View style={[styles.messageRow, isMine ? styles.rowMine : styles.rowTheirs]}>
+      <View style={[
+        styles.messageRow, 
+        isMine ? styles.rowMine : styles.rowTheirs,
+        item.sending && { opacity: 0.7 }
+      ]}>
         <TouchableOpacity 
           activeOpacity={0.8}
-          onLongPress={() => handleLongPress(item)}
-          style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs, item.expiresAt && styles.vanishBubble]}
+          onLongPress={() => !item.sending && handleLongPress(item)}
+          style={[
+            styles.bubble, 
+            isMine ? styles.bubbleMine : styles.bubbleTheirs, 
+            item.expiresAt && styles.vanishBubble
+          ]}
         >
           {item.isForwarded && (
             <View style={styles.forwardedHeader}>
@@ -495,10 +567,22 @@ const ChatScreen = ({ route, navigation }) => {
           {item.content ? <Text style={[styles.messageText, isMine && { color: '#FFF' }]}>{item.content}</Text> : null}
 
           <View style={styles.metaContainer}>
-            {item.isStarredBy?.includes(user._id) && <Star size={10} color="#FFD700" style={{marginRight: 4}} />}
-            <Clock size={10} color={isMine ? 'rgba(255,255,255,0.5)' : THEME.colors.textDim} style={{marginRight: 2}} />
-            <Text style={[styles.timestamp, isMine && { color: 'rgba(255,255,255,0.7)' }]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-            {isMine && <CheckCheck color={item.seenBy?.length > 0 ? THEME.colors.readBlue : 'rgba(255,255,255,0.7)'} size={14} style={{marginLeft: 4}} />}
+            {item.sending ? (
+              <Clock size={12} color="rgba(255,255,255,0.5)" />
+            ) : (
+              <>
+                {item.isStarredBy?.includes(user._id) && <Star size={10} color="#FFD700" style={{marginRight: 4}} />}
+                <Text style={[styles.timestamp, isMine && { color: 'rgba(255,255,255,0.7)' }]}>
+                  {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                {isMine && (
+                  <CheckCheck 
+                    color={item.seenBy?.length > 0 ? THEME.colors.readBlue : 'rgba(255,255,255,0.7)'} 
+                    size={14} 
+                  />
+                )}
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </View>
@@ -559,7 +643,12 @@ const ChatScreen = ({ route, navigation }) => {
            />
            <View style={styles.headerInfo}>
               <Text style={styles.headerName} numberOfLines={1}>{name}</Text>
-              <Text style={styles.headerStatus}>{isTyping ? "typing..." : "online"}</Text>
+              <Text style={[
+                styles.headerStatus, 
+                receiverStatus === 'offline' && { color: THEME.colors.textDim }
+              ]}>
+                {isTyping ? "typing..." : receiverStatus}
+              </Text>
            </View>
         </TouchableOpacity>
 
@@ -596,6 +685,10 @@ const ChatScreen = ({ route, navigation }) => {
           keyExtractor={item => item._id}
           renderItem={renderBubble}
           contentContainerStyle={{ padding: 15 }}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={10}
+          inverted
         />
       )}
 

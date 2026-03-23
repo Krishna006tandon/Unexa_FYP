@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import profileService from '../services/profileService';
@@ -50,7 +50,7 @@ export const ProfileProvider = ({ children }) => {
   const [state, dispatch] = useReducer(profileReducer, initialState);
 
   // Initialize socket connection
-  const initializeSocket = async (userId) => {
+  const initializeSocket = useCallback(async (userId) => {
     try {
       const userInfo = await AsyncStorage.getItem('userInfo');
       const user = userInfo ? JSON.parse(userInfo) : null;
@@ -64,6 +64,7 @@ export const ProfileProvider = ({ children }) => {
         socket.on('connect', () => {
           console.log('Profile socket connected');
           socket.emit('joinProfileRoom', userId);
+          socket.emit('user_connected', userId);
         });
 
         // Notifications import
@@ -99,7 +100,6 @@ export const ProfileProvider = ({ children }) => {
         });
 
         socket.on('profileStatusUpdated', (data) => {
-          // Update online users list
           dispatch({ type: 'SET_ONLINE_USERS', payload: data });
         });
 
@@ -116,21 +116,19 @@ export const ProfileProvider = ({ children }) => {
     } catch (error) {
       console.error('Socket initialization error:', error);
     }
-  };
+  }, []);
 
   // Load profile
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await profileService.getMyProfile();
       dispatch({ type: 'SET_PROFILE', payload: response.data });
       
-      // Initialize socket with user ID
       if (response.data.user?._id) {
         await initializeSocket(response.data.user._id);
       }
     } catch (error) {
-      // If profile not found (404), create a default profile
       if (error.message === 'Profile not found' || error.status === 404) {
         console.log('📝 Profile not found, creating default profile...');
         try {
@@ -138,7 +136,6 @@ export const ProfileProvider = ({ children }) => {
           const user = userInfo ? JSON.parse(userInfo) : null;
           
           if (user && user._id) {
-            // Create minimal profile with user data
             const defaultProfileData = {
               username: user.name?.replace(/\s+/g, '').toLowerCase() || `user${Date.now()}`,
               fullName: user.name || 'User',
@@ -149,47 +146,39 @@ export const ProfileProvider = ({ children }) => {
             const createResponse = await profileService.createOrUpdateProfile(defaultProfileData);
             dispatch({ type: 'SET_PROFILE', payload: createResponse.data });
             
-            // Initialize socket with user ID
             if (createResponse.data.user?._id) {
               await initializeSocket(createResponse.data.user._id);
             }
-            
-            console.log('✅ Default profile created successfully');
           }
         } catch (createError) {
-          console.error('❌ Failed to create default profile:', createError);
           dispatch({ type: 'SET_ERROR', payload: createError.message || 'Failed to create profile' });
         }
       } else {
         dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load profile' });
       }
     }
-  };
+  }, [initializeSocket]);
 
-  // Update profile
-  const updateProfile = async (profileData) => {
+  const updateProfile = useCallback(async (profileData) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await profileService.createOrUpdateProfile(profileData);
       dispatch({ type: 'SET_PROFILE', payload: response.data });
       
-      // Emit real-time update
       if (state.socket) {
         state.socket.emit('profileUpdate', {
           userId: response.data.user?._id,
           updateData: profileData
         });
       }
-      
       return response.data;
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to update profile' });
       throw error;
     }
-  };
+  }, [state.socket]);
 
-  // Upload avatar
-  const uploadAvatar = async (imageUri) => {
+  const uploadAvatar = useCallback(async (imageUri) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await profileService.uploadAvatar(imageUri);
@@ -199,10 +188,9 @@ export const ProfileProvider = ({ children }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to upload avatar' });
       throw error;
     }
-  };
+  }, []);
 
-  // Upload cover image
-  const uploadCoverImage = async (imageUri) => {
+  const uploadCoverImage = useCallback(async (imageUri) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await profileService.uploadCoverImage(imageUri);
@@ -212,28 +200,23 @@ export const ProfileProvider = ({ children }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to upload cover image' });
       throw error;
     }
-  };
+  }, []);
 
-  // Search profiles
-  const searchProfiles = async (query, limit = 10, page = 1) => {
+  const searchProfiles = useCallback(async (query, limit = 10, page = 1) => {
     try {
       dispatch({ type: 'SET_SEARCHING', payload: true });
-      
-      // Use socket for real-time search if available
       if (state.socket) {
         state.socket.emit('searchProfiles', { query, limit, page });
       } else {
-        // Fallback to HTTP request
         const response = await profileService.searchProfiles(query, limit, page);
         dispatch({ type: 'SET_SEARCH_RESULTS', payload: response.data });
       }
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to search profiles' });
     }
-  };
+  }, [state.socket]);
 
-  // Toggle profile visibility
-  const toggleVisibility = async () => {
+  const toggleVisibility = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await profileService.toggleVisibility();
@@ -243,10 +226,9 @@ export const ProfileProvider = ({ children }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to toggle visibility' });
       throw error;
     }
-  };
+  }, []);
 
-  // Get profile by identifier
-  const getProfileByIdentifier = async (identifier) => {
+  const getProfileByIdentifier = useCallback(async (identifier) => {
     try {
       const response = await profileService.getProfileByIdentifier(identifier);
       return response.data;
@@ -254,10 +236,9 @@ export const ProfileProvider = ({ children }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to get profile' });
       throw error;
     }
-  };
+  }, []);
 
-  // Delete profile
-  const deleteProfile = async () => {
+  const deleteProfile = useCallback(async () => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       await profileService.deleteProfile();
@@ -266,46 +247,42 @@ export const ProfileProvider = ({ children }) => {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to delete profile' });
       throw error;
     }
-  };
+  }, []);
 
-  // Clear error
-  const clearError = () => {
+  const clearError = useCallback(() => {
     dispatch({ type: 'CLEAR_ERROR' });
-  };
+  }, []);
 
-  // Track profile view
-  const trackProfileView = (profileId) => {
+  const trackProfileView = useCallback((profileId) => {
     if (state.socket) {
       state.socket.emit('viewProfile', {
         profileId,
         viewerId: state.profile?.user?._id
       });
     }
-  };
+  }, [state.socket, state.profile]);
 
-  // Emit typing indicator
-  const emitTyping = (isTyping) => {
+  const emitTyping = useCallback((isTyping) => {
     if (state.socket) {
       state.socket.emit('typingProfileUpdate', {
         userId: state.profile?.user?._id,
         isTyping
       });
     }
-  };
+  }, [state.socket, state.profile]);
 
-  // Update profile status
-  const updateStatus = (status) => {
+  const updateStatus = useCallback((status) => {
     if (state.socket) {
       state.socket.emit('profileStatusChange', {
         userId: state.profile?.user?._id,
         status
       });
     }
-  };
+  }, [state.socket, state.profile]);
 
   const { user: authUser } = useContext(AuthContext);
 
-  const value = {
+  const value = useMemo(() => ({
     ...state,
     loadProfile,
     updateProfile,
@@ -319,17 +296,15 @@ export const ProfileProvider = ({ children }) => {
     trackProfileView,
     emitTyping,
     updateStatus,
-  };
+  }), [state, loadProfile, updateProfile, uploadAvatar, uploadCoverImage, searchProfiles, toggleVisibility, getProfileByIdentifier, deleteProfile, clearError, trackProfileView, emitTyping, updateStatus]);
 
   useEffect(() => {
     if (authUser) {
-      console.log('🔄 ProfileContext: Authenticated user found, loading profile...');
       loadProfile();
     } else if (!state.profile && !state.loading) {
-      // Clean reset if user logs out
       dispatch({ type: 'RESET_STATE' });
     }
-  }, [authUser]);
+  }, [authUser, loadProfile]);
 
   return (
     <ProfileContext.Provider value={value}>

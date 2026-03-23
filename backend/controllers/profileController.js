@@ -112,7 +112,7 @@ const createOrUpdateProfile = async (req, res) => {
 const getMyProfile = async (req, res) => {
   try {
     const profile = await Profile.findOne({ user: req.user.id })
-      .populate('user', 'name email');
+      .populate('user', 'username email isOnline lastSeen');
 
     if (!profile) {
       return res.status(404).json({ 
@@ -152,7 +152,7 @@ const getProfileByIdentifier = async (req, res) => {
     }
 
     let profile = await Profile.findOne(query)
-      .populate('user', 'username email profilePhoto')
+      .populate('user', 'username email profilePhoto isOnline lastSeen')
       .select('-notificationSettings -privacySettings');
 
     // If profile not found, let's try to find the user and create a default profile

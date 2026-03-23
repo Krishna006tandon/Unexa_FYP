@@ -5,36 +5,30 @@ module.exports = (io) => {
 
   io.on('connection', (socket) => {
     socket.on('user_connected', async (userId) => {
-      // Store socket ID mapping
-      onlineUsers.set(userId, socket.id);
+      if (!userId) return;
       
-      // Update DB
-      await User.findByIdAndUpdate(userId, { isOnline: true });
-
-      // Broadcast globally or to specific friends/chats
-      socket.broadcast.emit('user_online_status', { userId, isOnline: true });
+      if (!onlineUsers.has(userId)) {
+        onlineUsers.set(userId, new Set());
+        await User.findByIdAndUpdate(userId, { isOnline: true });
+        io.emit('user_online_status', { userId, isOnline: true });
+      }
+      
+      onlineUsers.get(userId).add(socket.id);
+      socket.presenceUserId = userId; 
     });
 
     socket.on('disconnect', async () => {
-      let disconnectedUserId = null;
-      for (let [userId, sockId] of onlineUsers.entries()) {
-        if (sockId === socket.id) {
-          disconnectedUserId = userId;
-          onlineUsers.delete(userId);
-          break;
-        }
-      }
+      const userId = socket.presenceUserId;
+      if (!userId || !onlineUsers.has(userId)) return;
 
-      if (disconnectedUserId) {
-        await User.findByIdAndUpdate(disconnectedUserId, { 
-           isOnline: false, 
-           lastSeen: Date.now() 
-        });
-        socket.broadcast.emit('user_online_status', { 
-           userId: disconnectedUserId, 
-           isOnline: false, 
-           lastSeen: Date.now() 
-        });
+      const userSockets = onlineUsers.get(userId);
+      userSockets.delete(socket.id);
+
+      if (userSockets.size === 0) {
+        onlineUsers.delete(userId);
+        const lastSeen = new Date();
+        await User.findByIdAndUpdate(userId, { isOnline: false, lastSeen });
+        io.emit('user_online_status', { userId, isOnline: false, lastSeen });
       }
     });
   });
