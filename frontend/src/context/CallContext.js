@@ -7,6 +7,16 @@ import { Audio } from 'expo-av';
 import ProfileContext from './ProfileContext';
 import { AuthContext } from './AuthContext';
 import * as NavigationService from '../services/NavigationService'; // We'll need this for redirect
+import * as Notifications from 'expo-notifications';
+
+// Handle notifications in foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 export const CallContext = createContext();
 
@@ -33,12 +43,13 @@ export const CallProvider = ({ children }) => {
 
       console.log(' [FRONTEND] 🚨 INCOMING SIGNAL RECEIVED:', data);
       setIncomingCall(data);
-      startRinging(data.type);
+      startRinging(data);
     });
 
     socket.on('call-cancelled', () => {
       stopRinging();
       setIncomingCall(null);
+      Notifications.dismissAllNotificationsAsync();
     });
 
     return () => {
@@ -48,9 +59,20 @@ export const CallProvider = ({ children }) => {
     };
   }, [socket]);
 
-  const startRinging = async () => {
+  const startRinging = async (callData) => {
     setIsRinging(true);
     
+    // Trigger Push Notification
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Incoming ${callData.type === 'video' ? 'Video' : 'Voice'} Call`,
+        body: `${callData.callerName || 'Someone'} is calling you...`,
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: null, // show immediately
+    });
+
     // Start Vibration Loop
     vibrationInterval.current = setInterval(() => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -83,6 +105,7 @@ export const CallProvider = ({ children }) => {
     console.log('✅ [CallContext] Accepting call from:', callData.callerName);
     stopRinging();
     setIncomingCall(null);
+    Notifications.dismissAllNotificationsAsync();
     
     // Navigate to Call Screen
     NavigationService.navigate('CallScreen', {
@@ -102,6 +125,7 @@ export const CallProvider = ({ children }) => {
     });
     stopRinging();
     setIncomingCall(null);
+    Notifications.dismissAllNotificationsAsync();
   };
 
   return (

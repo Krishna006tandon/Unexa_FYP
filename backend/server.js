@@ -25,6 +25,8 @@ const io = new Server(server, {
   }
 });
 
+app.set('io', io);
+
 // Import Socket Logic
 require('./sockets/presenceSocket')(io);
 require('./sockets/chatSocket')(io);
@@ -89,6 +91,7 @@ const mediaShareRoutes = require('./routes/mediaShare');
 const streakRoutes = require('./routes/streaks');
 const profileRoutes = require('./routes/profileRoutes');
 const webrtcRoutes = require('./routes/webrtc');
+const advancedRoutes = require('./routes/advancedRoutes');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -114,6 +117,7 @@ app.use('/api/media', mediaShareRoutes);
 app.use('/api/streaks', streakRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/webrtc', webrtcRoutes);
+app.use('/api/advanced', advancedRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {

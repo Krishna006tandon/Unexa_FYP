@@ -29,13 +29,22 @@ module.exports = (io) => {
       chat.users.forEach((user) => {
         if (user._id == newMessageReceived.sender._id) return;
         
-        // Emit specifically to the user's personal room/connection so they get a notification
-        // Or to the chat room for active chat viewers
         socket.in(user._id).emit('message_received', newMessageReceived);
-        
-        // Also emit directly to the active chat room
         socket.in(chat._id).emit('message_received', newMessageReceived);
       });
+
+      // Handle Vanish Mode (Auto-delete)
+      if (newMessageReceived.expiresAt) {
+        const delay = new Date(newMessageReceived.expiresAt).getTime() - Date.now();
+        if (delay > 0) {
+          setTimeout(async () => {
+            try {
+              await Message.findByIdAndUpdate(newMessageReceived._id, { deleted: true, content: "Message vanished" });
+              io.in(chat._id).emit('message_deleted_update', { messageId: newMessageReceived._id });
+            } catch (e) { console.log("Vanish delete failed", e); }
+          }, delay);
+        }
+      }
     });
 
     // Advance features - Delivered to Event

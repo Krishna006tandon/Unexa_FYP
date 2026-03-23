@@ -8,7 +8,10 @@ const {
   uploadCoverImage,
   searchProfiles,
   deleteProfile,
-  toggleVisibility
+  toggleVisibility,
+  followUser,
+  unfollowUser,
+  toggleCloseFriend
 } = require('../controllers/profileController');
 const { protect } = require('../middlewares/authMiddleware');
 
@@ -51,5 +54,12 @@ router.patch('/visibility', toggleVisibility);
 // @desc    Get profile by username or ID
 // @access  Public (but requires auth middleware for consistency)
 router.get('/:identifier', getProfileByIdentifier);
+
+// Follow/Unfollow
+router.post('/:id/follow', followUser);
+router.post('/:id/unfollow', unfollowUser);
+
+// Close Friend
+router.post('/:id/close-friend', toggleCloseFriend);
 
 module.exports = router;

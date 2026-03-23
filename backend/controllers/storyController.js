@@ -4,7 +4,7 @@ const User = require('../models/User');
 // Upload a new story
 exports.uploadStory = async (req, res) => {
   try {
-    const { mediaUrl, mediaType, caption, duration } = req.body;
+    const { mediaUrl, mediaType, caption, duration, isCloseFriends } = req.body;
     const userId = req.user._id;
 
     if (!mediaUrl || !mediaType) {
@@ -16,11 +16,22 @@ exports.uploadStory = async (req, res) => {
       mediaUrl,
       mediaType,
       caption,
-      duration
+      duration,
+      isCloseFriends: isCloseFriends || false
     });
 
     const populatedStory = await Story.findById(story._id)
       .populate('user', 'username profilePhoto');
+
+    // Notify all users for real-time refresh
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new_story', {
+        _id: populatedStory._id,
+        user: populatedStory.user,
+        isCloseFriends: populatedStory.isCloseFriends
+      });
+    }
 
     res.status(201).json(populatedStory);
   } catch (error) {
@@ -45,12 +56,19 @@ exports.getStories = async (req, res) => {
       isDeleted: false,
       expiresAt: { $gt: new Date() }
     })
-    .populate('user', 'username profilePhoto')
+    .populate('user', 'username profilePhoto closeFriends')
     .sort({ createdAt: -1 });
 
     // Group stories by user
     const storiesByUser = {};
     stories.forEach(story => {
+      // Check Close Friends Logic
+      if (story.isCloseFriends) {
+        const isOwnStory = story.user._id.toString() === userId.toString();
+        const isCloseFriend = story.user.closeFriends && story.user.closeFriends.includes(userId);
+        if (!isOwnStory && !isCloseFriend) return; // Skip this story
+      }
+
       const storyUserId = story.user._id.toString();
       if (!storiesByUser[storyUserId]) {
         storiesByUser[storyUserId] = {
@@ -148,6 +166,27 @@ exports.getMyStories = async (req, res) => {
   } catch (error) {
     console.error('Get my stories error:', error);
     res.status(500).json({ error: 'Failed to fetch your stories' });
+  }
+};
+
+// Get archived stories (older than 24h)
+exports.getArchivedStories = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // We fetch stories that have expiresAt < new Date()
+    const stories = await Story.find({
+      user: userId,
+      isDeleted: false,
+      expiresAt: { $lt: new Date() }
+    })
+    .populate('user', 'username profilePhoto')
+    .sort({ createdAt: -1 });
+
+    res.json(stories);
+  } catch (error) {
+    console.error('Get archived stories error:', error);
+    res.status(500).json({ error: 'Failed to fetch archived stories' });
   }
 };
 

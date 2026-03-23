@@ -12,7 +12,7 @@ import {
   Alert
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
-import { API_URL } from './AuthScreen';
+import ENVIRONMENT from '../config/environment';
 import axios from 'axios';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,7 +40,12 @@ const StreaksScreen = ({ navigation }) => {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+    // Add focus listener to refresh when navigating back
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchData();
+    });
+    return unsubscribe;
+  }, [activeTab, navigation]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -60,7 +65,7 @@ const StreaksScreen = ({ navigation }) => {
 
   const fetchMyStreaks = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/streaks/my-streaks`, {
+      const response = await axios.get(`${ENVIRONMENT.API_URL}/api/streaks/my-streaks`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setMyStreaks(response.data.streaks || []);
@@ -71,7 +76,7 @@ const StreaksScreen = ({ navigation }) => {
 
   const fetchLeaderboard = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/streaks/leaderboard`, {
+      const response = await axios.get(`${ENVIRONMENT.API_URL}/api/streaks/leaderboard`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setLeaderboard(response.data.leaderboard || []);
@@ -82,7 +87,7 @@ const StreaksScreen = ({ navigation }) => {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/streaks/stats`, {
+      const response = await axios.get(`${ENVIRONMENT.API_URL}/api/streaks/stats`, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setStats(response.data.stats);
@@ -99,7 +104,7 @@ const StreaksScreen = ({ navigation }) => {
 
   const resetStreak = async (userId) => {
     try {
-      await axios.post(`${API_URL}/api/streaks/${userId}/reset`, {}, {
+      await axios.post(`${ENVIRONMENT.API_URL}/api/streaks/${userId}/reset`, {}, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       Alert.alert('Success', 'Streak reset successfully');

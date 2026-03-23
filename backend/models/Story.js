@@ -33,9 +33,10 @@ const storySchema = new mongoose.Schema(
     replies: [storyReplySchema],
     expiresAt: { 
       type: Date, 
-      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      index: { expires: 0 } // Auto-delete after expiration
+      default: () => new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
     },
+    isCloseFriends: { type: Boolean, default: false },
+    isArchived: { type: Boolean, default: false },
     isDeleted: { type: Boolean, default: false }
   },
   { timestamps: true }
@@ -43,6 +44,6 @@ const storySchema = new mongoose.Schema(
 
 // Index for efficient queries
 storySchema.index({ user: 1, expiresAt: 1 });
-storySchema.index({ expiresAt: 1 });
+// storySchema.index({ expiresAt: 1 }); // Remove to prevent TTL automatic drop
 
 module.exports = mongoose.model('Story', storySchema);

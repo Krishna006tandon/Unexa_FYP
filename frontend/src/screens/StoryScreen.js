@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Dimensions, Alert, TextInput, Modal, FlatList, KeyboardAvoidingView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video } from 'expo-video';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { X, Send, Eye, Heart, MessageCircle, Smile } from 'lucide-react-native';
 import axios from 'axios';
-import { API_URL } from './AuthScreen';
+import ENVIRONMENT from '../config/environment';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,6 +22,8 @@ const THEME = {
 };
 
 const StoryScreen = ({ route, navigation }) => {
+  usePreventScreenCapture();
+  
   const { stories, initialIndex = 0 } = route.params;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -51,12 +54,12 @@ const StoryScreen = ({ route, navigation }) => {
     
     // Mark story as viewed and load interactions
     try {
-      await axios.post(`${API_URL}/api/story/${currentStory._id}/view`, {}, {
+      await axios.post(`${ENVIRONMENT.API_URL}/api/story/${currentStory._id}/view`, {}, {
         headers: { Authorization: `Bearer ${route.params.token}` }
       });
       
       // Load story interactions
-      const interactionsResponse = await axios.get(`${API_URL}/api/story/${currentStory._id}/interactions`, {
+      const interactionsResponse = await axios.get(`${ENVIRONMENT.API_URL}/api/story/${currentStory._id}/interactions`, {
         headers: { Authorization: `Bearer ${route.params.token}` }
       });
       
@@ -136,7 +139,7 @@ const StoryScreen = ({ route, navigation }) => {
 
   const handleReaction = async (emoji) => {
     try {
-      const response = await axios.post(`${API_URL}/api/story/${currentStory._id}/react`, 
+      const response = await axios.post(`${ENVIRONMENT.API_URL}/api/story/${currentStory._id}/react`, 
         { emoji }, 
         { headers: { Authorization: `Bearer ${route.params.token}` }}
       );
@@ -152,7 +155,7 @@ const StoryScreen = ({ route, navigation }) => {
     if (!replyText.trim()) return;
     
     try {
-      const response = await axios.post(`${API_URL}/api/story/${currentStory._id}/reply`, 
+      const response = await axios.post(`${ENVIRONMENT.API_URL}/api/story/${currentStory._id}/reply`, 
         { content: replyText.trim() }, 
         { headers: { Authorization: `Bearer ${route.params.token}` }}
       );
@@ -223,15 +226,29 @@ const StoryScreen = ({ route, navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <LinearGradient colors={['rgba(0,0,0,0.8)', 'transparent']} style={styles.headerGradient}>
-          <View style={styles.userInfo}>
-            <Image source={{ uri: currentStory.user.profilePhoto }} style={styles.avatar} />
+          <TouchableOpacity 
+            style={styles.userInfo} 
+            onPress={() => {
+              const uId = currentStory?.user?._id || currentStory?.user;
+              if (uId) navigation.navigate('ProfileScreen', { userId: uId });
+            }}
+          >
+            <Image source={{ uri: currentStory?.user?.profilePhoto }} style={styles.avatar} />
             <View style={styles.userText}>
-              <Text style={styles.username}>{currentStory.user.username}</Text>
+              <View style={styles.usernameRow}>
+                <Text style={styles.username}>{currentStory?.user?.username || 'User'}</Text>
+                {currentStory?.isCloseFriends && (
+                  <View style={styles.closeFriendsBadge}>
+                    <Heart size={10} color="#FFF" fill="#FFF" />
+                    <Text style={styles.closeFriendsText}>Close Friends</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.timestamp}>
-                {viewCount} views • {Math.floor((Date.now() - new Date(currentStory.createdAt)) / (1000 * 60 * 60))}h ago
+                {viewCount} views • {Math.floor((Date.now() - new Date(currentStory?.createdAt || Date.now())) / (1000 * 60 * 60))}h ago
               </Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <X color={THEME.colors.text} size={24} />
           </TouchableOpacity>
@@ -329,7 +346,7 @@ const StoryScreen = ({ route, navigation }) => {
   );
 };
 
-export default StoryScreen;
+// End of StoryScreen component
 
 const styles = StyleSheet.create({
   container: {
@@ -520,4 +537,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  closeFriendsBadge: {
+    backgroundColor: '#1DB954',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  closeFriendsText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
 });
+
+export default StoryScreen;

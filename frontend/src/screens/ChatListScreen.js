@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
+import ProfileContext from '../context/ProfileContext';
 import { Plus } from 'lucide-react-native';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
@@ -22,27 +23,49 @@ const ChatListScreen = ({ navigation }) => {
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useContext(AuthContext);
+  const { socket } = useContext(ProfileContext);
 
-  useEffect(() => {
-    fetchChats();
-    // Add focus listener to refresh when navigating back
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchChats();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/chat`, config);
-      console.log('📡 [FRONTEND-CHATLIST] Received Data:', JSON.stringify(data, null, 2));
       setChats(data);
     } catch (e) {
       console.log("Error fetching chats", e);
     }
     setLoading(false);
-  };
+  }, [user.token]);
+
+  useEffect(() => {
+    fetchChats();
+    // Refresh on tab focus
+    const unsubscribe = navigation.addListener('focus', fetchChats);
+    return unsubscribe;
+  }, [navigation, fetchChats]);
+
+  // ⚡ REAL-TIME: Update chat list when a new message arrives
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (newMessage) => {
+      setChats(prev => {
+        const updated = prev.map(chat => {
+          if (chat._id === newMessage.chat._id) {
+            return { ...chat, latestMessage: newMessage };
+          }
+          return chat;
+        });
+        // Sort so latest message chat comes on top
+        return updated.sort((a, b) =>
+          new Date(b.latestMessage?.createdAt || b.updatedAt) -
+          new Date(a.latestMessage?.createdAt || a.updatedAt)
+        );
+      });
+    };
+
+    socket.on('message_received', handleNewMessage);
+    return () => socket.off('message_received', handleNewMessage);
+  }, [socket]);
 
   const formatTime = (isoString) => {
     if (!isoString) return "";

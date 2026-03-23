@@ -6,6 +6,7 @@ const {
   viewStory,
   deleteStory,
   getMyStories,
+  getArchivedStories,
   reactToStory,
   replyToStory,
   getStoryInteractions
@@ -21,6 +22,9 @@ router.route('/').get(protect, getStories);
 
 // Get user's own stories
 router.route('/my').get(protect, getMyStories);
+
+// Get user's archived stories
+router.route('/archived').get(protect, getArchivedStories);
 
 // View a specific story
 router.route('/:storyId/view').post(protect, viewStory);

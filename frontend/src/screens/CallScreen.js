@@ -50,24 +50,28 @@ const CallScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     const init = async () => {
-      if (!permission?.granted) await requestPermission();
-      if (!micPermission?.granted) await requestMicPermission();
+      // Run permissions and token fetch IN PARALLEL for faster connection
+      await Promise.all([
+        !permission?.granted ? requestPermission() : Promise.resolve(),
+        !micPermission?.granted ? requestMicPermission() : Promise.resolve(),
+      ]);
       
       // Initialize audio mode at the start
       try {
+        console.log(`📡 [MOBILE] Initializing audio mode for ${type} call...`);
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
-          shouldRouteThroughEarpieceIOS: type === 'audio', // Initial earpiece for audio calls
-          interruptionModeIOS: 1, // DUCK_OTHERS
-          interruptionModeAndroid: 1,
+          shouldRouteThroughEarpieceIOS: type === 'audio',
+          interruptionModeIOS: 1, // mixWithOthers
+          interruptionModeAndroid: 1, // duckOthers
           shouldDuckAndroid: true,
           playThroughEarpieceAndroid: type === 'audio',
         });
-        console.log('🔈 [MOBILE] Initial audio mode configured');
+        console.log('✅ [MOBILE] Audio mode successfully configured');
       } catch (e) {
-        console.error('Failed to init audio mode', e);
+        console.error('❌ [MOBILE] Failed to init audio mode:', e);
       }
       
       await fetchAgoraToken();
@@ -158,6 +162,7 @@ const CallScreen = ({ route, navigation }) => {
       const nextSpeakerState = !isSpeakerOn;
       setIsSpeakerOn(nextSpeakerState);
       
+      console.log(`🔊 [MOBILE] Toggling speaker: ${nextSpeakerState ? 'ON (Speaker)' : 'OFF (Earpiece)'}`);
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -168,9 +173,9 @@ const CallScreen = ({ route, navigation }) => {
         shouldDuckAndroid: true,
         playThroughEarpieceAndroid: !nextSpeakerState,
       });
-      console.log('🔊 [NATIVE] Speaker switched to:', nextSpeakerState ? 'Loudspeaker' : 'Earpiece');
+      console.log('✅ [MOBILE] Speaker hardware state updated');
     } catch (e) {
-      console.error('Failed to set audio mode', e);
+      console.error('❌ [MOBILE] Failed to toggle speaker:', e);
     }
   };
 
@@ -235,9 +240,10 @@ const CallScreen = ({ route, navigation }) => {
             const UID = ${uid};
             const TYPE = "${type}";
 
-            const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+            const client = AgoraRTC.createClient({ mode: "rtc", codec: "h264" });
+            AgoraRTC.setLogLevel(4); // 4 = ERROR only, reduces overhead
             let localTracks = { videoTrack: null, audioTrack: null };
-            let remoteUsers = {}; // TRACK USERS FOR AUDIO RESUME
+            let remoteUsers = {};
 
             // GLOBAL CLICK LISTENER TO RESUME BLOCKED AUDIO (IMPORTANT FOR MOBILE)
             document.body.addEventListener('click', () => {
@@ -272,23 +278,31 @@ const CallScreen = ({ route, navigation }) => {
                     let tracksToPublish = [];
                     if ("${type}" === "video") {
                         try {
-                            [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+                            // Use 480p for mobile - much better performance than default
+                            [localTracks.audioTrack, localTracks.videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+                              { AEC: true, ANS: true, AGC: true }, // Audio enhancement
+                              { 
+                                encoderConfig: {
+                                  width: 640, height: 480,
+                                  frameRate: 20, // 20fps is smooth enough on mobile
+                                  bitrateMin: 200, bitrateMax: 600
+                                },
+                                facingMode: 'user'
+                              }
+                            );
                             await localTracks.videoTrack.play("local-video-container");
                             tracksToPublish = [localTracks.audioTrack, localTracks.videoTrack];
                         } catch (e) {
-                            localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                            console.warn("[CAMERA FAILED] Falling back to audio only:", e.message);
+                            localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true });
                             tracksToPublish = [localTracks.audioTrack];
                         }
                     } else {
-                        localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                        localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack({ AEC: true, ANS: true, AGC: true });
                         tracksToPublish = [localTracks.audioTrack];
                     }
                     
-                    await client.join("${appId}", "${chatId}", "${agoraToken}", ${uid});
-                    await client.publish(tracksToPublish);
-                    
-                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'joined' }));
-
+                    // EVENT LISTENERS MUST BE BEFORE JOINING
                     client.on("user-published", async (user, mediaType) => {
                         console.log("📡 [STREAM] New publication: " + user.uid + " - " + mediaType);
                         try {
@@ -308,10 +322,19 @@ const CallScreen = ({ route, navigation }) => {
                         } catch (e) { console.error("[SUB ERROR]", e); }
                     });
 
+                    client.on("user-unpublished", (user, mediaType) => {
+                        console.log("🔌 [STREAM] User unpublished:", user.uid, mediaType);
+                    });
+
                     client.on("user-left", (user) => {
                         console.log("[AGORA] User left:", user.uid);
                         delete remoteUsers[user.uid];
                     });
+                    
+                    await client.join("${appId}", "${chatId}", "${agoraToken}", ${uid});
+                    await client.publish(tracksToPublish);
+                    
+                    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'joined' }));
 
                 } catch (e) { 
                     window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', msg: e.message || String(e) })); 

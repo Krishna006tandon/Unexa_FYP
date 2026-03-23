@@ -23,7 +23,7 @@ exports.registerUser = async (req, res) => {
   const user = await User.create({
     username,
     email,
-    passwordHash: password, // For demo, using plain. In prod hash it.
+    passwordHash: password, // This will be hashed automatically by the pre-save hook
   });
 
   if (user) {
@@ -43,7 +43,7 @@ exports.authUser = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
 
-  if (user && user.passwordHash === password) {
+  if (user && (await user.matchPassword(password))) {
     res.json({
       _id: user._id,
       username: user.username,

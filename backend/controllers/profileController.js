@@ -151,41 +151,76 @@ const getProfileByIdentifier = async (req, res) => {
       query.username = identifier;
     }
 
-    const profile = await Profile.findOne(query)
-      .populate('user', 'name email')
+    let profile = await Profile.findOne(query)
+      .populate('user', 'username email profilePhoto')
       .select('-notificationSettings -privacySettings');
 
+    // If profile not found, let's try to find the user and create a default profile
     if (!profile) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Profile not found' 
+      console.log('📝 Profile not found for:', identifier, 'Checking User table...');
+      const user = identifier.match(/^[0-9a-fA-F]{24}$/) 
+         ? await User.findById(identifier) 
+         : await User.findOne({ username: identifier });
+
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      // Create a default profile
+      profile = new Profile({
+        user: user._id,
+        username: user.username,
+        fullName: user.username || 'Unexa User',
+        email: user.email,
+        bio: 'Welcome to making connections on Unexa!',
+        avatar: user.profilePhoto || ''
       });
+      await profile.save();
+      await profile.populate('user', 'username email profilePhoto');
+      console.log('✅ Auto-created profile for existing user:', user.username);
     }
 
-    // If profile is private and not the owner, return limited data
-    if (profile.isPrivate && profile.user._id.toString() !== req.user?.id) {
+    // Check following status if logged in
+    let isFollowing = false;
+    let isCloseFriend = false;
+    if (req.user) {
+      const currentUser = await User.findById(req.user.id);
+      isFollowing = currentUser.following.includes(profile.user._id);
+      isCloseFriend = currentUser.closeFriends && currentUser.closeFriends.includes(profile.user._id);
+    }
+
+    // If profile is private and NOT owner and NOT following, return limited data
+    if (profile.isPrivate && profile.user._id.toString() !== req.user?.id && !isFollowing) {
       const limitedProfile = {
         _id: profile._id,
+        user: profile.user,
         username: profile.username,
         fullName: profile.fullName,
         avatar: profile.avatar,
-        bio: profile.bio,
+        bio: "This profile is private. Follow to see their profile details.",
         followersCount: profile.followersCount,
         followingCount: profile.followingCount,
         postsCount: profile.postsCount,
         isVerified: profile.isVerified,
-        isPrivate: profile.isPrivate
+        isPrivate: profile.isPrivate,
+        isFollowing,
+        isCloseFriend
       };
 
       return res.status(200).json({
         success: true,
-        data: limitedProfile
+        data: limitedProfile,
+        isLocked: true
       });
     }
 
     res.status(200).json({
       success: true,
-      data: profile
+      data: {
+        ...profile.toObject(),
+        isFollowing,
+        isCloseFriend
+      }
     });
 
   } catch (error) {
@@ -591,6 +626,94 @@ const toggleVisibility = async (req, res) => {
   }
 };
 
+// @desc    Follow a user
+// @route   POST /api/profile/:id/follow
+// @access  Private
+const followUser = async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    const currentUserId = req.user.id;
+
+    if (targetUserId === currentUserId) {
+      return res.status(400).json({ message: "You cannot follow yourself" });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+    const currentUser = await User.findById(currentUserId);
+
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+    // Add to following
+    if (!currentUser.following.includes(targetUserId)) {
+      currentUser.following.push(targetUserId);
+      await currentUser.save();
+    }
+
+    // Add to followers
+    if (!targetUser.followers.includes(currentUserId)) {
+      targetUser.followers.push(currentUserId);
+      await targetUser.save();
+    }
+
+    res.json({ success: true, message: "Following user" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Unfollow a user
+// @route   POST /api/profile/:id/unfollow
+// @access  Private
+const unfollowUser = async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    const currentUserId = req.user.id;
+
+    const targetUser = await User.findById(targetUserId);
+    const currentUser = await User.findById(currentUserId);
+
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
+
+    // Remove from following
+    currentUser.following = currentUser.following.filter(id => id.toString() !== targetUserId);
+    await currentUser.save();
+
+    // Remove from followers
+    targetUser.followers = targetUser.followers.filter(id => id.toString() !== currentUserId);
+    await targetUser.save();
+
+    res.json({ success: true, message: "Unfollowed user" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Toggle Close Friend status
+// @route   POST /api/profile/:id/close-friend
+// @access  Private
+const toggleCloseFriend = async (req, res) => {
+  try {
+    const targetUserId = req.params.id;
+    const currentUserId = req.user.id;
+
+    const currentUser = await User.findById(currentUserId);
+
+    if (!currentUser.closeFriends) currentUser.closeFriends = [];
+
+    const index = currentUser.closeFriends.indexOf(targetUserId);
+    if (index > -1) {
+      currentUser.closeFriends.splice(index, 1);
+    } else {
+      currentUser.closeFriends.push(targetUserId);
+    }
+
+    await currentUser.save();
+    res.json({ success: true, isCloseFriend: index === -1 });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createOrUpdateProfile,
   getMyProfile,
@@ -599,5 +722,8 @@ module.exports = {
   uploadCoverImage,
   searchProfiles,
   deleteProfile,
-  toggleVisibility
+  toggleVisibility,
+  followUser,
+  unfollowUser,
+  toggleCloseFriend
 };

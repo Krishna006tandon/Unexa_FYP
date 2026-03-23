@@ -7,8 +7,7 @@ import { User, Mail, Lock, CheckCircle2 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 
-// Production cloud backend URL
-export const API_URL = "https://unexa-fyp.onrender.com"; // Production backend
+import ENVIRONMENT from '../config/environment';
 
 const THEME = {
   colors: {
@@ -42,7 +41,7 @@ const AuthScreen = () => {
       const endpoint = isLogin ? "/api/auth/login" : "/api/auth";
       const payload = isLogin ? { email: email.trim(), password } : { username: username.trim(), email: email.trim(), password };
 
-      const { data } = await axios.post(`${API_URL}${endpoint}`, payload);
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}${endpoint}`, payload);
 
       await login(data); // Move to main app automatically
       
@@ -55,7 +54,7 @@ const AuthScreen = () => {
           bio: 'Welcome to UNEXA! 🎉',
         };
         
-        await axios.post(`${API_URL}/api/profile`, profileData, {
+        await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
           headers: { Authorization: `Bearer ${data.token}` }
         });
       } catch (profileError) {

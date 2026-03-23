@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking, Modal, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone } from 'lucide-react-native';
+import * as ScreenCapture from 'expo-screen-capture';
+import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone, Clock, Star, X } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { Audio } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
+import ProfileContext from '../context/ProfileContext';
 import ENVIRONMENT from '../config/environment';
-import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
-import { Audio } from 'expo-av';
-import { Camera } from 'expo-camera';
 
-let socket;
+// Removed local socket variable - using socket from ProfileContext now
 
 const THEME = {
   colors: {
@@ -32,6 +33,7 @@ const THEME = {
 const ChatScreen = ({ route, navigation }) => {
   const { chatId, name, receiverId: passedReceiverId, avatar } = route.params;
   const { user } = useContext(AuthContext);
+  const { socket } = useContext(ProfileContext);
   
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -39,9 +41,13 @@ const ChatScreen = ({ route, navigation }) => {
   const [fetching, setFetching] = useState(true);
   const [recording, setRecording] = useState(undefined);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [msgToForward, setMsgToForward] = useState(null);
+  const [availableChats, setAvailableChats] = useState([]);
+  const [vanishMode, setVanishMode] = useState(false);
   const [modalImage, setModalImage] = useState(null);
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   const flatListRef = useRef(null);
   let recordingTimer = useRef(null);
@@ -110,27 +116,61 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    socket = io(ENVIRONMENT.API_URL);
-    socket.emit("setup", user);
+    if (!socket) return;
+
+    // Join room for real-time messages
     socket.emit("join_chat", chatId);
 
     socket.on('typing', () => setIsTyping(true));
     socket.on('stop_typing', () => setIsTyping(false));
 
-    socket.on("message_received", (msg) => {
+    const handleMessageReceived = (msg) => {
       if (chatId === msg.chat._id || chatId === msg.chat) {
         setMessages(prev => [msg, ...prev]); 
         socket.emit("measure_read", { messageId: msg._id, userId: user._id, chatId });
       }
-    });
+    };
+
+    const handleMessageDeleted = ({ messageId }) => {
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, deleted: true, content: "Message vanished" } : m));
+    };
+
+    const handleMessageEdited = ({ messageId, content }) => {
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content } : m));
+    };
+
+    socket.on("message_received", handleMessageReceived);
+    socket.on("message_deleted_update", handleMessageDeleted);
+    socket.on("message_edited_update", handleMessageEdited);
 
     fetchMessages();
+    
+    // Also fetch messages when screen is focused to stay synced
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      fetchMessages();
+      socket.emit("join_chat", chatId);
+    });
 
     return () => {
-      socket.disconnect();
+      socket.off('typing');
+      socket.off('stop_typing');
+      socket.off('message_received', handleMessageReceived);
+      socket.off('message_deleted_update', handleMessageDeleted);
+      socket.off('message_edited_update', handleMessageEdited);
+      socket.emit("leave_chat", chatId);
+      unsubscribeFocus();
       if (recordingTimer.current) clearInterval(recordingTimer.current);
     };
-  }, [chatId]);
+  }, [chatId, socket]);
+
+  useEffect(() => {
+    if (modalImage) {
+      ScreenCapture.preventScreenCaptureAsync();
+    } else {
+      ScreenCapture.allowScreenCaptureAsync();
+    }
+    return () => ScreenCapture.allowScreenCaptureAsync();
+  }, [modalImage]);
 
   const fetchMessages = async () => {
     try {
@@ -216,10 +256,59 @@ const ChatScreen = ({ route, navigation }) => {
       socket.emit("stop_typing", chatId);
       setNewMessage(""); // optimistic clear
 
-      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, { chatId, content: text, messageType: 'text' }, { headers: { Authorization: `Bearer ${user.token}` }});
+      const payload = { chatId, content: text, messageType: 'text' };
+      if (vanishMode) {
+        payload.expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 mins for demo Vanish Mode
+      }
+
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message`, payload, { headers: { Authorization: `Bearer ${user.token}` }});
       socket.emit("new_message", data);
       setMessages(prev => [data, ...prev]);
     } catch(err) { console.log(err); setNewMessage(text); } // restore if fail
+  };
+
+  const handleLongPress = (msg) => {
+    Alert.alert(
+      "Message Options",
+      "Choose an action",
+      [
+        { text: "Forward", onPress: () => openForwardModal(msg) },
+        { text: msg.isStarredBy?.includes(user._id) ? "Unstar" : "Star", onPress: () => toggleStar(msg._id) },
+        { text: "Delete", style: "destructive", onPress: () => deleteMessage(msg._id) },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
+  const toggleStar = async (msgId) => {
+    try {
+      await axios.post(`${ENVIRONMENT.API_URL}/api/advanced/chat/${msgId}/star`, {}, { headers: { Authorization: `Bearer ${user.token}` }});
+      fetchMessages(); // Refresh star state
+    } catch(e) { console.log(e); }
+  };
+
+  const openForwardModal = async (msg) => {
+    setMsgToForward(msg);
+    try {
+      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/chat`, { headers: { Authorization: `Bearer ${user.token}` }});
+      setAvailableChats(data);
+      setShowForwardModal(true);
+    } catch(e) { console.log(e); }
+  };
+
+  const forwardMsgToChat = async (targetChatId) => {
+    try {
+      await axios.post(`${ENVIRONMENT.API_URL}/api/advanced/chat/forward`, { 
+        messageId: msgToForward._id, 
+        chatIds: [targetChatId] 
+      }, { headers: { Authorization: `Bearer ${user.token}` }});
+      setShowForwardModal(false);
+      Alert.alert("Success", "Message forwarded!");
+    } catch(e) { console.log(e); }
+  };
+
+  const deleteMessage = async (msgId) => {
+    // Delete logic existing or new
   };
 
   const handleTyping = (text) => {
@@ -348,7 +437,16 @@ const ChatScreen = ({ route, navigation }) => {
 
     return (
       <View style={[styles.messageRow, isMine ? styles.rowMine : styles.rowTheirs]}>
-        <View style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs]}>
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onLongPress={() => handleLongPress(item)}
+          style={[styles.bubble, isMine ? styles.bubbleMine : styles.bubbleTheirs, item.expiresAt && styles.vanishBubble]}
+        >
+          {item.isForwarded && (
+            <View style={styles.forwardedHeader}>
+              <Text style={styles.forwardedText}>Forwarded</Text>
+            </View>
+          )}
           
           {item.messageType === 'image' && (
              <TouchableOpacity onPress={() => setModalImage(item.mediaUrl)}>
@@ -397,10 +495,12 @@ const ChatScreen = ({ route, navigation }) => {
           {item.content ? <Text style={[styles.messageText, isMine && { color: '#FFF' }]}>{item.content}</Text> : null}
 
           <View style={styles.metaContainer}>
+            {item.isStarredBy?.includes(user._id) && <Star size={10} color="#FFD700" style={{marginRight: 4}} />}
+            <Clock size={10} color={isMine ? 'rgba(255,255,255,0.5)' : THEME.colors.textDim} style={{marginRight: 2}} />
             <Text style={[styles.timestamp, isMine && { color: 'rgba(255,255,255,0.7)' }]}>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
             {isMine && <CheckCheck color={item.seenBy?.length > 0 ? THEME.colors.readBlue : 'rgba(255,255,255,0.7)'} size={14} style={{marginLeft: 4}} />}
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -417,12 +517,42 @@ const ChatScreen = ({ route, navigation }) => {
         </View>
       </Modal>
 
+      {/* Forward Modal */}
+      <Modal visible={showForwardModal} animationType="slide">
+        <SafeAreaView style={{ flex: 1, backgroundColor: THEME.colors.background }}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Forward to...</Text>
+            <TouchableOpacity onPress={() => setShowForwardModal(false)}>
+              <X size={24} color={THEME.colors.text} />
+            </TouchableOpacity>
+          </View>
+          <FlatList 
+            data={availableChats}
+            keyExtractor={item => item._id}
+            renderItem={({item}) => (
+              <TouchableOpacity style={styles.forwardItem} onPress={() => forwardMsgToChat(item._id)}>
+                <Image source={{ uri: item.isGroupChat ? 'https://via.placeholder.com/150' : item.users.find(u => u._id !== user._id)?.profilePhoto }} style={styles.forwardAvatar} />
+                <Text style={styles.forwardName}>{item.isGroupChat ? item.chatName : item.users.find(u => u._id !== user._id)?.username}</Text>
+                <Send size={18} color={THEME.colors.primary} />
+              </TouchableOpacity>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
+
       <View style={styles.header}>
         <TouchableOpacity style={styles.backContainer} onPress={() => navigation.goBack()}>
            <Text style={styles.backButton}>{"<"}</Text>
         </TouchableOpacity>
         
-        <View style={styles.headerProfile}>
+        <TouchableOpacity 
+          style={styles.headerProfile} 
+          onPress={() => {
+            const receiverId = passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender;
+            if (receiverId) navigation.navigate('ProfileScreen', { userId: receiverId });
+            else Alert.alert("Error", "Could not identify user profile.");
+          }}
+        >
            <Image 
              source={{ uri: avatar || 'https://i.pravatar.cc/150' }} 
              style={styles.headerAvatar} 
@@ -431,9 +561,13 @@ const ChatScreen = ({ route, navigation }) => {
               <Text style={styles.headerName} numberOfLines={1}>{name}</Text>
               <Text style={styles.headerStatus}>{isTyping ? "typing..." : "online"}</Text>
            </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.headerActions}>
+           <TouchableOpacity onPress={() => setVanishMode(!vanishMode)}>
+              <Clock color={vanishMode ? THEME.colors.danger : THEME.colors.textDim} size={24} style={{ marginRight: 20 }} />
+           </TouchableOpacity>
+           
            {/* Passing receiverId to CallScreen for initiating invitations */}
            <TouchableOpacity onPress={() => {
               const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
@@ -760,5 +894,40 @@ const styles = StyleSheet.create({
     width: '100%', 
     height: '80%',
     borderRadius: 20,
-  }
+  },
+  forwardedHeader: {
+    marginBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 2,
+  },
+  forwardedText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 10,
+    fontStyle: 'italic',
+  },
+  vanishBubble: {
+    backgroundColor: 'rgba(255, 75, 75, 0.2)',
+    borderColor: '#FF4B4B',
+    borderWidth: 1,
+  },
+  forwardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.colors.border,
+  },
+  forwardAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 15,
+  },
+  forwardName: {
+    color: THEME.colors.text,
+    fontSize: 16,
+    flex: 1,
+    fontWeight: '600',
+  },
 });

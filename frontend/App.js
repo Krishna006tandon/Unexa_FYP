@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import { StyleSheet, Text, View, StatusBar } from 'react-native';
+import React, { useContext, lazy, Suspense } from 'react';
+import { StyleSheet, Text, View, StatusBar, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { navigationRef } from './src/services/NavigationService';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -9,16 +9,38 @@ import { ProfileProvider } from './src/context/ProfileContext';
 import { CallProvider } from './src/context/CallContext';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
-import ChatScreen from './src/screens/ChatScreen';
-import NewChatScreen from './src/screens/NewChatScreen';
-import CallScreen from './src/screens/CallScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
-import StoryScreen from './src/screens/StoryScreen';
-import MediaShareScreen from './src/screens/MediaShareScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
-import StreaksScreen from './src/screens/StreaksScreen';
 import { Home, MessageCircle, SquarePlus, Video, User } from 'lucide-react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+// Lazy load heavy screens to speed up app cold start
+const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
+const NewChatScreen = React.lazy(() => import('./src/screens/NewChatScreen'));
+const CallScreen = React.lazy(() => import('./src/screens/CallScreen'));
+const StoryScreen = React.lazy(() => import('./src/screens/StoryScreen'));
+const MediaShareScreen = React.lazy(() => import('./src/screens/MediaShareScreen'));
+const ProfileScreen = React.lazy(() => import('./src/screens/ProfileScreen'));
+const StreaksScreen = React.lazy(() => import('./src/screens/StreaksScreen'));
+
+const LazyFallback = () => (
+  <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
+    <ActivityIndicator color="#7B61FF" size="large" />
+  </View>
+);
+
+const withSuspense = (Component) => (props) => (
+  <Suspense fallback={<LazyFallback />}>
+    <Component {...props} />
+  </Suspense>
+);
+
+const LazyChatScreen = withSuspense(ChatScreen);
+const LazyNewChatScreen = withSuspense(NewChatScreen);
+const LazyCallScreen = withSuspense(CallScreen);
+const LazyStoryScreen = withSuspense(StoryScreen);
+const LazyMediaShareScreen = withSuspense(MediaShareScreen);
+const LazyProfileScreen = withSuspense(ProfileScreen);
+
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -58,7 +80,11 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
-const CreateScreen = ({ navigation }) => <MediaShareScreen navigation={navigation} />;
+const CreateScreen = ({ navigation }) => (
+  <Suspense fallback={<LazyFallback />}>
+    <MediaShareScreen navigation={navigation} />
+  </Suspense>
+);
 const VideoScreen = () => (
   <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
     <Video color="#7B61FF" size={64} strokeWidth={1.5} />
@@ -72,8 +98,8 @@ const VideoScreen = () => (
 const ChatStack = () => (
   <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: THEME.colors.background } }}>
     <Stack.Screen name="ChatList" component={ChatListScreen} />
-    <Stack.Screen name="ChatScreen" component={ChatScreen} />
-    <Stack.Screen name="NewChat" component={NewChatScreen} />
+    <Stack.Screen name="ChatScreen" component={LazyChatScreen} />
+    <Stack.Screen name="NewChat" component={LazyNewChatScreen} />
   </Stack.Navigator>
 );
 
@@ -98,7 +124,7 @@ const MainTabs = () => (
     <Tab.Screen name="Chats" component={ChatStack} />
     <Tab.Screen name="Create" component={CreateScreen} />
     <Tab.Screen name="Videos" component={VideoScreen} />
-    <Tab.Screen name="Profile" component={ProfileScreen} />
+    <Tab.Screen name="Profile" component={LazyProfileScreen} />
   </Tab.Navigator>
 );
 
@@ -117,8 +143,9 @@ const AppNavigator = () => {
         {user ? (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
-            <Stack.Screen name="CallScreen" component={CallScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="StoryScreen" component={StoryScreen} options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="CallScreen" component={LazyCallScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="StoryScreen" component={LazyStoryScreen} options={{ presentation: 'fullScreenModal' }} />
+            <Stack.Screen name="ProfileScreen" component={LazyProfileScreen} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />

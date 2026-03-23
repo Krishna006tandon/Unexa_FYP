@@ -3,10 +3,11 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndi
 import { Plus } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
+import { useProfile } from '../context/ProfileContext';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { API_URL } from './AuthScreen';
+import ENVIRONMENT from '../config/environment';
 import { NetworkDiagnostic } from '../utils/networkDiagnostic';
 
 const THEME = {
@@ -26,15 +27,29 @@ const StoriesListScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const { user } = useContext(AuthContext);
+  const { socket } = useProfile();
 
   useEffect(() => {
     fetchStories();
-  }, []);
+    // Refresh when screen comes into focus
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchStories();
+    });
+
+    if (socket) {
+      socket.on('new_story', fetchStories);
+    }
+
+    return () => {
+      unsubscribe();
+      if (socket) socket.off('new_story', fetchStories);
+    };
+  }, [navigation, socket]);
 
   const fetchStories = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data } = await axios.get(`${API_URL}/api/story`, config);
+      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/story`, config);
       setStoriesData(data);
     } catch (error) {
       console.log('Error fetching stories:', error);
@@ -52,7 +67,7 @@ const StoriesListScreen = ({ navigation }) => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        uploadStory(result.assets[0]);
+        promptPrivacy(result.assets[0]);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick media');
@@ -69,28 +84,29 @@ const StoriesListScreen = ({ navigation }) => {
       });
 
       if (!result.canceled && result.assets[0]) {
-        uploadStory(result.assets[0]);
+        promptPrivacy(result.assets[0]);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to take photo');
     }
   };
 
-  const uploadStory = async (asset) => {
+  const promptPrivacy = (asset) => {
+    Alert.alert(
+      'Story Privacy',
+      'Who can see this story?',
+      [
+        { text: 'Close Friends 💚', onPress: () => processUpload(asset, true) },
+        { text: 'Everyone 🌍', onPress: () => processUpload(asset, false) },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const processUpload = async (asset, isCloseFriends) => {
     setUploading(true);
     
     try {
-      // Test network connection first
-      console.log('Testing API connection...');
-      const connectionTest = await NetworkDiagnostic.testApiConnection(API_URL);
-      if (!connectionTest.success) {
-        console.error('Network connection failed:', connectionTest.error);
-        Alert.alert('Network Error', `Cannot connect to server: ${connectionTest.error}`);
-        return;
-      }
-      
-      console.log('Network connection successful, proceeding with upload...');
-      
       const mediaType = asset.type === 'image' ? 'image' : 'video';
       
       const formData = new FormData();
@@ -108,10 +124,10 @@ const StoriesListScreen = ({ navigation }) => {
         timeout: 30000, // 30 second timeout
       };
       
-      console.log('Uploading to:', `${API_URL}/api/upload`);
+      console.log('Uploading to:', `${ENVIRONMENT.API_URL}/api/upload`);
       
       // Upload media first
-      const uploadResponse = await axios.post(`${API_URL}/api/upload`, formData, config);
+      const uploadResponse = await axios.post(`${ENVIRONMENT.API_URL}/api/upload`, formData, config);
       const mediaUrl = uploadResponse.data.mediaUrl;
       
       // Then create story
@@ -119,7 +135,8 @@ const StoriesListScreen = ({ navigation }) => {
         mediaUrl,
         mediaType,
         caption: '', // You can add caption input later
-        duration: asset.type === 'video' ? 15 : 5
+        duration: asset.type === 'video' ? 15 : 5,
+        isCloseFriends
       };
       
       const storyConfig = { 
@@ -130,7 +147,7 @@ const StoriesListScreen = ({ navigation }) => {
         timeout: 30000, // 30 second timeout
       };
       
-      await axios.post(`${API_URL}/api/story/upload`, storyData, storyConfig);
+      await axios.post(`${ENVIRONMENT.API_URL}/api/story/upload`, storyData, storyConfig);
       
       Alert.alert('Success', 'Story uploaded successfully!');
       fetchStories(); // Refresh stories
@@ -160,7 +177,7 @@ const StoriesListScreen = ({ navigation }) => {
 
   const testNetworkConnection = async () => {
     try {
-      const connectionTest = await NetworkDiagnostic.testApiConnection(API_URL);
+      const connectionTest = await NetworkDiagnostic.testApiConnection(ENVIRONMENT.API_URL);
       if (connectionTest.success) {
         Alert.alert('Network Test', 'Network connection successful!');
       } else {
@@ -197,7 +214,7 @@ const StoriesListScreen = ({ navigation }) => {
         })}
       >
         <LinearGradient 
-          colors={isViewed ? ['#333', '#555'] : [THEME.colors.primary, THEME.colors.secondary]}
+          colors={isViewed ? ['#333', '#555'] : latestStory?.isCloseFriends ? ['#1DB954', '#1AA34A'] : [THEME.colors.primary, THEME.colors.secondary]}
           style={styles.storyRing}
         >
           <Image source={{ uri: item.user.avatar || item.user.profilePhoto || 'https://i.pravatar.cc/150' }} style={styles.storyAvatar} />

@@ -66,6 +66,22 @@ export const ProfileProvider = ({ children }) => {
           socket.emit('joinProfileRoom', userId);
         });
 
+        // Notifications import
+        const Notifications = require('expo-notifications');
+
+        socket.on('media-received', async (data) => {
+          console.log('📬 NEW MEDIA:', data);
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: `New ${data.mediaType === 'video' ? 'Video' : 'Image'} Received!`,
+              body: `${data.senderName} sent you a view-once media. Open to view it!`,
+              sound: true,
+              data: { route: 'MediaShareScreen' },
+            },
+            trigger: null,
+          });
+        });
+
         socket.on('profileUpdated', (data) => {
           dispatch({ type: 'UPDATE_PROFILE', payload: data.profile });
         });

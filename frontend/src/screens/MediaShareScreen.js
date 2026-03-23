@@ -18,7 +18,8 @@ import { AuthContext } from '../context/AuthContext';
 import ENVIRONMENT from '../config/environment';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
-import { Video } from 'expo-video';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { Audio } from 'expo-audio';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -38,6 +39,14 @@ const THEME = {
 
 const MediaShareScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
+
+  const VideoPlayer = ({ url, style, autoplay = false }) => {
+    const player = useVideoPlayer(url, (p) => {
+        p.loop = true;
+        if (autoplay) p.play();
+    });
+    return <VideoView style={style} player={player} allowsFullscreen />;
+  };
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
@@ -46,6 +55,7 @@ const MediaShareScreen = ({ navigation }) => {
   const [showFriendSelector, setShowFriendSelector] = useState(false);
   const [sharedMedia, setSharedMedia] = useState([]);
   const [activeTab, setActiveTab] = useState('shared-with-me');
+  const [viewingMedia, setViewingMedia] = useState(null);
 
   useEffect(() => {
     fetchFriends();
@@ -79,8 +89,43 @@ const MediaShareScreen = ({ navigation }) => {
     fetchSharedMedia();
   }, [activeTab]);
 
+  const handleViewMedia = async (item) => {
+    if (activeTab === 'my-shares') {
+      setViewingMedia(item);
+      return;
+    }
+    
+    // Check if already viewed
+    const hasViewed = item.views.some(v => (v.user?._id || v.user) === user._id);
+    if (hasViewed) {
+      Alert.alert('Already Viewed', 'This media can only be viewed once.');
+      return;
+    }
+    
+    setViewingMedia(item);
+    
+    try {
+      await axios.post(`${ENVIRONMENT.API_URL}/api/media/${item._id}/view`, {}, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      // Update local state to reflect it's viewed
+      setSharedMedia(prev => prev.map(m => {
+        if (m._id === item._id) {
+          return { ...m, views: [...m.views, { user: { _id: user._id } }] };
+        }
+        return m;
+      }));
+    } catch (error) {
+      console.error('Error marking as viewed:', error);
+    }
+  };
+
+  const closeMediaView = () => {
+    setViewingMedia(null);
+  };
+
   const pickMedia = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaType, quality: 0.8 });
+    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 });
     if (!result.canceled) {
       setSelectedMedia(result.assets[0]);
     }
@@ -146,10 +191,18 @@ const MediaShareScreen = ({ navigation }) => {
         }
       } else {
         // For native React Native
+        let mimeType = selectedMedia.mimeType;
+        if (!mimeType) {
+          // Fallback if mimeType is not provided by ImagePicker
+          if (selectedMedia.type === 'image') mimeType = 'image/jpeg';
+          else if (selectedMedia.type === 'video') mimeType = 'video/mp4';
+          else mimeType = 'image/jpeg';
+        }
+        
         const file = {
           uri: selectedMedia.uri,
-          type: selectedMedia.type || 'image/jpeg',
-          name: selectedMedia.fileName || `media_${Date.now()}.jpg`
+          type: mimeType,
+          name: selectedMedia.fileName || `media_${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`
         };
         formData.append('media', file);
       }
@@ -217,11 +270,15 @@ const MediaShareScreen = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  const renderMediaItem = ({ item }) => (
+  const renderMediaItem = ({ item }) => {
+    const isMyShare = activeTab === 'my-shares';
+    const hasViewed = item.views.some(v => (v.user?._id || v.user) === user._id);
+
+    return (
     <View style={styles.mediaItem}>
       <View style={styles.mediaHeader}>
         <View style={styles.senderInfo}>
-          <Image 
+           <Image 
             source={{ uri: item.sender.profilePhoto }} 
             style={styles.senderAvatar}
           />
@@ -238,21 +295,43 @@ const MediaShareScreen = ({ navigation }) => {
       </View>
       
       {item.mediaType === 'image' ? (
-        <Image 
-          source={{ uri: item.mediaUrl }} 
-          style={styles.mediaContent}
-          resizeMode="cover"
-        />
+        <TouchableOpacity onPress={() => handleViewMedia(item)} activeOpacity={0.8}>
+          {!isMyShare && hasViewed ? (
+            <View style={[styles.mediaContent, styles.viewedPlaceholder]}>
+              <Ionicons name="eye-off" size={48} color={THEME.colors.textDim} />
+              <Text style={styles.viewedText}>Already viewed</Text>
+            </View>
+          ) : !isMyShare && !hasViewed ? (
+            <View style={[styles.mediaContent, styles.tapToViewPlaceholder]}>
+              <Ionicons name="gift-outline" size={48} color={THEME.colors.primary} />
+              <Text style={styles.tapToViewText}>Tap to view once</Text>
+            </View>
+          ) : (
+            <Image 
+              source={{ uri: item.mediaUrl }} 
+              style={styles.mediaContent}
+              resizeMode="cover"
+            />
+          )}
+        </TouchableOpacity>
       ) : (
-        <View style={styles.videoContainer}>
-          <Video
-            source={{ uri: item.mediaUrl }}
-            style={styles.mediaContent}
-            shouldPlay={false}
-            isLooping
-            useNativeControls
-          />
-        </View>
+        <TouchableOpacity onPress={() => handleViewMedia(item)} activeOpacity={0.8}>
+          {!isMyShare && hasViewed ? (
+            <View style={[styles.mediaContent, styles.viewedPlaceholder]}>
+              <Ionicons name="eye-off" size={48} color={THEME.colors.textDim} />
+              <Text style={styles.viewedText}>Already viewed</Text>
+            </View>
+          ) : !isMyShare && !hasViewed ? (
+            <View style={[styles.mediaContent, styles.tapToViewPlaceholder]}>
+              <Ionicons name="videocam-outline" size={48} color={THEME.colors.primary} />
+              <Text style={styles.tapToViewText}>Tap to play once</Text>
+            </View>
+          ) : (
+            <View style={styles.videoContainer}>
+               <VideoPlayer url={item.mediaUrl} style={styles.mediaContent} />
+            </View>
+          )}
+        </TouchableOpacity>
       )}
       
       {item.caption && (
@@ -274,22 +353,25 @@ const MediaShareScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
       
-      <View style={styles.recipientsInfo}>
-        <Text style={styles.recipientsLabel}>Shared with:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {item.recipients.map(recipient => (
-            <View key={recipient._id} style={styles.recipientChip}>
-              <Image 
-                source={{ uri: recipient.profilePhoto }} 
-                style={styles.recipientAvatar}
-              />
-              <Text style={styles.recipientName}>{recipient.username}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      {isMyShare && (
+        <View style={styles.recipientsInfo}>
+          <Text style={styles.recipientsLabel}>Shared with:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {item.recipients.map(recipient => (
+              <View key={recipient._id} style={styles.recipientChip}>
+                <Image 
+                  source={{ uri: recipient.profilePhoto }} 
+                  style={styles.recipientAvatar}
+                />
+                <Text style={styles.recipientName}>{recipient.username}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
+};
 
   return (
     <View style={styles.container}>
@@ -440,6 +522,33 @@ const MediaShareScreen = ({ navigation }) => {
             keyExtractor={item => item._id}
             style={styles.friendsList}
           />
+        </View>
+      </Modal>
+
+      {/* Full Screen Media Viewer */}
+      <Modal
+        visible={!!viewingMedia}
+        animationType="fade"
+        transparent={false}
+        onRequestClose={closeMediaView}
+      >
+        <View style={styles.viewerContainer}>
+          <TouchableOpacity 
+            style={styles.closeViewerButton} 
+            onPress={closeMediaView}
+          >
+            <Ionicons name="close" size={32} color="#FFF" />
+          </TouchableOpacity>
+          
+          {viewingMedia?.mediaType === 'image' ? (
+            <Image 
+              source={{ uri: viewingMedia.mediaUrl }} 
+              style={styles.fullScreenMedia}
+              resizeMode="contain"
+            />
+          ) : viewingMedia?.mediaType === 'video' ? (
+            <VideoPlayer url={viewingMedia.mediaUrl} style={styles.fullScreenMedia} />
+          ) : null}
         </View>
       </Modal>
     </View>
@@ -793,6 +902,51 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  viewedPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  viewedText: {
+    color: THEME.colors.textDim,
+    fontSize: 16,
+    marginTop: 10,
+    fontWeight: '500',
+  },
+  tapToViewPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(123, 97, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(123, 97, 255, 0.3)',
+  },
+  tapToViewText: {
+    color: THEME.colors.primary,
+    fontSize: 16,
+    marginTop: 10,
+    fontWeight: '600',
+  },
+  viewerContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeViewerButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+  },
+  fullScreenMedia: {
+    width: '100%',
+    height: '100%',
   },
 });
 

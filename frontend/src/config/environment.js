@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 
 // Environment variables for Expo app
 const ENVIRONMENT = {
-  // API Configuration (PRODUCTION)
+  // API Configuration (PRODUCTION - REDEPLOY PUSH IN PROGRESS)
   API_URL: 'https://unexa-fyp.onrender.com',
   
   // Cloudinary Configuration

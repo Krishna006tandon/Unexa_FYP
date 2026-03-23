@@ -23,6 +23,9 @@ const messageSchema = new mongoose.Schema(
     ],
     seenBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     deliveredTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    isForwarded: { type: Boolean, default: false },
+    isStarredBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    expiresAt: { type: Date, default: null }, // For Vanish Mode (e.g., 24h or after view)
     edited: { type: Boolean, default: false },
     deleted: { type: Boolean, default: false },
   },

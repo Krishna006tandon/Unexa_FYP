@@ -137,6 +137,18 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
     }
     
     console.log(`✅ Streaks updated: ${streaksUpdated}`);
+
+    const io = req.app.get('io');
+    if (io) {
+      for (const recipientId of recipientIds) {
+        io.to(`profile_${recipientId}`).emit('media-received', {
+          senderId: req.user._id,
+          senderName: req.user.username || 'Someone',
+          mediaType: mediaType,
+          mediaId: mediaShare._id
+        });
+      }
+    }
     
     res.status(201).json({ 
       success: true, 
