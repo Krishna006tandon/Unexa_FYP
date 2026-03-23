@@ -8,23 +8,24 @@ const generateToken = (id) => {
 };
 
 exports.registerUser = async (req, res) => {
-  const { username, email, password } = req.body;
+    const { username, email, password } = req.body;
+    const cleanEmail = email.toLowerCase().trim();
 
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: 'Please Enter all the Fields' });
-  }
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Please Enter all the Fields' });
+    }
 
-  const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: cleanEmail });
 
   if (userExists) {
     return res.status(400).json({ error: 'User already exists' });
   }
 
-  const user = await User.create({
-    username,
-    email,
-    passwordHash: password, // This will be hashed automatically by the pre-save hook
-  });
+    const user = await User.create({
+      username,
+      email: cleanEmail,
+      passwordHash: password, // This will be hashed automatically by the pre-save hook
+    });
 
   if (user) {
     res.status(201).json({
@@ -41,7 +42,8 @@ exports.registerUser = async (req, res) => {
 
 exports.authUser = async (req, res) => {
   const { email, password } = req.body;
-  const user = await User.findOne({ email });
+  const cleanEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: cleanEmail });
 
   if (user && (await user.matchPassword(password))) {
     res.json({
@@ -53,6 +55,31 @@ exports.authUser = async (req, res) => {
     });
   } else {
     res.status(401).json({ error: 'Invalid Email or Password' });
+  }
+};
+
+// Simplified Reset Password (No OTP - as requested)
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: cleanEmail });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found with this email" });
+    }
+
+    // Update password
+    user.passwordHash = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Password updated successfully" });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: "Server error during password reset" });
   }
 };
 

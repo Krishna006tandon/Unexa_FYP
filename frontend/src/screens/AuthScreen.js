@@ -23,23 +23,28 @@ const THEME = {
 };
 
 const AuthScreen = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'forgot'
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [newResetPassword, setNewResetPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useContext(AuthContext);
 
   const handleSubmit = async () => {
-    if ((!isLogin && !username) || !email || !password) {
+    if (authMode === 'forgot') {
+      return handleResetPassword();
+    }
+
+    if ((authMode === 'signup' && !username) || !email || !password) {
       return Alert.alert("Hold on", "Please fill out all the fields");
     }
 
     setIsLoading(true);
     try {
-      const endpoint = isLogin ? "/api/auth/login" : "/api/auth";
-      const payload = isLogin ? { email: email.trim(), password } : { username: username.trim(), email: email.trim(), password };
+      const endpoint = authMode === 'login' ? "/api/auth/login" : "/api/auth";
+      const payload = authMode === 'login' ? { email: email.trim(), password } : { username: username.trim(), email: email.trim(), password };
 
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}${endpoint}`, payload);
 
@@ -66,6 +71,29 @@ const AuthScreen = () => {
     setIsLoading(false);
   };
 
+  const handleResetPassword = async () => {
+    if (!email || !newResetPassword) return Alert.alert("Required", "Please enter both Email and New Password");
+    setIsLoading(true);
+    try {
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/auth/reset-password`, { 
+        email: email.trim(), 
+        newPassword: newResetPassword 
+      });
+      Alert.alert("Success", "Password updated! You can login now.");
+      setAuthMode('login');
+      setNewResetPassword("");
+    } catch (error) {
+      Alert.alert("Error", error.response?.data?.error || "Reset failed");
+    }
+    setIsLoading(false);
+  };
+
+  const getSubTitle = () => {
+    if (authMode === 'login') return "Welcome back to universe.";
+    if (authMode === 'signup') return "Join the universe.";
+    return "Enter your email to reset your secret key.";
+  };
+
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -86,11 +114,11 @@ const AuthScreen = () => {
               />
             </View>
             <Text style={styles.title}>UNEXA</Text>
-            <Text style={styles.subtitle}>{isLogin ? "Welcome back to universe." : "Join the universe."}</Text>
+            <Text style={styles.subtitle}>{getSubTitle()}</Text>
         </View>
 
         <View style={styles.formContainer}>
-            {!isLogin && (
+            {authMode === 'signup' && (
               <View style={styles.inputWrapper}>
                 <User color={THEME.colors.textDim} size={20} style={styles.inputIcon} />
                 <TextInput
@@ -118,18 +146,44 @@ const AuthScreen = () => {
               />
             </View>
 
-            <View style={styles.inputWrapper}>
-              <Lock color={THEME.colors.textDim} size={20} style={styles.inputIcon} />
-              <TextInput
-                  style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor={THEME.colors.textDim}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  selectionColor={THEME.colors.primary}
-              />
-            </View>
+            {authMode !== 'forgot' && (
+              <View style={styles.inputWrapper}>
+                <Lock color={THEME.colors.textDim} size={20} style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor={THEME.colors.textDim}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    selectionColor={THEME.colors.primary}
+                />
+              </View>
+            )}
+
+            {authMode === 'forgot' && (
+              <View style={styles.inputWrapper}>
+                <Lock color={THEME.colors.textDim} size={20} style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="New Password"
+                    placeholderTextColor={THEME.colors.textDim}
+                    value={newResetPassword}
+                    onChangeText={setNewResetPassword}
+                    secureTextEntry
+                    selectionColor={THEME.colors.primary}
+                />
+              </View>
+            )}
+
+            {authMode === 'login' && (
+              <TouchableOpacity 
+                onPress={() => setAuthMode('forgot')} 
+                style={styles.forgotPassContainer}
+              >
+                <Text style={styles.forgotPassText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity onPress={handleSubmit} disabled={isLoading} activeOpacity={0.8} style={styles.buttonWrapper}>
               <LinearGradient 
@@ -140,16 +194,26 @@ const AuthScreen = () => {
               >
                   {isLoading ? 
                     <ActivityIndicator color="#FFF" /> : 
-                    <Text style={styles.buttonText}>{isLogin ? "Login Now" : "Create Account"}</Text>
+                    <Text style={styles.buttonText}>
+                      {authMode === 'login' ? "Login Now" : 
+                       authMode === 'signup' ? "Create Account" : "Reset Password"}
+                    </Text>
                   }
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={styles.switchContainer}>
+            <TouchableOpacity 
+              onPress={() => {
+                if (authMode === 'forgot') setAuthMode('login');
+                else setAuthMode(authMode === 'login' ? 'signup' : 'login');
+              }} 
+              style={styles.switchContainer}
+            >
               <Text style={styles.switchText}>
-                  {isLogin ? "Don't have an account? " : "Already have an account? "}
+                  {authMode === 'login' ? "Don't have an account? " : 
+                   authMode === 'signup' ? "Already have an account? " : "Remember password? "}
                   <Text style={styles.switchHighlight}>
-                      {isLogin ? "Sign Up" : "Login"}
+                      {authMode === 'login' ? "Sign Up" : "Login"}
                   </Text>
               </Text>
             </TouchableOpacity>
@@ -269,6 +333,16 @@ const styles = StyleSheet.create({
   switchHighlight: {
     fontWeight: '800', 
     color: THEME.colors.secondary,
+  },
+  forgotPassContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 10,
+    marginRight: 5,
+  },
+  forgotPassText: {
+    color: THEME.colors.secondary,
+    fontSize: 14,
+    fontWeight: '600',
   }
 });
 
