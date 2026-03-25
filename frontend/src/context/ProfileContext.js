@@ -4,6 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import profileService from '../services/profileService';
 import { AuthContext } from './AuthContext';
 import ENVIRONMENT from '../config/environment';
+import * as NotificationService from '../services/NotificationService';
+import * as NavigationService from '../services/NavigationService';
+
 
 const API_URL = ENVIRONMENT.API_URL;
 
@@ -57,7 +60,13 @@ export const ProfileProvider = ({ children }) => {
       const token = user ? user.token : null;
       
       if (token && userId) {
+        // Disconnect previous socket if it exists
+        if (state.socket) {
+          state.socket.disconnect();
+        }
+
         const socket = io(API_URL, {
+
           auth: { token }
         });
 
@@ -67,21 +76,41 @@ export const ProfileProvider = ({ children }) => {
           socket.emit('user_connected', userId);
         });
 
-        // Notifications import
-        const Notifications = require('expo-notifications');
-
-        socket.on('media-received', async (data) => {
+        socket.on('media-received', (data) => {
           console.log('📬 NEW MEDIA:', data);
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: `New ${data.mediaType === 'video' ? 'Video' : 'Image'} Received!`,
-              body: `${data.senderName} sent you a view-once media. Open to view it!`,
-              sound: true,
-              data: { route: 'MediaShareScreen' },
-            },
-            trigger: null,
-          });
+          NotificationService.scheduleLocalNotification(
+            `New ${data.mediaType === 'video' ? 'Video' : 'Image'} Received!`,
+            `${data.senderName} sent you a view-once media.`,
+            { route: 'MediaShareScreen' }
+          );
         });
+
+        socket.on('message_received', (msg) => {
+           // Only notify if not in that specific chat screen
+           const currentRoute = NavigationService.getCurrentRouteName();
+           const currentChatId = NavigationService.navigationRef.current?.getCurrentRoute()?.params?.chatId;
+
+           if (currentRoute === 'ChatScreen' && currentChatId === (msg.chat._id || msg.chat)) {
+              return; // Already viewing this chat
+           }
+
+           NotificationService.scheduleLocalNotification(
+              `New Message from ${msg.sender.username}`,
+              msg.messageType === 'text' ? msg.content : `[${msg.messageType}]`,
+              { 
+                route: 'Chats', 
+                params: { 
+                   screen: 'ChatScreen', 
+                   params: { 
+                      chatId: msg.chat._id || msg.chat,
+                      name: msg.sender.username,
+                      receiverId: msg.sender._id
+                   } 
+                } 
+              }
+           );
+        });
+
 
         socket.on('profileUpdated', (data) => {
           dispatch({ type: 'UPDATE_PROFILE', payload: data.profile });

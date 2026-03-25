@@ -6,17 +6,12 @@ import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import ProfileContext from './ProfileContext';
 import { AuthContext } from './AuthContext';
-import * as NavigationService from '../services/NavigationService'; // We'll need this for redirect
+import * as NavigationService from '../services/NavigationService'; 
+import * as NotificationService from '../services/NotificationService';
 import * as Notifications from 'expo-notifications';
 
-// Handle notifications in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+
+
 
 export const CallContext = createContext();
 
@@ -62,16 +57,23 @@ export const CallProvider = ({ children }) => {
   const startRinging = async (callData) => {
     setIsRinging(true);
     
-    // Trigger Push Notification
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `Incoming ${callData.type === 'video' ? 'Video' : 'Voice'} Call`,
-        body: `${callData.callerName || 'Someone'} is calling you...`,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.MAX,
+    // Trigger Local Notification for incoming call
+    NotificationService.scheduleLocalNotification(
+      `Incoming ${callData.type === 'video' ? 'Video' : 'Voice'} Call`,
+      `${callData.callerName || 'Someone'} is calling you...`,
+      { 
+        route: 'CallScreen', 
+        params: { 
+          chatId: callData.chatId, 
+          type: callData.type, 
+          name: callData.callerName, 
+          isIncoming: true, 
+          receiverId: callData.callerId 
+        } 
       },
-      trigger: null, // show immediately
-    });
+      'calls'
+    );
+
 
     // Start Vibration Loop
     vibrationInterval.current = setInterval(() => {

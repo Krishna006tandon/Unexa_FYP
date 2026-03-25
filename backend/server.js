@@ -98,6 +98,39 @@ app.get('/', (req, res) => {
   res.send('UNEXA SuperApp API is running...');
 });
 
+// Profile Deep Link Redirection
+app.get('/profile/:id', (req, res) => {
+  const { id } = req.params;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Opening UNEXA...</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #0A0A0A; color: white; text-align: center; }
+          .container { padding: 20px; }
+          .btn { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #7B61FF; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Opening Profile in UNEXA...</h2>
+          <p>If the app doesn't open automatically, click the button below:</p>
+          <a href="unexa://profile/${id}" class="btn">Open UNEXA App</a>
+        </div>
+        <script>
+          window.location.href = "unexa://profile/${id}";
+          // Fallback after 3 seconds
+          setTimeout(function() {
+            console.log("App didn't open automatically");
+          }, 3000);
+        </script>
+      </body>
+    </html>
+  `);
+});
+
 // Test endpoint for debugging
 app.get('/api/test', (req, res) => {
   res.json({ 

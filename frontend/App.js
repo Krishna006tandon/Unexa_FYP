@@ -12,6 +12,8 @@ import ChatListScreen from './src/screens/ChatListScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
 import { Home, MessageCircle, SquarePlus, Video, User } from 'lucide-react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as NotificationService from './src/services/NotificationService';
+
 
 // Lazy load heavy screens to speed up app cold start
 const ChatScreen = React.lazy(() => import('./src/screens/ChatScreen'));
@@ -133,7 +135,15 @@ const AppNavigator = () => {
 
   if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
 
+  React.useEffect(() => {
+    // ⚡ Initialize Notification Services
+    NotificationService.requestPermissions();
+    const cleanup = NotificationService.setupNotificationClickListeners();
+    return cleanup;
+  }, []);
+
   return (
+
     <NavigationContainer 
       ref={navigationRef} 
       theme={{ colors: { background: THEME.colors.background }}}
