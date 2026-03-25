@@ -120,16 +120,23 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
       });
       
       if (streak) {
-        streak.count += 1;
-        streak.lastShared = new Date();
-        await streak.save();
-        streaksUpdated++;
+        // Use the model method for consistent logic (day diff, history, milestones)
+        const updated = streak.updateStreak(req.user._id, mediaShare._id);
+        if (updated) {
+          await streak.save();
+          streaksUpdated++;
+        }
       } else {
         // Create new streak
         const newStreak = new Streak({
           users: users,
-          count: 1,
-          lastShared: new Date()
+          currentStreak: 1,
+          lastSharedDate: new Date(),
+          streakHistory: [{
+            date: new Date(),
+            sharedBy: req.user._id,
+            mediaShare: mediaShare._id
+          }]
         });
         await newStreak.save();
         streaksUpdated++;

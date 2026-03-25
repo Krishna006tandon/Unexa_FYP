@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
     profilePhoto: { type: String, default: "https://i.pravatar.cc/150" },
     bio: { type: String, default: "" },
@@ -13,14 +13,16 @@ const userSchema = new mongoose.Schema(
     closeFriends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     pushToken: { type: String },
     isOnline: { type: Boolean, default: false },
-    lastSeen: { type: Date, default: Date.now }
+    lastSeen: { type: Date, default: Date.now },
+    resetPasswordToken: { type: String },
+    resetPasswordExpire: { type: Date }
   },
   { timestamps: true }
 );
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('passwordHash')) {
-    next();
+    return next();
   }
   const salt = await bcrypt.genSalt(10);
   this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
