@@ -146,7 +146,7 @@ const getProfileByIdentifier = async (req, res) => {
     let query = {};
     // Check if identifier is a valid ObjectId
     if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
-      query.user = identifier;
+      query.$or = [{ user: identifier }, { _id: identifier }];
     } else {
       query.username = identifier;
     }
