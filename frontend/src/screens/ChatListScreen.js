@@ -95,7 +95,7 @@ const ChatListScreen = ({ navigation }) => {
     const name = isGroup ? item.chatName : otherUser.username;
     // Real avatar from backend avatar field
     const avatarInfo = isGroup 
-      ? { uri: 'https://i.pravatar.cc/150?u=group' } 
+      ? { uri: item.groupPhoto || 'https://via.placeholder.com/150?text=Group' } 
       : { uri: otherUser.avatar || otherUser.profilePhoto || 'https://i.pravatar.cc/150' };
 
     const lastMsgContent = item.latestMessage 
@@ -109,7 +109,8 @@ const ChatListScreen = ({ navigation }) => {
           chatId: item._id, 
           name: name, 
           receiverId: otherUser._id,
-          avatar: avatarInfo.uri 
+          avatar: avatarInfo.uri,
+          isGroupChat: item.isGroupChat
         })}
       >
         <LinearGradient colors={[THEME.colors.primary, THEME.colors.secondary]} style={styles.avatarGradient}>

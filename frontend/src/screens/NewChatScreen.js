@@ -76,7 +76,7 @@ const NewChatScreen = ({ navigation }) => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/chat/group`, { 
-        users: JSON.stringify([...selectedUsers, user._id]),
+        users: JSON.stringify(selectedUsers),
         name: groupName 
       }, config);
       navigation.replace('ChatScreen', { chatId: data._id, name: groupName });

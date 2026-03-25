@@ -23,6 +23,7 @@ const StoryScreen = React.lazy(() => import('./src/screens/StoryScreen'));
 const MediaShareScreen = React.lazy(() => import('./src/screens/MediaShareScreen'));
 const ProfileScreen = React.lazy(() => import('./src/screens/ProfileScreen'));
 const StreaksScreen = React.lazy(() => import('./src/screens/StreaksScreen'));
+const GroupChatDetailScreen = React.lazy(() => import('./src/screens/GroupChatDetailScreen'));
 
 const LazyFallback = () => (
   <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
@@ -42,6 +43,7 @@ const LazyCallScreen = withSuspense(CallScreen);
 const LazyStoryScreen = withSuspense(StoryScreen);
 const LazyMediaShareScreen = withSuspense(MediaShareScreen);
 const LazyProfileScreen = withSuspense(ProfileScreen);
+const LazyGroupChatDetailScreen = withSuspense(GroupChatDetailScreen);
 
 
 class ErrorBoundary extends React.Component {
@@ -156,6 +158,7 @@ const AppNavigator = () => {
             <Stack.Screen name="CallScreen" component={LazyCallScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="StoryScreen" component={LazyStoryScreen} options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="ProfileScreen" component={LazyProfileScreen} />
+            <Stack.Screen name="GroupChatDetailScreen" component={LazyGroupChatDetailScreen} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />

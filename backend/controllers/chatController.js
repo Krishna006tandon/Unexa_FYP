@@ -11,6 +11,8 @@ exports.accessChat = async (req, res) => {
     try {
       let chat = await Chat.findById(chatId)
         .populate('users', '-passwordHash')
+        .populate('groupAdmin', '-passwordHash')
+        .populate('admins', '-passwordHash')
         .populate('latestMessage');
 
       chat = await User.populate(chat, {
@@ -91,6 +93,7 @@ exports.fetchChats = async (req, res) => {
     Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
       .populate('users', 'username profilePhoto email isOnline lastSeen') // Get basic user info + status
       .populate('groupAdmin', 'username profilePhoto email')
+      .populate('admins', 'username profilePhoto email')
       .populate('latestMessage')
       .sort({ updatedAt: -1 })
       .then(async (results) => {
@@ -138,24 +141,27 @@ exports.createGroupChat = async (req, res) => {
   }
 
   let users = JSON.parse(req.body.users);
-
+  
   if (users.length < 2) {
-    return res.status(400).send('More than 2 users are required to form a group chat');
+    return res.status(400).send('At least 2 more users are required to form a group chat');
   }
 
-  users.push(req.user._id);
+  // Ensure unique members by using a Set
+  const uniqueUsers = Array.from(new Set([...users, req.user._id.toString()]));
 
   try {
     const groupChat = await Chat.create({
       chatName: req.body.name,
-      users: users,
+      users: uniqueUsers,
       isGroupChat: true,
       groupAdmin: req.user._id,
+      admins: [req.user._id],
     });
 
     const fullGroupChat = await Chat.findOne({ _id: groupChat._id })
       .populate('users', '-passwordHash')
-      .populate('groupAdmin', '-passwordHash');
+      .populate('groupAdmin', '-passwordHash')
+      .populate('admins', '-passwordHash');
 
     res.status(200).json(fullGroupChat);
   } catch (error) {
@@ -186,6 +192,49 @@ exports.renameGroup = async (req, res) => {
   }
 };
 
+// Update Group Photo
+exports.updateGroupPhoto = async (req, res) => {
+    const { chatId, groupPhoto } = req.body;
+    if (!groupPhoto) return res.status(400).send("Photo URL missing");
+    
+    try {
+        const updatedChat = await Chat.findByIdAndUpdate(chatId, { groupPhoto }, { new: true })
+            .populate('users', '-passwordHash')
+            .populate('groupAdmin', '-passwordHash')
+            .populate('admins', '-passwordHash');
+        res.json(updatedChat);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// Toggle Admin role for a user
+exports.toggleAdmin = async (req, res) => {
+    const { chatId, userId } = req.body;
+    try {
+        const chat = await Chat.findById(chatId);
+        if (!chat) return res.status(404).send("Chat Not Found");
+        
+        const isAdmin = chat.admins.includes(userId);
+        let update;
+        if (isAdmin) {
+             // Cannot remove creator as admin (conventionally)
+             if (chat.groupAdmin.toString() === userId) return res.status(400).send("Cannot demote primary group creator");
+             update = { $pull: { admins: userId } };
+        } else {
+             update = { $push: { admins: userId } };
+        }
+        
+        const updatedChat = await Chat.findByIdAndUpdate(chatId, update, { new: true })
+            .populate('users', '-passwordHash')
+            .populate('groupAdmin', '-passwordHash')
+            .populate('admins', '-passwordHash');
+        res.json(updatedChat);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // Add user to Group Chat
 exports.addToGroup = async (req, res) => {
   const { chatId, userId } = req.body;
@@ -193,11 +242,12 @@ exports.addToGroup = async (req, res) => {
   try {
     const added = await Chat.findByIdAndUpdate(
       chatId,
-      { $push: { users: userId } },
+      { $addToSet: { users: userId } },
       { new: true }
     )
       .populate('users', '-passwordHash')
-      .populate('groupAdmin', '-passwordHash');
+      .populate('groupAdmin', '-passwordHash')
+      .populate('admins', '-passwordHash');
 
     if (!added) {
       res.status(404).json({ message: 'Chat Not Found' });

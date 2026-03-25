@@ -31,7 +31,7 @@ const THEME = {
 };
 
 const ChatScreen = ({ route, navigation }) => {
-  const { chatId, name, receiverId: passedReceiverId, avatar } = route.params;
+  const { chatId, name, receiverId: passedReceiverId, avatar, isGroupChat } = route.params;
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
   
@@ -632,9 +632,13 @@ const ChatScreen = ({ route, navigation }) => {
         <TouchableOpacity 
           style={styles.headerProfile} 
           onPress={() => {
-            const receiverId = passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender;
-            if (receiverId) navigation.navigate('ProfileScreen', { userId: receiverId });
-            else Alert.alert("Error", "Could not identify user profile.");
+            if (isGroupChat) {
+               navigation.navigate('GroupChatDetailScreen', { chatId });
+            } else {
+               const receiverId = passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender;
+               if (receiverId) navigation.navigate('ProfileScreen', { userId: receiverId });
+               else Alert.alert("Error", "Could not identify user profile.");
+            }
           }}
         >
            <Image 
