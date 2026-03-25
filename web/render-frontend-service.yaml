@@ -1,0 +1,19 @@
+services:
+  # Frontend Web App
+  - type: web
+    name: unexa-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build:web
+    staticPublishPath: ./frontend/web-build
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://unexa-fyp.onrender.com
+      - key: EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: EXPO_PUBLIC_CLOUDINARY_API_KEY
+        sync: false
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate

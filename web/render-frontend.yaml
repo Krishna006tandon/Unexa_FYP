@@ -1,0 +1,11 @@
+services:
+  # Frontend Web App
+  - type: web
+    name: unexa-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/web-build
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://unexa-fyp.onrender.com
