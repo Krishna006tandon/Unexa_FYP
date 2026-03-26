@@ -124,7 +124,18 @@ const getMyProfile = async (req, res) => {
 
     // Calculate total streaks
     const streaks = await Streak.find({ users: req.user.id });
-    const totalStreaks = streaks.reduce((acc, curr) => acc + curr.currentStreak, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const totalStreaks = streaks.reduce((acc, curr) => {
+      if (!curr.lastSharedDate) return acc;
+      const lastShared = new Date(curr.lastSharedDate);
+      lastShared.setHours(0, 0, 0, 0);
+      const dayDiff = Math.floor((today - lastShared) / (1000 * 60 * 60 * 24));
+      
+      // If dayDiff > 1, streak is broken
+      return acc + (dayDiff > 1 ? 0 : curr.currentStreak);
+    }, 0);
 
     res.status(200).json({
       success: true,
@@ -224,7 +235,17 @@ const getProfileByIdentifier = async (req, res) => {
 
     // Calculate total streaks for this profile user
     const streaks = await Streak.find({ users: profile.user._id });
-    const totalStreaks = streaks.reduce((acc, curr) => acc + curr.currentStreak, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const totalStreaks = streaks.reduce((acc, curr) => {
+      if (!curr.lastSharedDate) return acc;
+      const lastShared = new Date(curr.lastSharedDate);
+      lastShared.setHours(0, 0, 0, 0);
+      const dayDiff = Math.floor((today - lastShared) / (1000 * 60 * 60 * 24));
+      
+      return acc + (dayDiff > 1 ? 0 : curr.currentStreak);
+    }, 0);
 
     res.status(200).json({
       success: true,
