@@ -13,6 +13,7 @@ const generateToken = (id) => {
 exports.registerUser = async (req, res) => {
     const { username, email, password } = req.body;
     const cleanEmail = email.toLowerCase().trim();
+    console.log(`📝 [AUTH-REG] Registration attempt for: ${cleanEmail}`);
 
     if (!username || !email || !password) {
       return res.status(400).json({ error: 'Please Enter all the Fields' });
@@ -47,9 +48,19 @@ exports.registerUser = async (req, res) => {
 exports.authUser = async (req, res) => {
   const { email, password } = req.body;
   const cleanEmail = email.toLowerCase().trim();
+  console.log(`🔐 [AUTH-LOGIN] Login attempt for: ${cleanEmail}`);
+  
   const user = await User.findOne({ email: cleanEmail });
+  
+  if (!user) {
+    console.log(`❌ [AUTH-LOGIN] User not found for: ${cleanEmail}`);
+    return res.status(401).json({ error: 'Invalid Email or Password' });
+  }
 
-  if (user && (await user.matchPassword(password))) {
+  const isPasswordMatch = await user.matchPassword(password);
+  console.log(`🔑 [AUTH-LOGIN] Password match result for ${cleanEmail}: ${isPasswordMatch}`);
+
+  if (isPasswordMatch) {
     // Generate 6 digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     user.otp = otp;
@@ -98,6 +109,7 @@ exports.verifyOTP = async (req, res) => {
   try {
      const { email, otp } = req.body;
      const cleanEmail = email.toLowerCase().trim();
+     console.log(`📲 [AUTH-OTP] OTP Verification attempt for: ${cleanEmail}`);
      const user = await User.findOne({ email: cleanEmail });
 
      if (!user || user.otp !== otp || user.otpExpires < Date.now()) {

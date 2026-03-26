@@ -14,6 +14,12 @@ const iv = encryptionIvRaw.length === 32
   : Buffer.from(encryptionIvRaw, 'utf8').slice(0, 16);
 
 // Encrypt string
+if (!ENCRYPTION_KEY || !ENCRYPTION_IV) {
+    console.warn('⚠️ [SECURITY-WARN] ENCRYPTION_KEY or ENCRYPTION_IV is missing! Using fallback keys (INSECURE for production).');
+} else {
+    console.log('✅ [SECURITY-INFO] Encryption utility initialized with custom keys.');
+}
+
 const encrypt = (text) => {
   if (!text) return text;
   try {
