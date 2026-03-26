@@ -32,7 +32,7 @@ const createOrUpdateProfile = async (req, res) => {
     // Check if username is already taken by another user
     if (username) {
       const existingProfile = await Profile.findOne({ 
-        username: encrypt(username), 
+        username, 
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
@@ -40,10 +40,9 @@ const createOrUpdateProfile = async (req, res) => {
       }
     }
 
-    // Check if email is already taken by another user
     if (email) {
       const existingProfile = await Profile.findOne({ 
-        email: encrypt(email.toLowerCase().trim()), 
+        email: email.toLowerCase().trim(), 
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
@@ -164,11 +163,10 @@ const getProfileByIdentifier = async (req, res) => {
     const { identifier } = req.params;
     
     let query = {};
-    // Check if identifier is a valid ObjectId
     if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
       query.$or = [{ user: identifier }, { _id: identifier }];
     } else {
-      query.username = encrypt(identifier);
+      query.username = identifier;
     }
 
     let profile = await Profile.findOne(query)
@@ -180,7 +178,7 @@ const getProfileByIdentifier = async (req, res) => {
       console.log('📝 Profile not found for:', identifier, 'Checking User table...');
       const user = identifier.match(/^[0-9a-fA-F]{24}$/) 
          ? await User.findById(identifier) 
-         : await User.findOne({ username: encrypt(identifier) });
+         : await User.findOne({ username: identifier });
 
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
@@ -544,13 +542,12 @@ const searchProfiles = async (req, res) => {
     }
 
     const skip = (page - 1) * limit;
-    const encryptedQ = encrypt(q);
 
     const profiles = await Profile.find({
       $or: [
-        { username: encryptedQ },
-        { fullName: encryptedQ },
-        { email: encryptedQ }
+        { username: q },
+        { fullName: q },
+        { email: q }
       ],
       isActive: true
     })
@@ -562,9 +559,9 @@ const searchProfiles = async (req, res) => {
 
     const total = await Profile.countDocuments({
       $or: [
-        { username: encryptedQ },
-        { fullName: encryptedQ },
-        { email: encryptedQ }
+        { username: q },
+        { fullName: q },
+        { email: q }
       ],
       isActive: true
     });

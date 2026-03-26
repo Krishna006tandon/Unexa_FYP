@@ -19,10 +19,11 @@ exports.registerUser = async (req, res) => {
     }
 
     const userExists = await User.findOne({ email: cleanEmail });
+    const usernameExists = await User.findOne({ username });
 
-  if (userExists) {
-    return res.status(400).json({ error: 'User already exists' });
-  }
+    if (userExists || usernameExists) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
 
     const user = await User.create({
       username,
@@ -46,8 +47,7 @@ exports.registerUser = async (req, res) => {
 exports.authUser = async (req, res) => {
   const { email, password } = req.body;
   const cleanEmail = email.toLowerCase().trim();
-  const encryptedEmail = encrypt(cleanEmail);
-  const user = await User.findOne({ email: encryptedEmail });
+  const user = await User.findOne({ email: cleanEmail });
 
   if (user && (await user.matchPassword(password))) {
     // Generate 6 digit OTP
@@ -98,7 +98,7 @@ exports.verifyOTP = async (req, res) => {
   try {
      const { email, otp } = req.body;
      const cleanEmail = email.toLowerCase().trim();
-     const user = await User.findOne({ email: encrypt(cleanEmail) });
+     const user = await User.findOne({ email: cleanEmail });
 
      if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
         await logAudit(req, 'OTP Verification Failed', { email: cleanEmail }, 'failure');
@@ -130,7 +130,7 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
     const cleanEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: encrypt(cleanEmail) });
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
       return res.status(404).json({ error: "User not found with this email" });
@@ -155,8 +155,8 @@ exports.allUsers = async (req, res) => {
   const keyword = req.query.search
     ? {
         $or: [
-          { username: encrypt(req.query.search) },
-          { email: encrypt(req.query.search.toLowerCase().trim()) },
+          { username: req.query.search },
+          { email: req.query.search.toLowerCase().trim() },
         ],
       }
     : {};
