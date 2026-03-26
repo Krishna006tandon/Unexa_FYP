@@ -33,35 +33,38 @@ exports.registerUser = async (req, res) => {
     });
 
   if (user) {
-    // Generate 6 digit OTP for new user
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = otp;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    const crypto = require('crypto');
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = verificationToken;
     await user.save();
 
-    console.log(`🔐 [2FA-SECURITY] Sending Verification OTP ${otp} to ${cleanEmail}`);
+    console.log(`🔐 [SECURITY] Sending Verification Link to ${cleanEmail}`);
     
-    // Send Real Email with OTP
+    // Send Real Email with Verification Link
     try {
+      const verifyUrl = `https://unexa-fyp.onrender.com/api/auth/verify-email/${verificationToken}`;
+
       await sendEmail({
         email: cleanEmail,
         subject: 'UNEXA Account Verification',
-        message: `Your UNEXA account verification code is: ${otp}.`,
+        message: `Click this link to verify your UNEXA account: ${verifyUrl}`,
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333;">
+          <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #7B61FF;">Welcome to UNEXA</h2>
-            <p>Please verify your email address. Your One-Time Password is:</p>
-            <h1 style="background: #F4F4F4; padding: 15px; border-radius: 10px; text-align: center; letter-spacing: 12px; font-size: 32px; border: 1px dashed #7B61FF;">${otp}</h1>
-            <p>Valid for <b>10 minutes</b>.</p>
+            <p>You're almost there! We just need to verify your email address. Click the button below to complete your registration:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verifyUrl}" style="background-color: #7B61FF; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Verify Email Address</a>
+            </div>
+            <p>If the button doesn't work, copy and paste this link into your browser:</p>
+            <p style="color: #666; font-size: 14px; word-break: break-all;">${verifyUrl}</p>
           </div>
         `
       });
     } catch (e) { console.error('Email error:', e); }
 
     res.status(201).json({
-      message: 'OTP sent to your email. Please verify to complete registration.',
-      email: cleanEmail,
-      requiresOTP: true
+      message: 'Verification link sent to your email. Please verify to login.',
+      email: cleanEmail
     });
   } else {
     res.status(400).json({ error: 'Failed to create the user' });
@@ -78,6 +81,10 @@ exports.authUser = async (req, res) => {
   if (!user) {
     console.log(`❌ [AUTH-LOGIN] User not found for: ${cleanEmail}`);
     return res.status(401).json({ error: 'Invalid Email or Password' });
+  }
+
+  if (!user.isVerified) {
+    return res.status(401).json({ error: 'Please verify your email first. Check your inbox for the link.' });
   }
 
   const isPasswordMatch = await user.matchPassword(password);
@@ -99,37 +106,50 @@ exports.authUser = async (req, res) => {
   }
 };
 
-// @desc    Verify OTP and return token
-// @route   POST /api/auth/verify-otp
-exports.verifyOTP = async (req, res) => {
+// @desc    Verify Email Link
+// @route   GET /api/auth/verify-email/:token
+exports.verifyEmail = async (req, res) => {
   try {
-     const { email, otp } = req.body;
-     const cleanEmail = email.toLowerCase().trim();
-     console.log(`📲 [AUTH-OTP] OTP Verification attempt for: ${cleanEmail}`);
-     const user = await User.findOne({ email: cleanEmail });
+     const token = req.params.token;
+     const user = await User.findOne({ verificationToken: token });
 
-     if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
-        await logAudit(req, 'OTP Verification Failed', { email: cleanEmail }, 'failure');
-        return res.status(401).json({ error: 'Invalid or Expired OTP' });
+     if (!user) {
+        return res.status(401).send(`
+          <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
+            <h1 style="color: #FF4444;">Verification Failed</h1>
+            <p>This verification link is invalid or has already been used.</p>
+          </div>
+        `);
      }
 
-     // Audit Log for success
-     await logAudit(req, 'OTP Verification Success', { userId: user._id }, 'success');
-
-     // Clear OTP after successful verify
-     user.otp = undefined;
-     user.otpExpires = undefined;
+     user.isVerified = true;
+     user.verificationToken = undefined;
      await user.save();
 
-     res.json({
-       _id: user._id,
-       username: user.username,
-       email: user.email,
-       profilePhoto: user.profilePhoto,
-       token: generateToken(user._id),
-     });
+     // Create default profile for the verified user
+     try {
+       const Profile = require('../models/Profile');
+       const existingFormat = await Profile.findOne({ user: user._id });
+       if (!existingFormat) {
+          await Profile.create({
+            user: user._id,
+            username: user.username,
+            fullName: user.username,
+            email: user.email,
+            bio: 'Welcome to UNEXA! 🎉'
+          });
+       }
+     } catch (err) { console.error('Profile creation error during verification', err); }
+
+     res.send(`
+       <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
+         <h1 style="color: #7B61FF;">UNEXA</h1>
+         <h2>Email Verified Successfully! 🎉</h2>
+         <p style="color: #666; min-height: 40px;">You can now close this window and return to the app to login.</p>
+       </div>
+     `);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).send('Server Error: ' + err.message);
   }
 };
 
