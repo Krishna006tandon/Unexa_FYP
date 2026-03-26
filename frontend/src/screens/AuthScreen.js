@@ -68,20 +68,22 @@ const AuthScreen = () => {
 
       await login(data); // Move to main app automatically
       
-      // Auto-create profile after successful registration or login
-      try {
-        const profileData = {
-          username: data.username,
-          fullName: data.username,
-          email: data.email,
-          bio: 'Welcome to UNEXA! 🎉',
-        };
-        
-        await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
-          headers: { Authorization: `Bearer ${data.token}` }
-        });
-      } catch (profileError) {
-        console.log('❌ Auto-profile error:', profileError.message);
+      // Auto-create profile ONLY after successful registration
+      if (authMode === 'signup') {
+        try {
+          const profileData = {
+            username: data.username,
+            fullName: data.username,
+            email: data.email,
+            bio: 'Welcome to UNEXA! 🎉',
+          };
+          
+          await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
+            headers: { Authorization: `Bearer ${data.token}` }
+          });
+        } catch (profileError) {
+          console.log('❌ Auto-profile error:', profileError.message);
+        }
       }
       
     } catch (error) {
