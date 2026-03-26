@@ -66,16 +66,23 @@ const AuthScreen = () => {
       const endpoint = authMode === 'login' ? "/api/auth/login" : "/api/auth";
       const payload = authMode === 'login' ? { email: email.trim(), password } : { username: username.trim(), email: email.trim(), password };
 
-      const { data } = await axios.post(`${ENVIRONMENT.API_URL}${endpoint}`, payload);
-
-      if (authMode === 'signup') {
-        showAlert("Check your email", "A verification link has been sent to your email address.", "success");
-        setAuthMode('login');
-        setIsLoading(false);
-        return;
-      }
-
       await login(data); // Move to main app automatically
+      
+      // Auto-create profile after successful registration or login
+      try {
+        const profileData = {
+          username: data.username,
+          fullName: data.username,
+          email: data.email,
+          bio: 'Welcome to UNEXA! 🎉',
+        };
+        
+        await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
+          headers: { Authorization: `Bearer ${data.token}` }
+        });
+      } catch (profileError) {
+        console.log('❌ Auto-profile error:', profileError.message);
+      }
       
     } catch (error) {
       showAlert("Auth Failed", error.response?.data?.error || error.message, "error");

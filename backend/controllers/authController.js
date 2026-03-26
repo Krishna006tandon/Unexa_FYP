@@ -33,39 +33,43 @@ exports.registerUser = async (req, res) => {
     });
 
   if (user) {
-    const crypto = require('crypto');
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    user.verificationToken = verificationToken;
-    await user.save();
-
-    console.log(`🔐 [SECURITY] Sending Verification Link to ${cleanEmail}`);
+    console.log(`🔐 [SECURITY] Sending Welcome Email to verify ${cleanEmail}`);
     
-    // Send Real Email with Verification Link
+    // Send Real Email
     try {
-      const verifyUrl = `https://unexa-fyp.onrender.com/api/auth/verify-email/${verificationToken}`;
-
       await sendEmail({
         email: cleanEmail,
-        subject: 'UNEXA Account Verification',
-        message: `Click this link to verify your UNEXA account: ${verifyUrl}`,
+        subject: 'Welcome to UNEXA SuperApp',
+        message: `Welcome to UNEXA, ${username}! Your account has been successfully created.`,
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #7B61FF;">Welcome to UNEXA</h2>
-            <p>You're almost there! We just need to verify your email address. Click the button below to complete your registration:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="background-color: #7B61FF; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Verify Email Address</a>
-            </div>
-            <p>If the button doesn't work, copy and paste this link into your browser:</p>
-            <p style="color: #666; font-size: 14px; word-break: break-all;">${verifyUrl}</p>
+          <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; text-align: center;">
+            <h2 style="color: #7B61FF;">Welcome to UNEXA, ${username}!</h2>
+            <p>Your account has been successfully created and verified.</p>
+            <p>Enjoy exploring the universe of UNEXA!</p>
           </div>
         `
       });
-    } catch (e) { console.error('Email error:', e); }
 
-    res.status(201).json({
-      message: 'Verification link sent to your email. Please verify to login.',
-      email: cleanEmail
-    });
+      // If email succeeds, mark as verified
+      user.isVerified = true;
+      await user.save();
+
+      console.log(`✅ [AUTH] Registration and verification successful for ${cleanEmail}`);
+      
+      return res.status(201).json({
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        profilePhoto: user.profilePhoto,
+        token: generateToken(user._id),
+      });
+
+    } catch (e) { 
+      console.error('❌ Email sending failed. Rejecting registration:', e.message);
+      // Delete the unverified user since the email bounced/failed
+      await User.findByIdAndDelete(user._id);
+      return res.status(400).json({ error: 'Please provide a valid and active email address.' });
+    }
   } else {
     res.status(400).json({ error: 'Failed to create the user' });
   }
@@ -81,10 +85,6 @@ exports.authUser = async (req, res) => {
   if (!user) {
     console.log(`❌ [AUTH-LOGIN] User not found for: ${cleanEmail}`);
     return res.status(401).json({ error: 'Invalid Email or Password' });
-  }
-
-  if (!user.isVerified) {
-    return res.status(401).json({ error: 'Please verify your email first. Check your inbox for the link.' });
   }
 
   const isPasswordMatch = await user.matchPassword(password);
@@ -106,52 +106,7 @@ exports.authUser = async (req, res) => {
   }
 };
 
-// @desc    Verify Email Link
-// @route   GET /api/auth/verify-email/:token
-exports.verifyEmail = async (req, res) => {
-  try {
-     const token = req.params.token;
-     const user = await User.findOne({ verificationToken: token });
 
-     if (!user) {
-        return res.status(401).send(`
-          <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
-            <h1 style="color: #FF4444;">Verification Failed</h1>
-            <p>This verification link is invalid or has already been used.</p>
-          </div>
-        `);
-     }
-
-     user.isVerified = true;
-     user.verificationToken = undefined;
-     await user.save();
-
-     // Create default profile for the verified user
-     try {
-       const Profile = require('../models/Profile');
-       const existingFormat = await Profile.findOne({ user: user._id });
-       if (!existingFormat) {
-          await Profile.create({
-            user: user._id,
-            username: user.username,
-            fullName: user.username,
-            email: user.email,
-            bio: 'Welcome to UNEXA! 🎉'
-          });
-       }
-     } catch (err) { console.error('Profile creation error during verification', err); }
-
-     res.send(`
-       <div style="text-align: center; margin-top: 50px; font-family: sans-serif;">
-         <h1 style="color: #7B61FF;">UNEXA</h1>
-         <h2>Email Verified Successfully! 🎉</h2>
-         <p style="color: #666; min-height: 40px;">You can now close this window and return to the app to login.</p>
-       </div>
-     `);
-  } catch (err) {
-    res.status(500).send('Server Error: ' + err.message);
-  }
-};
 
 // Simplified Reset Password (No OTP - as requested)
 exports.resetPassword = async (req, res) => {
