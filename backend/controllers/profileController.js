@@ -76,12 +76,12 @@ const createOrUpdateProfile = async (req, res) => {
         { user: req.user.id },
         { $set: profileData },
         { new: true, runValidators: true }
-      ).populate('user', 'name email');
+      ).populate('user', 'name');
     } else {
       // Create new profile
       profile = new Profile(profileData);
       await profile.save();
-      await profile.populate('user', 'name email');
+      await profile.populate('user', 'name');
     }
 
     // TODO: Fix socket.io integration
@@ -171,8 +171,8 @@ const getProfileByIdentifier = async (req, res) => {
     }
 
     let profile = await Profile.findOne(query)
-      .populate('user', 'username email profilePhoto isOnline lastSeen')
-      .select('-notificationSettings -privacySettings');
+      .populate('user', 'username profilePhoto isOnline lastSeen')
+      .select('-notificationSettings -privacySettings -email -phone');
 
     // If profile not found, let's try to find the user and create a default profile
     if (!profile) {
@@ -195,7 +195,7 @@ const getProfileByIdentifier = async (req, res) => {
         avatar: user.profilePhoto || ''
       });
       await profile.save();
-      await profile.populate('user', 'username email profilePhoto');
+      await profile.populate('user', 'username profilePhoto');
       console.log('✅ Auto-created profile for existing user:', user.username);
     }
 
@@ -247,10 +247,14 @@ const getProfileByIdentifier = async (req, res) => {
       return acc + (dayDiff > 1 ? 0 : curr.currentStreak);
     }, 0);
 
+    const profileObj = profile.toObject();
+    delete profileObj.email;
+    delete profileObj.phone;
+
     res.status(200).json({
       success: true,
       data: {
-        ...profile.toObject(),
+        ...profileObj,
         isFollowing,
         isCloseFriend,
         totalStreaks
@@ -368,7 +372,7 @@ const uploadAvatar = async (req, res) => {
             }
           },
           { new: true, runValidators: true, upsert: true }
-        ).populate('user', 'username email');
+        ).populate('user', 'username');
 
         // SYNC: Update the User model's profilePhoto as well for Chat/Global compatibility
         await User.findByIdAndUpdate(req.user.id, { profilePhoto: avatarUrl });
@@ -494,7 +498,7 @@ const uploadCoverImage = async (req, res) => {
           { user: req.user.id },
           { coverImage: coverImageUrl },
           { new: true, runValidators: true }
-        ).populate('user', 'name email');
+        ).populate('user', 'name');
 
         console.log('✅ Profile updated with new cover image');
 
@@ -549,8 +553,8 @@ const searchProfiles = async (req, res) => {
       ],
       isActive: true
     })
-    .populate('user', 'name email')
-    .select('-notificationSettings -privacySettings')
+    .populate('user', 'name')
+    .select('-notificationSettings -privacySettings -email -phone')
     .sort({ followersCount: -1 })
     .limit(parseInt(limit))
     .skip(skip);

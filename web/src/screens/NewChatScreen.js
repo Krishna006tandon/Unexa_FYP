@@ -147,7 +147,6 @@ const NewChatScreen = ({ navigation }) => {
                   <Image source={{uri: item.profilePhoto}} style={styles.avatar} />
                   <View style={styles.userInfo}>
                      <Text style={styles.name}>{item.username}</Text>
-                     <Text style={styles.email}>{item.email}</Text>
                   </View>
                   {isGroupMode && (
                     <View style={[styles.checkbox, selectedUsers.includes(item._id) && styles.checkboxActive]}>

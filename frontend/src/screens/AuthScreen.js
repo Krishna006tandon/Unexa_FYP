@@ -29,6 +29,8 @@ const AuthScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newResetPassword, setNewResetPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [isOTPMode, setIsOTPMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useContext(AuthContext);
@@ -49,6 +51,13 @@ const AuthScreen = () => {
       const payload = authMode === 'login' ? { email: email.trim(), password } : { username: username.trim(), email: email.trim(), password };
 
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}${endpoint}`, payload);
+
+      if (data.requiresOTP) {
+        setIsOTPMode(true);
+        showAlert("OTP Sent", "Check your console for the 2FA code.", "info");
+        setIsLoading(false);
+        return;
+      }
 
       await login(data); // Move to main app automatically
       
@@ -73,6 +82,21 @@ const AuthScreen = () => {
     setIsLoading(false);
   };
 
+  const handleVerifyOTP = async () => {
+    if (!otp || otp.length < 6) return showAlert("Hold on", "Please enter the 6-digit OTP", "warning");
+    setIsLoading(true);
+    try {
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/auth/verify-otp`, { 
+        email: email.trim(), 
+        otp: otp.trim() 
+      });
+      await login(data);
+    } catch (error) {
+      showAlert("Verification Failed", error.response?.data?.error || "Invalid OTP", "error");
+    }
+    setIsLoading(false);
+  };
+
   const handleResetPassword = async () => {
     if (!email || !newResetPassword) return showAlert("Required", "Please enter both Email and New Password", "warning");
     setIsLoading(true);
@@ -91,7 +115,7 @@ const AuthScreen = () => {
   };
 
   const getSubTitle = () => {
-    if (authMode === 'login') return "Welcome back to universe.";
+    if (authMode === 'login') return isOTPMode ? "One-Time Password sent." : "Welcome back to universe.";
     if (authMode === 'signup') return "Join the universe.";
     return "Enter your email to reset your secret key.";
   };
@@ -148,7 +172,23 @@ const AuthScreen = () => {
               />
             </View>
 
-            {authMode !== 'forgot' && (
+            {isOTPMode && (
+              <View style={styles.inputWrapper}>
+                <CheckCircle2 color={THEME.colors.primary} size={20} style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter 6-digit OTP"
+                    placeholderTextColor={THEME.colors.textDim}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    selectionColor={THEME.colors.primary}
+                />
+              </View>
+            )}
+
+            {!isOTPMode && authMode !== 'forgot' && (
               <View style={styles.inputWrapper}>
                 <Lock color={THEME.colors.textDim} size={20} style={styles.inputIcon} />
                 <TextInput
@@ -187,7 +227,7 @@ const AuthScreen = () => {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity onPress={handleSubmit} disabled={isLoading} activeOpacity={0.8} style={styles.buttonWrapper}>
+            <TouchableOpacity onPress={isOTPMode ? handleVerifyOTP : handleSubmit} disabled={isLoading} activeOpacity={0.8} style={styles.buttonWrapper}>
               <LinearGradient 
                   colors={[THEME.colors.primary, THEME.colors.secondary]} 
                   start={{ x: 0, y: 0 }} 
@@ -197,12 +237,19 @@ const AuthScreen = () => {
                   {isLoading ? 
                     <ActivityIndicator color="#FFF" /> : 
                     <Text style={styles.buttonText}>
-                      {authMode === 'login' ? "Login Now" : 
+                      {isOTPMode ? "Verify & Enter" : 
+                       authMode === 'login' ? "Login Now" : 
                        authMode === 'signup' ? "Create Account" : "Reset Password"}
                     </Text>
                   }
               </LinearGradient>
             </TouchableOpacity>
+
+            {isOTPMode && (
+              <TouchableOpacity onPress={() => setIsOTPMode(false)} style={styles.backToLogin}>
+                <Text style={styles.backToLoginText}>Entered wrong email? Go back</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity 
               onPress={() => {
@@ -345,6 +392,16 @@ const styles = StyleSheet.create({
     color: THEME.colors.secondary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  backToLogin: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  backToLoginText: {
+    color: THEME.colors.textDim,
+    fontSize: 13,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   }
 });
 

@@ -64,7 +64,23 @@ module.exports = (io) => {
 
     // Advance features - Read Receipts
     socket.on('measure_read', async ({ messageId, userId, chatId }) => {
-       await Message.findByIdAndUpdate(messageId, { $addToSet: { seenBy: userId } });
+       const message = await Message.findById(messageId);
+       if (!message) return;
+
+       // Add to seenBy
+       if (!message.seenBy.includes(userId)) {
+          message.seenBy.push(userId);
+          
+          // If message is in "initial" Vanish Mode (e.g., set to future by sender), 
+          // shorten it to 1 minute AFTER being read by recipient
+          if (message.expiresAt) {
+             const purgeTime = new Date(Date.now() + 60000); // 1 minute from now
+             message.expiresAt = purgeTime;
+             socket.in(chatId).emit('message_vanish_scheduled', { messageId, purgeTime });
+          }
+          await message.save();
+       }
+       
        socket.in(chatId).emit('message_read', { messageId, userId });
     });
 

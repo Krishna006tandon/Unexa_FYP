@@ -17,7 +17,7 @@ exports.accessChat = async (req, res) => {
 
       chat = await User.populate(chat, {
         path: 'latestMessage.sender',
-        select: 'username profilePhoto email',
+        select: 'username profilePhoto',
       });
 
       if (!chat) {
@@ -49,7 +49,7 @@ exports.accessChat = async (req, res) => {
 
     isChat = await User.populate(isChat, {
       path: 'latestMessage.sender',
-      select: 'username profilePhoto email',
+      select: 'username profilePhoto',
     });
 
     const Profile = require('../models/Profile');
@@ -91,15 +91,15 @@ exports.accessChat = async (req, res) => {
 exports.fetchChats = async (req, res) => {
   try {
     Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
-      .populate('users', 'username profilePhoto email isOnline lastSeen') // Get basic user info + status
-      .populate('groupAdmin', 'username profilePhoto email')
-      .populate('admins', 'username profilePhoto email')
+      .populate('users', 'username profilePhoto isOnline lastSeen') // Get basic user info + status
+      .populate('groupAdmin', 'username profilePhoto')
+      .populate('admins', 'username profilePhoto')
       .populate('latestMessage')
       .sort({ updatedAt: -1 })
       .then(async (results) => {
         results = await User.populate(results, {
           path: 'latestMessage.sender',
-          select: 'username profilePhoto email',
+          select: 'username profilePhoto',
         });
 
         // DEEP SYNC: Ensure real profile pictures (avatars) are used
@@ -311,7 +311,7 @@ exports.fetchFriends = async (req, res) => {
     const friendsIds = Array.from(friendsSet);
     const friends = await User.find({ 
       _id: { $in: friendsIds } 
-    }).select('username email profilePhoto');
+    }).select('username profilePhoto');
 
     console.log('Friends found:', friends.length);
 

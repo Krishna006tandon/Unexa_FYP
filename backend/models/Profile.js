@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 const profileSchema = new mongoose.Schema(
   {
@@ -20,7 +21,9 @@ const profileSchema = new mongoose.Schema(
       type: String, 
       required: true,
       trim: true,
-      maxlength: 50
+      maxlength: 200, // Increased to accommodate encrypted length
+      get: decrypt,
+      set: encrypt
     },
     bio: { 
       type: String, 
@@ -41,11 +44,15 @@ const profileSchema = new mongoose.Schema(
       required: true,
       unique: true,
       trim: true,
-      lowercase: true
+      lowercase: true,
+      get: decrypt,
+      set: encrypt
     },
     phone: {
       type: String,
-      trim: true
+      trim: true,
+      get: decrypt,
+      set: encrypt
     },
     dateOfBirth: {
       type: Date
@@ -124,8 +131,8 @@ const profileSchema = new mongoose.Schema(
   },
   { 
     timestamps: true,
-    toJSON: { virtuals: true },
-    toObject: { virtuals: true }
+    toJSON: { virtuals: true, getters: true },
+    toObject: { virtuals: true, getters: true }
   }
 );
 

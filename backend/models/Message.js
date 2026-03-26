@@ -34,6 +34,7 @@ const messageSchema = new mongoose.Schema(
 
 // Indexes optimized for advanced queries
 messageSchema.index({ chat: 1, createdAt: 1 });
-messageSchema.index({ sender: 1, chat: 1 }); // For fetching messages sent by a user in a particular chat
+messageSchema.index({ sender: 1, chat: 1 });
+messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL for Vanish Mode
 
 module.exports = mongoose.model('Message', messageSchema);

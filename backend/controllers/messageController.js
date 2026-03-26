@@ -54,7 +54,7 @@ exports.allMessages = async (req, res) => {
     const skip = parseInt(req.query.skip) || 0;
 
     const messages = await Message.find({ chat: req.params.chatId })
-      .populate('sender', 'username profilePhoto email')
+      .populate('sender', 'username profilePhoto')
       .populate('replyTo', 'content messageType sender mediaUrl')
       .sort({ createdAt: -1 }) // Sort DESC for flatlist inverted rendering performance!
       .skip(skip)

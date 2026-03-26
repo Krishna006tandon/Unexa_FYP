@@ -1,10 +1,19 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 const userSchema = new mongoose.Schema(
   {
     username: { type: String, required: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    email: { 
+      type: String, 
+      required: true, 
+      unique: true, 
+      lowercase: true, 
+      trim: true,
+      get: decrypt,
+      set: encrypt
+    },
     passwordHash: { type: String, required: true },
     profilePhoto: { type: String, default: "https://i.pravatar.cc/150" },
     bio: { type: String, default: "" },
@@ -15,9 +24,15 @@ const userSchema = new mongoose.Schema(
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
     resetPasswordToken: { type: String },
-    resetPasswordExpire: { type: Date }
+    resetPasswordExpire: { type: Date },
+    otp: { type: String },
+    otpExpires: { type: Date }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true }
+  }
 );
 
 userSchema.pre('save', async function (next) {

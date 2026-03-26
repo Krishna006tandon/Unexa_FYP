@@ -69,6 +69,16 @@ const limiter = rateLimit({
   }
 });
 
+// Specific rate limit for authentication (prevent brute force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts
+  message: "Too many login/auth attempts from this IP, please try again after 15 minutes",
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: { trustProxy: false }
+});
+
 // Specific rate limit for messages
 const messageLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
@@ -141,7 +151,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // Mount Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/message', messageLimiter, messageRoutes);
 app.use('/api/upload', uploadRoutes);
