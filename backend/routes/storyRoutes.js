@@ -9,7 +9,8 @@ const {
   getArchivedStories,
   reactToStory,
   replyToStory,
-  getStoryInteractions
+  getStoryInteractions,
+  getStoryViewers
 } = require('../controllers/storyController');
 
 const router = express.Router();
