@@ -30,6 +30,8 @@ const AuthScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newResetPassword, setNewResetPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [isOTPMode, setIsOTPMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useContext(AuthContext);
@@ -65,29 +67,34 @@ const AuthScreen = () => {
     try {
       const endpoint = authMode === 'login' ? "/api/auth/login" : "/api/auth";
       const payload = authMode === 'login' ? { email: email.trim(), password } : { username: username.trim(), email: email.trim(), password };
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}${endpoint}`, payload);
+
+      if (data.requiresOTP) {
+        setIsOTPMode(true);
+        showAlert("OTP Sent", "Check your email for the verification code.", "success");
+        setIsLoading(false);
+        return;
+      }
 
       await login(data); // Move to main app automatically
       
-      // Auto-create profile ONLY after successful registration
-      if (authMode === 'signup') {
-        try {
-          const profileData = {
-            username: data.username,
-            fullName: data.username,
-            email: data.email,
-            bio: 'Welcome to UNEXA! 🎉',
-          };
-          
-          await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
-            headers: { Authorization: `Bearer ${data.token}` }
-          });
-        } catch (profileError) {
-          console.log('❌ Auto-profile error:', profileError.message);
-        }
-      }
-      
     } catch (error) {
       showAlert("Auth Failed", error.response?.data?.error || error.message, "error");
+    }
+    setIsLoading(false);
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otp || otp.length < 6) return showAlert("Hold on", "Please enter the 6-digit OTP", "warning");
+    setIsLoading(true);
+    try {
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/auth/verify-otp`, { 
+        email: email.trim(), 
+        otp: otp.trim() 
+      });
+      await login(data); // Move to app (backend auto-creates profile now)
+    } catch (error) {
+      showAlert("Verification Failed", error.response?.data?.error || "Invalid OTP", "error");
     }
     setIsLoading(false);
   };
@@ -110,7 +117,7 @@ const AuthScreen = () => {
   };
 
   const getSubTitle = () => {
-    if (authMode === 'login') return "Welcome back to universe.";
+    if (authMode === 'login') return isOTPMode ? "One-Time Password sent." : "Welcome back to universe.";
     if (authMode === 'signup') return "Join the universe.";
     return "Enter your email to reset your secret key.";
   };
@@ -167,7 +174,23 @@ const AuthScreen = () => {
               />
             </View>
 
-            {authMode !== 'forgot' && (
+            {isOTPMode && (
+              <View style={styles.inputWrapper}>
+                <CheckCircle2 color={THEME.colors.primary} size={20} style={styles.inputIcon} />
+                <TextInput
+                    style={styles.input}
+                    placeholder="Enter 6-digit OTP"
+                    placeholderTextColor={THEME.colors.textDim}
+                    value={otp}
+                    onChangeText={setOtp}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    selectionColor={THEME.colors.primary}
+                />
+              </View>
+            )}
+
+            {!isOTPMode && authMode !== 'forgot' && (
               <View style={styles.inputWrapper}>
                 <Lock color={THEME.colors.textDim} size={20} style={styles.inputIcon} />
                 <TextInput
@@ -206,7 +229,7 @@ const AuthScreen = () => {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity onPress={handleSubmit} disabled={isLoading} activeOpacity={0.8} style={styles.buttonWrapper}>
+            <TouchableOpacity onPress={isOTPMode ? handleVerifyOTP : handleSubmit} disabled={isLoading} activeOpacity={0.8} style={styles.buttonWrapper}>
               <LinearGradient 
                   colors={[THEME.colors.primary, THEME.colors.secondary]} 
                   start={{ x: 0, y: 0 }} 
@@ -216,12 +239,19 @@ const AuthScreen = () => {
                   {isLoading ? 
                     <ActivityIndicator color="#FFF" /> : 
                     <Text style={styles.buttonText}>
-                      {authMode === 'login' ? "Login Now" : 
+                      {isOTPMode ? "Verify & Enter" : 
+                       authMode === 'login' ? "Login Now" : 
                        authMode === 'signup' ? "Create Account" : "Reset Password"}
                     </Text>
                   }
               </LinearGradient>
             </TouchableOpacity>
+
+            {isOTPMode && (
+              <TouchableOpacity onPress={() => setIsOTPMode(false)} style={styles.backToLogin}>
+                <Text style={styles.backToLoginText}>Entered wrong email? Go back</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity 
               onPress={() => {

@@ -35,10 +35,8 @@ const userSchema = new mongoose.Schema(
     isOnline: { type: Boolean, default: false },
     lastSeen: { type: Date, default: Date.now },
     resetPasswordToken: { type: String },
-    resetPasswordExpire: { type: Date },
-    otpExpires: { type: Date },
-    isVerified: { type: Boolean, default: false },
-    verificationToken: { type: String }
+    otp: { type: String },
+    otpExpires: { type: Date }
   },
   {
     timestamps: true,

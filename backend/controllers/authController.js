@@ -33,43 +33,41 @@ exports.registerUser = async (req, res) => {
     });
 
   if (user) {
-    console.log(`🔐 [SECURITY] Sending Welcome Email to verify ${cleanEmail}`);
+    // Generate 6 digit OTP for new user
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    console.log(`🔐 [2FA-SECURITY] Sending Verification OTP ${otp} to ${cleanEmail}`);
     
-    // Send Real Email
+    // Send Real Email with OTP
     try {
       await sendEmail({
         email: cleanEmail,
-        subject: 'Welcome to UNEXA SuperApp',
-        message: `Welcome to UNEXA, ${username}! Your account has been successfully created.`,
+        subject: 'UNEXA Account Verification',
+        message: `Your UNEXA account verification code is: ${otp}.`,
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; text-align: center;">
-            <h2 style="color: #7B61FF;">Welcome to UNEXA, ${username}!</h2>
-            <p>Your account has been successfully created and verified.</p>
-            <p>Enjoy exploring the universe of UNEXA!</p>
+          <div style="font-family: sans-serif; padding: 20px; color: #333; text-align: center;">
+            <h2 style="color: #7B61FF;">Welcome to UNEXA</h2>
+            <p>Please verify your email address. Your One-Time Password is:</p>
+            <h1 style="background: #F4F4F4; padding: 15px; border-radius: 10px; letter-spacing: 12px; font-size: 32px; border: 1px dashed #7B61FF; display: inline-block;">${otp}</h1>
+            <p>Valid for <b>10 minutes</b>.</p>
           </div>
         `
       });
-
-      // If email succeeds, mark as verified
-      user.isVerified = true;
-      await user.save();
-
-      console.log(`✅ [AUTH] Registration and verification successful for ${cleanEmail}`);
-      
-      return res.status(201).json({
-        _id: user._id,
-        username: user.username,
-        email: user.email,
-        profilePhoto: user.profilePhoto,
-        token: generateToken(user._id),
-      });
-
-    } catch (e) { 
-      console.error('❌ Email sending failed. Rejecting registration:', e.message);
-      // Delete the unverified user since the email bounced/failed
+    } catch (e) {
+      console.error('Email error:', e.message);
+      // Wait, if it fails to send, we should still delete it. The user explicitly liked this!
       await User.findByIdAndDelete(user._id);
-      return res.status(400).json({ error: 'Please provide a valid and active email address.' });
+      return res.status(400).json({ error: 'Failed to send OTP. Please provide a valid email.' });
     }
+
+    res.status(201).json({
+      message: 'OTP sent to your email. Please verify to complete registration.',
+      email: cleanEmail,
+      requiresOTP: true
+    });
   } else {
     res.status(400).json({ error: 'Failed to create the user' });
   }
@@ -107,7 +105,54 @@ exports.authUser = async (req, res) => {
 };
 
 
+// @desc    Verify OTP and return token
+// @route   POST /api/auth/verify-otp
+exports.verifyOTP = async (req, res) => {
+  try {
+     const { email, otp } = req.body;
+     const cleanEmail = email.toLowerCase().trim();
+     console.log(`📲 [AUTH-OTP] OTP Verification attempt for: ${cleanEmail}`);
+     const user = await User.findOne({ email: cleanEmail });
 
+     if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
+        await logAudit(req, 'OTP Verification Failed', { email: cleanEmail }, 'failure');
+        return res.status(401).json({ error: 'Invalid or Expired OTP' });
+     }
+
+     // Audit Log for success
+     await logAudit(req, 'OTP Verification Success', { userId: user._id }, 'success');
+
+     // Clear OTP
+     user.otp = undefined;
+     user.otpExpires = undefined;
+     await user.save();
+
+     // Auto-create profile
+     try {
+       const Profile = require('../models/Profile');
+       const existingFormat = await Profile.findOne({ user: user._id });
+       if (!existingFormat) {
+          await Profile.create({
+            user: user._id,
+            username: user.username,
+            fullName: user.username,
+            email: user.email,
+            bio: 'Welcome to UNEXA! 🎉'
+          });
+       }
+     } catch (err) { console.error('Profile creation error during OTP', err); }
+
+     res.json({
+       _id: user._id,
+       username: user.username,
+       email: user.email,
+       profilePhoto: user.profilePhoto,
+       token: generateToken(user._id),
+     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 // Simplified Reset Password (No OTP - as requested)
 exports.resetPassword = async (req, res) => {
   try {
