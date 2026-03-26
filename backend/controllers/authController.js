@@ -179,18 +179,26 @@ exports.resetPassword = async (req, res) => {
 };
 
 // Search users
+// Search users (In-memory filter mapping to bypass DB encryption blocks)
 exports.allUsers = async (req, res) => {
-  const keyword = req.query.search
-    ? {
-        $or: [
-          { username: req.query.search },
-          { email: req.query.search.toLowerCase().trim() },
-        ],
-      }
-    : {};
+  try {
+    // Need to fetch all to decrypt them using Mongoose getters first
+    const users = await User.find({ _id: { $ne: req.user._id } })
+      .select('username email profilePhoto');
 
-  const users = await User.find(keyword)
-    .find({ _id: { $ne: req.user._id } })
-    .select('username profilePhoto');
-  res.send(users);
+    if (req.query.search) {
+      const searchKey = req.query.search.toLowerCase().trim();
+      const filteredUsers = users.filter(u => {
+        const uName = u.username ? u.username.toLowerCase() : '';
+        const uEmail = u.email ? u.email.toLowerCase() : '';
+        return uName.includes(searchKey) || uEmail.includes(searchKey);
+      });
+      return res.send(filteredUsers);
+    }
+
+    res.send(users);
+  } catch (error) {
+    console.error("Search Users Error:", error.message);
+    res.status(500).json({ error: 'Server error during user search' });
+  }
 };

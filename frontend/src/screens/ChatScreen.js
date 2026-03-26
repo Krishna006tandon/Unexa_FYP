@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Keyboard
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenCapture from 'expo-screen-capture';
-import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone, Clock, Star, X, Trash2 } from 'lucide-react-native';
+import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone, Clock, Star, X, Trash2, ChevronLeft } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
@@ -711,7 +711,7 @@ const ChatScreen = ({ route, navigation }) => {
 
       <View style={styles.header}>
         <TouchableOpacity style={styles.backContainer} onPress={() => navigation.goBack()}>
-           <Text style={styles.backButton}>{"<"}</Text>
+           <ChevronLeft color="#FFF" size={28} />
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -912,6 +912,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center',
     gap: 12,
+  },
+  backContainer: {
+    padding: 6,
+    marginRight: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center'
   },
   messageRow: { 
     flexDirection: 'row', 
