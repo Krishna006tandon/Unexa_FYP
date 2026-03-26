@@ -4,6 +4,7 @@ const { deleteFromCloudinary } = require('../config/cloudinary');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const Streak = require('../models/Streak');
 
 // @desc    Create or update profile
 // @route   POST /api/profile
@@ -121,9 +122,16 @@ const getMyProfile = async (req, res) => {
       });
     }
 
+    // Calculate total streaks
+    const streaks = await Streak.find({ users: req.user.id });
+    const totalStreaks = streaks.reduce((acc, curr) => acc + curr.currentStreak, 0);
+
     res.status(200).json({
       success: true,
-      data: profile
+      data: {
+        ...profile.toObject(),
+        totalStreaks
+      }
     });
 
   } catch (error) {
@@ -214,12 +222,17 @@ const getProfileByIdentifier = async (req, res) => {
       });
     }
 
+    // Calculate total streaks for this profile user
+    const streaks = await Streak.find({ users: profile.user._id });
+    const totalStreaks = streaks.reduce((acc, curr) => acc + curr.currentStreak, 0);
+
     res.status(200).json({
       success: true,
       data: {
         ...profile.toObject(),
         isFollowing,
-        isCloseFriend
+        isCloseFriend,
+        totalStreaks
       }
     });
 

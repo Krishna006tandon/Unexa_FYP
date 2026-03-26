@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Dimensions, Alert, TextInput, Modal, FlatList, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { useUI } from '../context/UIContext';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video } from 'expo-video';
+import { Video } from 'expo-av';
 import { usePreventScreenCapture } from 'expo-screen-capture';
 import { X, Send, Eye, Heart, MessageCircle, Smile } from 'lucide-react-native';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
 
-const { width, height } = Dimensions.get('window');
+
 
 const THEME = {
   colors: {
@@ -22,7 +24,9 @@ const THEME = {
 };
 
 const StoryScreen = ({ route, navigation }) => {
+  const { width, height } = Dimensions.get('window');
   usePreventScreenCapture();
+  const { showAlert } = useUI();
   
   const { stories, initialIndex = 0 } = route.params;
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -74,7 +78,7 @@ const StoryScreen = ({ route, navigation }) => {
     }
     
     if (currentStory.mediaType === 'video') {
-      setIsPlaying(false);
+      setIsPlaying(true);
     } else {
       setIsPlaying(true);
       startProgress(currentStory.duration || 5);
@@ -147,7 +151,7 @@ const StoryScreen = ({ route, navigation }) => {
       setShowEmojiPicker(false);
     } catch (error) {
       console.error('Error reacting to story:', error);
-      Alert.alert('Error', 'Failed to react to story');
+      showAlert('Error', 'Failed to react to story', 'error');
     }
   };
 
@@ -162,10 +166,10 @@ const StoryScreen = ({ route, navigation }) => {
       setReplies(response.data.replies);
       setReplyText('');
       setShowReplyModal(false);
-      Alert.alert('Success', 'Reply sent successfully!');
+      showAlert('Success', 'Reply sent successfully!', 'success');
     } catch (error) {
       console.error('Error replying to story:', error);
-      Alert.alert('Error', 'Failed to send reply');
+      showAlert('Error', 'Failed to send reply', 'error');
     }
   };
 
@@ -296,51 +300,61 @@ const StoryScreen = ({ route, navigation }) => {
 
       {/* Emoji Picker Modal */}
       <Modal visible={showEmojiPicker} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.emojiPickerContainer}>
-            <Text style={styles.emojiPickerTitle}>React to story</Text>
-            <View style={styles.emojiGrid}>
-              {['❤️', '😂', '😮', '😢', '😡', '👍', '👎', '🔥', '🎉', '💯'].map(emoji => (
+        <BlurView intensity={60} tint="dark" style={styles.modalOverlayPremium}>
+          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setShowEmojiPicker(false)} />
+          <View style={styles.emojiPickerContainerPremium}>
+            <View style={styles.modalGrabberPremium} />
+            <Text style={styles.emojiPickerTitlePremium}>Fast Reactions</Text>
+            <View style={styles.emojiGridPremium}>
+              {['❤️', '😂', '😮', '😢', '😡', '👍', '🔥', '🎉', '💯', '✨'].map(emoji => (
                 <TouchableOpacity 
                   key={emoji} 
-                  style={styles.emojiButton}
+                  style={styles.emojiButtonPremium}
                   onPress={() => handleReaction(emoji)}
                 >
-                  <Text style={styles.emojiText}>{emoji}</Text>
+                  <Text style={styles.emojiTextPremium}>{emoji}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowEmojiPicker(false)}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* Reply Modal */}
-      <Modal visible={showReplyModal} transparent animationType="fade">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior="padding">
-          <View style={styles.replyContainer}>
-            <Text style={styles.replyTitle}>Reply to story</Text>
-            <TextInput
-              style={styles.replyInput}
-              placeholder="Type your reply..."
-              placeholderTextColor={THEME.colors.textDim}
-              multiline
-              value={replyText}
-              onChangeText={setReplyText}
-              maxLength={500}
-            />
-            <View style={styles.replyActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setShowReplyModal(false)}>
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.sendButton} onPress={handleReply}>
-                <Text style={styles.sendButtonText}>Send</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
+      <Modal visible={showReplyModal} transparent animationType="slide">
+        <BlurView intensity={80} tint="dark" style={styles.modalOverlayPremium}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ width: '100%', alignItems: 'center' }}>
+            <TouchableOpacity style={styles.replyDismissOverlay} onPress={() => setShowReplyModal(false)} />
+            <LinearGradient colors={['rgba(30,30,30,0.95)', 'rgba(20,20,20,0.98)']} style={styles.replyContainerPremium}>
+              <View style={styles.modalGrabberPremium} />
+              <Text style={styles.replyTitlePremium}>Reply to {currentStory?.user?.username}</Text>
+              <TextInput
+                style={styles.replyInputPremium}
+                placeholder="Type a message..."
+                placeholderTextColor="rgba(255,255,255,0.4)"
+                multiline
+                autoFocus
+                value={replyText}
+                onChangeText={setReplyText}
+                maxLength={500}
+              />
+              <View style={styles.replyActionsPremium}>
+                <TouchableOpacity style={styles.replyCloseBtn} onPress={() => setShowReplyModal(false)}>
+                  <X size={20} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.storySendBtn, !replyText.trim() && { opacity: 0.5 }]} 
+                  onPress={handleReply}
+                  disabled={!replyText.trim()}
+                >
+                  <LinearGradient colors={['#7B61FF', '#3DDCFF']} style={styles.sendGrad}>
+                    <Send size={20} color="#000" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </KeyboardAvoidingView>
+        </BlurView>
       </Modal>
     </View>
   );
@@ -413,8 +427,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   media: {
-    width: width,
-    height: height * 0.7,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.7,
   },
   loadingContainer: {
     flex: 1,
@@ -461,7 +475,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.glass,
     borderRadius: 20,
     padding: 20,
-    width: width * 0.8,
+    width: Dimensions.get('window').width * 0.8,
     borderWidth: 1,
     borderColor: THEME.colors.glassBorder,
   },
@@ -494,7 +508,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.glass,
     borderRadius: 20,
     padding: 20,
-    width: width * 0.9,
+    width: Dimensions.get('window').width * 0.9,
     borderWidth: 1,
     borderColor: THEME.colors.glassBorder,
   },
@@ -555,6 +569,102 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 10,
     fontWeight: 'bold',
+  },
+  modalOverlayPremium: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+  emojiPickerContainerPremium: {
+    backgroundColor: 'rgba(30,30,30,0.95)',
+    borderRadius: 30,
+    padding: 24,
+    width: Dimensions.get('window').width * 0.9,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalGrabberPremium: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  emojiPickerTitlePremium: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emojiGridPremium: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 15,
+  },
+  emojiButtonPremium: {
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 30,
+  },
+  emojiTextPremium: {
+    fontSize: 30,
+  },
+  replyDismissOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  replyContainerPremium: {
+    width: Dimensions.get('window').width * 0.95,
+    borderRadius: 30,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  replyTitlePremium: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 15,
+  },
+  replyInputPremium: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    color: '#FFF',
+    fontSize: 16,
+    padding: 18,
+    borderRadius: 20,
+    minHeight: 120,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  replyActionsPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  replyCloseBtn: {
+    padding: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+  },
+  storySendBtn: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    width: 100,
+  },
+  sendGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
   },
 });
 

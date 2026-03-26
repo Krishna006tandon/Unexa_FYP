@@ -19,11 +19,13 @@ import ENVIRONMENT from '../config/environment';
 import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { Audio } from 'expo-audio';
+import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useUI } from '../context/UIContext';
+import { BlurView } from 'expo-blur';
 
-const { width } = Dimensions.get('window');
+
 
 const THEME = {
   colors: {
@@ -39,6 +41,7 @@ const THEME = {
 
 const MediaShareScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
+  const { showAlert } = useUI();
 
   const VideoPlayer = ({ url, style, autoplay = false }) => {
     const player = useVideoPlayer(url, (p) => {
@@ -56,6 +59,7 @@ const MediaShareScreen = ({ navigation }) => {
   const [sharedMedia, setSharedMedia] = useState([]);
   const [activeTab, setActiveTab] = useState('shared-with-me');
   const [viewingMedia, setViewingMedia] = useState(null);
+  const [showMediaOptionsModal, setShowMediaOptionsModal] = useState(false);
 
   useEffect(() => {
     fetchFriends();
@@ -98,7 +102,7 @@ const MediaShareScreen = ({ navigation }) => {
     // Check if already viewed
     const hasViewed = item.views.some(v => (v.user?._id || v.user) === user._id);
     if (hasViewed) {
-      Alert.alert('Already Viewed', 'This media can only be viewed once.');
+      showAlert('Already Viewed', 'This media can only be viewed once.', 'info');
       return;
     }
     
@@ -125,10 +129,58 @@ const MediaShareScreen = ({ navigation }) => {
   };
 
   const pickMedia = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 });
-    if (!result.canceled) {
-      setSelectedMedia(result.assets[0]);
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({ 
+        mediaTypes: ImagePicker.MediaTypeOptions.All, 
+        quality: 0.8,
+        videoMaxDuration: 60, // Limit shared video to 60 seconds
+      });
+      if (!result.canceled && result.assets[0]) {
+        setSelectedMedia(result.assets[0]);
+      }
+    } catch (error) {
+      showAlert('Error', 'Failed to pick media', 'error');
+    } finally {
+      setShowMediaOptionsModal(false);
     }
+  };
+
+  const takePhoto = async () => {
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setSelectedMedia(result.assets[0]);
+      }
+    } catch (error) {
+      showAlert('Error', 'Failed to take photo', 'error');
+    } finally {
+      setShowMediaOptionsModal(false);
+    }
+  };
+
+  const takeVideo = async () => {
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        quality: 0.8,
+        videoMaxDuration: 60,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setSelectedMedia(result.assets[0]);
+      }
+    } catch (error) {
+      showAlert('Error', 'Failed to record video', 'error');
+    } finally {
+      setShowMediaOptionsModal(false);
+    }
+  };
+
+  const showMediaOptions = () => {
+    setShowMediaOptionsModal(true);
   };
 
   const toggleFriendSelection = (friendId) => {
@@ -141,11 +193,11 @@ const MediaShareScreen = ({ navigation }) => {
 
   const shareMedia = async () => {
     if (!selectedMedia) {
-      return Alert.alert('Error', 'Please select a photo or video');
+      return showAlert('Error', 'Please select a photo or video', 'warning');
     }
 
     if (selectedFriends.length === 0) {
-      return Alert.alert('Error', 'Please select at least one friend');
+      return showAlert('Error', 'Please select at least one friend', 'warning');
     }
 
     setIsLoading(true);
@@ -230,7 +282,7 @@ const MediaShareScreen = ({ navigation }) => {
 
       console.log('✅ Media share response:', response.data);
 
-      Alert.alert('Success', `Media shared with ${selectedFriends.length} friends! Streaks updated: ${response.data.streaksUpdated}`);
+      showAlert('Success', `Media shared with ${selectedFriends.length} friends! Streaks updated: ${response.data.streaksUpdated}`, 'success');
       
       // Reset form
       setSelectedMedia(null);
@@ -243,7 +295,7 @@ const MediaShareScreen = ({ navigation }) => {
       
     } catch (error) {
       console.error('Error sharing media:', error);
-      Alert.alert('Error', 'Failed to share media. Please try again.');
+      showAlert('Error', 'Failed to share media. Please try again.', 'error');
     }
     
     setIsLoading(false);
@@ -294,7 +346,6 @@ const MediaShareScreen = ({ navigation }) => {
         </View>
       </View>
       
-      {item.mediaType === 'image' ? (
         <TouchableOpacity onPress={() => handleViewMedia(item)} activeOpacity={0.8}>
           {!isMyShare && hasViewed ? (
             <View style={[styles.mediaContent, styles.viewedPlaceholder]}>
@@ -307,49 +358,45 @@ const MediaShareScreen = ({ navigation }) => {
               <Text style={styles.tapToViewText}>Tap to view once</Text>
             </View>
           ) : (
-            <Image 
-              source={{ uri: item.mediaUrl }} 
-              style={styles.mediaContent}
-              resizeMode="cover"
-            />
-          )}
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity onPress={() => handleViewMedia(item)} activeOpacity={0.8}>
-          {!isMyShare && hasViewed ? (
-            <View style={[styles.mediaContent, styles.viewedPlaceholder]}>
-              <Ionicons name="eye-off" size={48} color={THEME.colors.textDim} />
-              <Text style={styles.viewedText}>Already viewed</Text>
-            </View>
-          ) : !isMyShare && !hasViewed ? (
-            <View style={[styles.mediaContent, styles.tapToViewPlaceholder]}>
-              <Ionicons name="videocam-outline" size={48} color={THEME.colors.primary} />
-              <Text style={styles.tapToViewText}>Tap to play once</Text>
-            </View>
-          ) : (
             <View style={styles.videoContainer}>
-               <VideoPlayer url={item.mediaUrl} style={styles.mediaContent} />
+              {item.mediaType === 'image' ? (
+                <Image 
+                  source={{ uri: item.mediaUrl }} 
+                  style={styles.mediaContent}
+                  resizeMode="cover"
+                />
+              ) : (
+                <>
+                  <VideoPlayer url={item.mediaUrl} style={styles.mediaContent} />
+                  <View style={styles.videoBadge}>
+                    <Ionicons name="play" size={12} color="#FFF" />
+                    <Text style={styles.videoBadgeText}>VIDEO</Text>
+                  </View>
+                </>
+              )}
             </View>
           )}
         </TouchableOpacity>
-      )}
-      
-      {item.caption && (
-        <Text style={styles.mediaCaption}>{item.caption}</Text>
-      )}
-      
+
+      {item.caption ? (
+        <Text style={styles.mediaCaptionText}>{item.caption}</Text>
+      ) : null}
+
       <View style={styles.mediaActions}>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="heart-outline" size={24} color={THEME.colors.textDim} />
-          <Text style={styles.actionText}>{item.reactions.length}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="chatbubble-outline" size={24} color={THEME.colors.textDim} />
-          <Text style={styles.actionText}>{item.comments.length}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
-          <Ionicons name="eye-outline" size={24} color={THEME.colors.textDim} />
-          <Text style={styles.actionText}>{item.views.length}</Text>
+        <View style={styles.actionGroup}>
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="heart-outline" size={22} color={THEME.colors.textDim} />
+            <Text style={styles.actionText}>{item.reactions.length || 0}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="chatbubble-outline" size={22} color={THEME.colors.textDim} />
+            <Text style={styles.actionText}>{item.comments.length || 0}</Text>
+          </TouchableOpacity>
+        </View>
+        
+        <TouchableOpacity style={styles.viewBadge}>
+          <Ionicons name="eye-outline" size={16} color="rgba(255,255,255,0.4)" />
+          <Text style={styles.viewCountText}>{item.views.length}</Text>
         </TouchableOpacity>
       </View>
       
@@ -405,85 +452,65 @@ const MediaShareScreen = ({ navigation }) => {
 
         {activeTab === 'my-shares' && (
           <View style={styles.shareSection}>
-            <TouchableOpacity style={styles.mediaPicker} onPress={pickMedia}>
+            <TouchableOpacity style={styles.mediaPicker} onPress={showMediaOptions}>
               {selectedMedia ? (
-                <Image 
-                  source={{ uri: selectedMedia.uri }} 
-                  style={styles.selectedMedia}
-                  resizeMode="cover"
-                />
+                selectedMedia.type === 'video' ? (
+                  <VideoPlayer url={selectedMedia.uri} style={styles.selectedMedia} autoplay={true} />
+                ) : (
+                  <Image source={{ uri: selectedMedia.uri }} style={styles.selectedMedia} resizeMode="cover" />
+                )
               ) : (
                 <View style={styles.mediaPickerPlaceholder}>
-                  <Ionicons name="camera" size={48} color={THEME.colors.primary} />
-                  <Text style={styles.mediaPickerText}>📸 Tap to select photo/video</Text>
+                    <LinearGradient
+                      colors={['rgba(123, 97, 255, 0.2)', 'rgba(61, 220, 255, 0.1)']}
+                      style={styles.pickerCircle}
+                    >
+                      <Ionicons name="add" size={40} color="#FFF" />
+                    </LinearGradient>
+                  <Text style={styles.mediaPickerText}>Tap to share photo or video</Text>
                 </View>
               )}
             </TouchableOpacity>
 
             <TextInput
               style={styles.captionInput}
-              placeholder="✍️ What's on your mind?"
-              placeholderTextColor={THEME.colors.textDim}
+              placeholder="Add a caption..."
+              placeholderTextColor="rgba(255,255,255,0.3)"
               value={caption}
               onChangeText={setCaption}
               multiline
-              maxLength={500}
             />
 
-            {/* Quick Share Buttons */}
-            <View style={styles.quickShareSection}>
-              <Text style={styles.quickShareTitle}>🔥 Quick Share:</Text>
-              <View style={styles.quickShareButtons}>
-                {friends.slice(0, 4).map(friend => (
-                  <TouchableOpacity 
-                    key={friend._id}
-                    style={[
-                      styles.quickShareButton,
-                      selectedFriends.includes(friend._id) && styles.quickShareButtonSelected
-                    ]}
-                    onPress={() => toggleFriendSelection(friend._id)}
-                  >
-                    <Image 
-                      source={{ uri: friend.profilePhoto }} 
-                      style={styles.quickShareAvatar}
-                    />
-                    <Text style={styles.quickShareName}>{friend.username}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity 
-                style={styles.selectAllButton}
-                onPress={() => {
-                  if (selectedFriends.length === friends.length) {
-                    setSelectedFriends([]);
-                  } else {
-                    setSelectedFriends(friends.map(f => f._id));
-                  }
-                }}
-              >
-                <Text style={styles.selectAllText}>
-                  {selectedFriends.length === friends.length ? '🚫 Deselect All' : '✅ Select All'}
+            <TouchableOpacity 
+              style={styles.friendSelectorButton} 
+              onPress={() => setShowFriendSelector(true)}
+            >
+              <View style={styles.selectorLeft}>
+                <Ionicons name="people" size={20} color={THEME.colors.primary} />
+                <Text style={styles.selectorText}>
+                  {selectedFriends.length > 0 
+                    ? `Sharing with ${selectedFriends.length} friends` 
+                    : 'Select friends to share with'}
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+            </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.shareButton, selectedFriends.length > 0 && styles.shareButtonActive]}
+              style={[styles.shareButton, (selectedFriends.length > 0 && selectedMedia) && styles.shareButtonActive]}
               onPress={shareMedia}
               disabled={isLoading || !selectedMedia || selectedFriends.length === 0}
             >
-              {isLoading ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <LinearGradient 
-                  colors={selectedFriends.length > 0 ? [THEME.colors.primary, THEME.colors.secondary] : ['#333', '#555']}
-                  style={styles.shareButtonGradient}
-                >
-                  <Text style={styles.shareButtonText}>
-                    Share with {selectedFriends.length} friends
-                  </Text>
-                </LinearGradient>
-              )}
+              <LinearGradient 
+                colors={selectedFriends.length > 0 && selectedMedia ? [THEME.colors.primary, THEME.colors.secondary] : ['#222', '#333']}
+                style={styles.shareButtonGradient}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.shareButtonText}>Share Now</Text>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         )}
@@ -503,53 +530,103 @@ const MediaShareScreen = ({ navigation }) => {
       <Modal
         visible={showFriendSelector}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent={true}
+        onRequestClose={() => setShowFriendSelector(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowFriendSelector(false)}>
-              <Ionicons name="close" size={24} color={THEME.colors.text} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Select Friends</Text>
-            <TouchableOpacity onPress={() => setShowFriendSelector(false)}>
-              <Text style={styles.modalDone}>Done</Text>
-            </TouchableOpacity>
+        <BlurView intensity={95} tint="dark" style={{ flex: 1 }}>
+          <View style={styles.modalHeaderPremiumSelector}>
+            <View style={styles.modalGrabberPremium} />
+            <View style={styles.modalHeaderRowPremium}>
+              <TouchableOpacity onPress={() => setShowFriendSelector(false)}>
+                <Ionicons name="close" size={28} color="#FFF" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitlePremiumText}>Select Friends</Text>
+              <TouchableOpacity onPress={() => setShowFriendSelector(false)}>
+                <Text style={styles.modalDonePremium}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           <FlatList
             data={friends}
             renderItem={renderFriendItem}
             keyExtractor={item => item._id}
-            style={styles.friendsList}
+            contentContainerStyle={{ padding: 25 }}
+            ListEmptyComponent={
+              <Text style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', marginTop: 40 }}>
+                No friends found to share with.
+              </Text>
+            }
           />
-        </View>
+        </BlurView>
       </Modal>
 
       {/* Full Screen Media Viewer */}
       <Modal
         visible={!!viewingMedia}
         animationType="fade"
-        transparent={false}
+        transparent={true}
         onRequestClose={closeMediaView}
       >
-        <View style={styles.viewerContainer}>
+        <BlurView intensity={100} tint="dark" style={styles.viewerContainerPremium}>
           <TouchableOpacity 
-            style={styles.closeViewerButton} 
+            style={styles.closeViewerButtonPremium} 
             onPress={closeMediaView}
           >
-            <Ionicons name="close" size={32} color="#FFF" />
+            <View style={styles.closeCirclePremium}>
+              <Ionicons name="close" size={28} color="#FFF" />
+            </View>
           </TouchableOpacity>
           
-          {viewingMedia?.mediaType === 'image' ? (
-            <Image 
-              source={{ uri: viewingMedia.mediaUrl }} 
-              style={styles.fullScreenMedia}
-              resizeMode="contain"
-            />
-          ) : viewingMedia?.mediaType === 'video' ? (
-            <VideoPlayer url={viewingMedia.mediaUrl} style={styles.fullScreenMedia} />
-          ) : null}
-        </View>
+          <View style={styles.viewerContentWrapper}>
+            {viewingMedia?.mediaType === 'image' ? (
+              <Image 
+                source={{ uri: viewingMedia.mediaUrl }} 
+                style={styles.fullScreenMediaPremium}
+                resizeMode="contain"
+              />
+            ) : viewingMedia?.mediaType === 'video' ? (
+              <VideoPlayer url={viewingMedia.mediaUrl} style={styles.fullScreenMediaPremium} autoplay={true} />
+            ) : null}
+
+            {viewingMedia?.caption && (
+               <BlurView intensity={20} tint="dark" style={styles.viewerCaptionWrapper}>
+                 <Text style={styles.viewerCaptionText}>{viewingMedia.caption}</Text>
+               </BlurView>
+            )}
+          </View>
+        </BlurView>
+      </Modal>
+
+      {/* Media Selection Modal */}
+      <Modal visible={showMediaOptionsModal} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowMediaOptionsModal(false)} activeOpacity={1}>
+          <BlurView intensity={100} tint="dark" style={styles.modalContent}>
+            <View style={styles.modalGrabber} />
+            <Text style={styles.modalTitle}>Share Media</Text>
+            
+            <TouchableOpacity style={styles.optionBtn} onPress={takePhoto}>
+              <View style={[styles.optionIcon, { backgroundColor: 'rgba(123, 97, 255, 0.1)' }]}>
+                <Ionicons name="camera" size={24} color="#FFF" />
+              </View>
+              <Text style={styles.optionText}>Take Photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.optionBtn} onPress={takeVideo}>
+              <View style={[styles.optionIcon, { backgroundColor: 'rgba(61, 220, 255, 0.1)' }]}>
+                <Ionicons name="videocam" size={24} color="#FFF" />
+              </View>
+              <Text style={styles.optionText}>Record Video</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.optionBtn} onPress={pickMedia}>
+              <View style={[styles.optionIcon, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                <Ionicons name="images" size={24} color="#FFF" />
+              </View>
+              <Text style={styles.optionText}>Gallery</Text>
+            </TouchableOpacity>
+          </BlurView>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -627,15 +704,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(123, 97, 255, 0.03)',
+    backgroundColor: 'rgba(123, 97, 255, 0.05)',
+  },
+  pickerCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   mediaPickerText: {
-    color: THEME.colors.textDim,
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 15,
-    textAlign: 'center',
-    opacity: 0.8,
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    opacity: 0.6,
   },
   captionInput: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -649,60 +734,26 @@ const styles = StyleSheet.create({
     minHeight: 110,
     textAlignVertical: 'top',
   },
-  quickShareSection: {
-    marginBottom: 30,
-  },
-  quickShareTitle: {
-    color: '#FFF',
-    fontSize: 19,
-    fontWeight: '900',
-    marginBottom: 15,
-    letterSpacing: -0.3,
-  },
-  quickShareButtons: {
+  friendSelectorButton: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 15,
-  },
-  quickShareButton: {
-    width: (width - 62) / 2,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 20,
-    padding: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  quickShareButtonSelected: {
-    backgroundColor: THEME.colors.primary,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  quickShareAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  quickShareName: {
-    color: '#FFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  selectAllButton: {
-    alignSelf: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 22,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,100,255,0.05)',
+    padding: 18,
     borderRadius: 20,
-    backgroundColor: 'rgba(123, 97, 255, 0.08)',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  selectAllText: {
-    color: THEME.colors.primary,
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+  selectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  selectorText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
   shareButton: {
     borderRadius: 22,
@@ -778,33 +829,69 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
   },
-  mediaCaption: {
+  mediaCaptionText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 16,
     marginTop: 18,
     lineHeight: 24,
     opacity: 0.9,
+    paddingHorizontal: 5,
+  },
+  videoBadge: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  videoBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   mediaActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15,
-    marginTop: 20,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 18,
+    marginTop: 18,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  actionGroup: {
+    flexDirection: 'row',
+    gap: 15,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 12,
+    gap: 8,
   },
   actionText: {
     color: THEME.colors.textDim,
     fontSize: 14,
+    fontWeight: '700',
+  },
+  viewBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  viewCountText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
     fontWeight: '700',
   },
   recipientsInfo: {
@@ -906,6 +993,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.02)',
     borderRadius: 24,
+    height: 320,
+  },
+  viewedText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 10,
   },
   tapToViewPlaceholder: {
     justifyContent: 'center',
@@ -914,27 +1008,143 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(123, 97, 255, 0.2)',
+    height: 320,
   },
-  viewerContainer: {
+  tapToViewText: {
+    color: THEME.colors.primary,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 15,
+  },
+  modalHeaderPremiumSelector: {
+    padding: 24,
+    paddingTop: 40,
+    backgroundColor: 'rgba(123, 97, 255, 0.05)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  modalGrabberPremium: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalHeaderRowPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalTitlePremiumText: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  modalDonePremium: {
+    color: THEME.colors.secondary,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  viewerContainerPremium: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: 'rgba(0,0,0,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeViewerButton: {
-    position: 'absolute',
-    top: 60,
-    right: 25,
-    zIndex: 10,
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 22,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    padding: 24,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  fullScreenMedia: {
-    width: '100%',
+  modalGrabber: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 25,
+    textAlign: 'center',
+  },
+  optionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    marginVertical: 6,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  optionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  optionText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  closeViewerButtonPremium: {
+    position: 'absolute',
+    top: 60,
+    right: 25,
+    zIndex: 100,
+  },
+  closeCirclePremium: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  viewerContentWrapper: {
+    width: Dimensions.get('window').width,
     height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenMediaPremium: {
+    width: Dimensions.get('window').width,
+    height: '100%',
+  },
+  viewerCaptionWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    padding: 40,
+    paddingBottom: 60,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    overflow: 'hidden',
+  },
+  viewerCaptionText: {
+    color: '#FFF',
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: '600',
+    lineHeight: 26,
   },
 });
 

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
-import { Platform, Alert } from 'react-native';
+import { Platform } from 'react-native';
 import * as NavigationService from './NavigationService';
+import { showAlertGlobal } from '../context/UIContext';
 
 
 // Global notification configuration
@@ -26,10 +27,10 @@ export const requestPermissions = async () => {
 
   if (finalStatus !== 'granted') {
     console.log('❌ [Notifications] Permission NOT granted');
-    Alert.alert(
+    showAlertGlobal(
       'Notifications Disabled',
       'Please enable notifications in your settings to receive alerts for calls and messages.',
-      [{ text: 'OK' }]
+      'warning'
     );
     return false;
   }

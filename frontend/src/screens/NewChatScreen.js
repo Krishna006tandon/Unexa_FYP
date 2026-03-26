@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Image, ActivityIndicator } from 'react-native';
+import { useUI } from '../context/UIContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
@@ -19,6 +20,7 @@ const THEME = {
 
 const NewChatScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
+  const { showAlert } = useUI();
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,7 @@ const NewChatScreen = ({ navigation }) => {
 
   const createGroup = async () => {
     if (!groupName.trim() || selectedUsers.length < 1) {
-      Alert.alert("Error", "Please enter group name and select users.");
+      showAlert("Error", "Please enter group name and select users.", 'warning');
       return;
     }
     setLoading(true);
@@ -82,7 +84,7 @@ const NewChatScreen = ({ navigation }) => {
       navigation.replace('ChatScreen', { chatId: data._id, name: groupName });
     } catch(err) { 
       console.log(err);
-      Alert.alert("Error", "Failed to create group.");
+      showAlert("Error", "Failed to create group.", 'error');
     }
     setLoading(false);
   };

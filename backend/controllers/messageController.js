@@ -111,3 +111,41 @@ exports.editMessage = async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 };
+// Toggle Message Reaction
+exports.toggleReaction = async (req, res) => {
+  const { messageId, emoji } = req.body;
+  const userId = req.user._id;
+
+  try {
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ error: "Message not found" });
+
+    // One emoji per user per message (Toggle/Replace logic)
+    const existingReaction = message.reactions.find(
+      r => r.user.toString() === userId.toString()
+    );
+
+    if (existingReaction && existingReaction.emoji === emoji) {
+      // If same emoji, REMOVE it (Toggle off)
+      message.reactions = message.reactions.filter(
+         r => r.user.toString() !== userId.toString()
+      );
+    } else {
+      // If different emoji or no reaction, REPLACE/ADD (Update to new emoji)
+      message.reactions = message.reactions.filter(
+         r => r.user.toString() !== userId.toString()
+      );
+      message.reactions.push({ user: userId, emoji });
+    }
+
+    await message.save();
+    
+    const updatedMessage = await Message.findById(messageId)
+        .populate("sender", "username profilePhoto")
+        .populate("reactions.user", "username profilePhoto");
+
+    res.json(updatedMessage);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};

@@ -77,5 +77,10 @@ module.exports = (io) => {
     socket.on('message_deleted', ({ messageId, chatId }) => {
        socket.in(chatId).emit('message_deleted_update', { messageId });
     });
+
+    // Reaction live broadcast
+    socket.on('message_reacted', ({ messageId, reactions, chatId }) => {
+       socket.in(chatId).emit('message_reacted_update', { messageId, reactions });
+    });
   });
 };

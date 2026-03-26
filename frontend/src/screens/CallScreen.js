@@ -11,7 +11,7 @@ import { CallContext } from '../context/CallContext';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
 
-const { width, height } = Dimensions.get('window');
+
 
 const THEME = {
   colors: {
@@ -26,7 +26,8 @@ const THEME = {
 import { Audio } from 'expo-av';
 
 const CallScreen = ({ route, navigation }) => {
-  const { chatId, type, name, receiverId, isIncoming, avatar } = route.params || {};
+  const { chatId, type, name, receivers, receiverId: passedReceiverId, isIncoming, avatar } = route.params || {};
+  const receiverId = passedReceiverId || (receivers && receivers.length > 0 ? receivers[0] : null);
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
   const { stopRinging } = useContext(CallContext);
@@ -79,18 +80,22 @@ const CallScreen = ({ route, navigation }) => {
     init();
 
     if (socket) {
-      // Send call invite ONLY if we are the caller
-      if (!isIncoming && receiverId) {
-        const payload = {
-          callerId: user._id || user.id,
-          receiverId,
-          callerName: user.fullName || user.username || 'Friend',
-          callerAvatar: user.profilePhoto, // NEW
-          chatId,
-          type
-        };
-        console.log(`[FRONTEND-MOBILE] 📡 Emitting call-invite with payload:`, payload);
-        socket.emit('call-invite', payload);
+      // Send call invite to ALL receivers if it's a group call initiation
+      if (!isIncoming && (receivers || receiverId)) {
+        const targetIds = receivers || [receiverId];
+        targetIds.forEach(rid => {
+          if (!rid) return;
+          const payload = {
+            callerId: user._id || user.id,
+            receiverId: rid,
+            callerName: user.fullName || user.username || 'Friend',
+            callerAvatar: user.profilePhoto,
+            chatId,
+            type
+          };
+          console.log(`[FRONTEND-MOBILE] 📡 Emitting call-invite to ${rid} with payload:`, payload);
+          socket.emit('call-invite', payload);
+        });
       }
 
       // Listen for call ended from other party
@@ -107,9 +112,14 @@ const CallScreen = ({ route, navigation }) => {
       if (callTimer.current) clearInterval(callTimer.current);
       if (socket) {
         // ONLY Caller can cancel a ringing call
-        if (!callConnected.current && !isIncoming && receiverId) {
-          console.log('🚫 [CLEANUP] Cancelling call signal as it was never joined');
-          socket.emit('cancel-call', { receiverId, chatId });
+        if (!callConnected.current && !isIncoming && (receivers || receiverId)) {
+          const targetIds = receivers || [receiverId];
+          targetIds.forEach(rid => {
+            if (rid) {
+               console.log(`🚫 [CLEANUP] Cancelling call for receiver: ${rid}`);
+               socket.emit('cancel-call', { receiverId: rid, chatId });
+            }
+          });
         }
         socket.off('call-ended');
       }
@@ -150,8 +160,11 @@ const CallScreen = ({ route, navigation }) => {
 
   const endCall = () => {
     console.log('🏁 Ending call...');
-    if (socket && receiverId) {
-      socket.emit('call-ended', { receiverId, chatId });
+    if (socket && (receivers || receiverId)) {
+      const targetIds = receivers || [receiverId];
+      targetIds.forEach(rid => {
+         if (rid) socket.emit('call-ended', { receiverId: rid, chatId });
+      });
     }
     if (callTimer.current) clearInterval(callTimer.current);
     navigation.goBack();
@@ -368,53 +381,92 @@ const CallScreen = ({ route, navigation }) => {
       </View>
     );
   }
-
   return (
     <SafeAreaView style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        originWhitelist={['*']}
-        source={{ html: agoraHtmlString, baseUrl: ENVIRONMENT.API_URL }}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        mixedContentMode="always"
-        allowFileAccess={true}
-        mediaPlaybackRequiresUserAction={false}
-        mediaCapturePermissionGrantingEnabled={true}
-        allowsInlineMediaPlayback={true}
-        onPermissionRequest={(event) => {
-          console.log('[WebView] Permission requested:', event.nativeEvent.resources);
-          event.grant(event.nativeEvent.resources);
-        }}
-        style={styles.webview}
-        onMessage={(e) => {
-          const data = JSON.parse(e.nativeEvent.data);
+      {type === 'audio' ? (
+        <View style={styles.audioCallInterface}>
+           <LinearGradient colors={['#0F0F1A', '#1A1A2E']} style={StyleSheet.absoluteFill} />
+           <View style={styles.audioContent}>
+              <View style={styles.audioAvatarWrapper}>
+                 <View style={styles.pulsingCircle1} />
+                 <View style={styles.pulsingCircle2} />
+                 <LinearGradient colors={[THEME.colors.primary, THEME.colors.secondary]} style={styles.audioAvatarCircle}>
+                    {avatar ? (
+                      <Image source={{ uri: avatar }} style={{ width: '100%', height: '100%' }} />
+                    ) : (
+                      <Text style={styles.audioAvatarInitial}>{name?.[0] || 'U'}</Text>
+                    )}
+                 </LinearGradient>
+              </View>
+              <Text style={styles.audioNameText}>{name}</Text>
+              <Text style={styles.audioStatusText}>{callStatus === 'Ongoing' ? 'In Conversation' : callStatus}</Text>
+           </View>
+        </View>
+      ) : (
+        <WebView
+          ref={webViewRef}
+          originWhitelist={['*']}
+          source={{ html: agoraHtmlString, baseUrl: ENVIRONMENT.API_URL }}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          mixedContentMode="always"
+          allowFileAccess={true}
+          mediaPlaybackRequiresUserAction={false}
+          mediaCapturePermissionGrantingEnabled={true}
+          allowsInlineMediaPlayback={true}
+          onPermissionRequest={(event) => {
+            console.log('[WebView] Permission requested:', event.nativeEvent.resources);
+            event.grant(event.nativeEvent.resources);
+          }}
+          style={styles.webview}
+          onMessage={(e) => {
+            const data = JSON.parse(e.nativeEvent.data);
+  
+            if (data.type === 'debug') {
+              const prefix = `[WebView ${data.level?.toUpperCase() || 'LOG'}]`;
+              console.log(`${prefix} ${data.msg}`);
+              return; 
+            }
+  
+            console.log(`[WebView Response] Type: ${data.type}`, data);
+  
+            if (data.type === 'joined') {
+              setCallStatus('Ongoing');
+              startTimer();
+              callConnected.current = true; 
+            }
+            if (data.type === 'autoplay-failed') {
+              setCallStatus('Tap to Unmute');
+              Alert.alert('Audio Blocked', 'Click OK to enable audio.');
+            }
+            if (data.type === 'error') {
+              setCallStatus('Failed');
+              Alert.alert('Call Error', data.msg);
+            }
+          }}
+        />
+      )}
 
-          if (data.type === 'debug') {
-            const prefix = `[WebView ${data.level?.toUpperCase() || 'LOG'}]`;
-            console.log(`${prefix} ${data.msg}`);
-            return; // Don't process debug logs as regular actions
-          }
-
-          console.log(`[WebView Response] Type: ${data.type}`, data);
-
-          if (data.type === 'joined') {
-            setCallStatus('Ongoing');
-            startTimer();
-            callConnected.current = true; // Mark call as live
-          }
-          if (data.type === 'autoplay-failed') {
-            console.warn('[AUTOPLAY BLOCKED] User must interact with WebView');
-            setCallStatus('Tap to Unmute');
-            Alert.alert('Audio Blocked', 'Click OK to enable audio.');
-          }
-          if (data.type === 'error') {
-            console.error('[AGORA WEBVIEW ERROR]', data.msg);
-            setCallStatus('Failed');
-            Alert.alert('Call Error', data.msg);
-          }
-        }}
-      />
+      {/* For Audio calls we still need WebView hidden in background to run Agora JS */}
+      {type === 'audio' && (
+        <View style={{ height: 0, width: 0, opacity: 0, position: 'absolute' }}>
+          <WebView
+            ref={webViewRef}
+            originWhitelist={['*']}
+            source={{ html: agoraHtmlString, baseUrl: ENVIRONMENT.API_URL }}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            onMessage={(e) => {
+              const data = JSON.parse(e.nativeEvent.data);
+              if (data.type === 'joined') {
+                setCallStatus('Ongoing');
+                startTimer();
+                callConnected.current = true;
+              }
+            }}
+          />
+        </View>
+      )}
 
       <View style={styles.hudOverlay} pointerEvents="box-none">
         <View style={styles.headerHUD}>
@@ -521,6 +573,15 @@ const styles = StyleSheet.create({
     fontWeight: '500', 
     textAlign: 'center'
   },
+  audioCallInterface: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  audioContent: { alignItems: 'center' },
+  audioAvatarWrapper: { width: 220, height: 220, justifyContent: 'center', alignItems: 'center' },
+  audioAvatarCircle: { width: 160, height: 160, borderRadius: 80, overflow: 'hidden', elevation: 15, shadowColor: THEME.colors.primary, shadowRadius: 20, shadowOpacity: 0.6 },
+  audioAvatarInitial: { color: '#FFF', fontSize: 60, fontWeight: 'bold', textAlign: 'center', marginTop: 40 },
+  audioNameText: { color: '#FFF', fontSize: 32, fontWeight: '700', marginTop: 30 },
+  audioStatusText: { color: THEME.colors.secondary, fontSize: 18, fontWeight: '500', marginTop: 10, letterSpacing: 1 },
+  pulsingCircle1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: THEME.colors.primary, opacity: 0.3 },
+  pulsingCircle2: { position: 'absolute', width: 240, height: 240, borderRadius: 120, borderWidth: 1, borderColor: THEME.colors.primary, opacity: 0.15 },
 });
 
 export default CallScreen;

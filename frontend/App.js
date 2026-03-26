@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { CallProvider } from './src/context/CallContext';
+import { UIProvider } from './src/context/UIContext';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
@@ -120,6 +121,7 @@ const MainTabs = () => (
         else if (route.name === 'Create') IconComponent = SquarePlus;
         else if (route.name === 'Videos') IconComponent = Video;
         else if (route.name === 'Profile') IconComponent = User;
+        if (!IconComponent) return null;
         return <IconComponent color={focused ? THEME.colors.secondary : THEME.colors.textDim} size={28} />;
       },
     })}
@@ -135,14 +137,14 @@ const MainTabs = () => (
 const AppNavigator = () => {
   const { user, loading } = useContext(AuthContext);
 
-  if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
-
   React.useEffect(() => {
     // ⚡ Initialize Notification Services
     NotificationService.requestPermissions();
     const cleanup = NotificationService.setupNotificationClickListeners();
     return cleanup;
   }, []);
+
+  if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
 
   return (
 
@@ -175,7 +177,9 @@ export default function App() {
         <AuthProvider>
           <ProfileProvider>
             <CallProvider>
-              <AppNavigator />
+              <UIProvider>
+                <AppNavigator />
+              </UIProvider>
             </CallProvider>
           </ProfileProvider>
         </AuthProvider>

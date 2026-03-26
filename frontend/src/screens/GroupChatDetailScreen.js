@@ -233,10 +233,11 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
   const showMemberOptions = (member) => {
     if (member._id === user._id) return;
     
-    const isTargetAdmin = chat?.admins?.some(a => (a._id || a) === member._id) || false;
-    const isAdmin = chat?.admins?.some(a => (a._id || a) === user._id) || false;
+    const currentUserId = user?._id?.toString() || user?.id?.toString();
+    const isTargetAdmin = chat?.admins?.some(a => (a._id || a).toString() === member._id.toString()) || (chat?.groupAdmin && (chat.groupAdmin._id || chat.groupAdmin).toString() === member._id.toString());
+    const isMeAdmin = chat?.admins?.some(a => (a._id || a).toString() === currentUserId) || (chat?.groupAdmin && (chat.groupAdmin._id || chat.groupAdmin).toString() === currentUserId);
     
-    if (!isAdmin) return;
+    if (!isMeAdmin) return;
 
     Alert.alert(
       'Member Options',
@@ -257,7 +258,9 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
     );
   }
 
-  const isAdmin = chat?.admins?.some(a => (a._id || a) === user._id) || chat?.groupAdmin === user._id || chat?.groupAdmin?._id === user._id;
+  const currentUserId = user?._id?.toString() || user?.id?.toString();
+  const isAdminComp = chat?.admins?.some(a => (a._id || a).toString() === currentUserId) || 
+                  (chat?.groupAdmin && (chat.groupAdmin._id || chat.groupAdmin).toString() === currentUserId);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -276,7 +279,7 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
               source={{ uri: chat?.groupPhoto || 'https://i.pravatar.cc/150?u=group' }}
               style={styles.avatar}
             />
-            {isAdmin && (
+            {isAdminComp && (
               <TouchableOpacity style={styles.cameraIcon} onPress={pickImage} disabled={isUploading}>
                 {isUploading ? <ActivityIndicator size="small" color="#FFF" /> : <Camera color="#FFF" size={16} />}
               </TouchableOpacity>
@@ -298,7 +301,7 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
           ) : (
             <View style={styles.nameRow}>
               <Text style={styles.groupName}>{chat?.chatName}</Text>
-              {isAdmin && (
+              {isAdminComp && (
                 <TouchableOpacity onPress={() => setIsRenaming(true)}>
                   <Edit3 color={THEME.colors.textDim} size={18} />
                 </TouchableOpacity>
@@ -311,7 +314,7 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Members</Text>
-            {isAdmin && (
+            {isAdminComp && (
               <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddingMember(true)}>
                 <UserPlus color={THEME.colors.primary} size={20} />
                 <Text style={styles.addBtnText}>Add</Text>
@@ -319,7 +322,7 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
             )}
           </View>
 
-          {chat?.users.map((item) => (
+          {Array.from(new Map(chat?.users?.map(u => [u._id, u])).values()).map((item) => (
             <TouchableOpacity 
               key={item._id} 
               style={styles.userCard}
@@ -329,7 +332,7 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
                <Image source={{ uri: item.profilePhoto || 'https://i.pravatar.cc/150' }} style={styles.userAvatar} />
                <View style={styles.userInfo}>
                   <Text style={styles.userName}>{item.username} {item._id === user._id && '(You)'}</Text>
-                  {chat?.admins?.some(a => (a._id || a) === item._id) && (
+                  {(chat?.admins?.some(a => (a._id || a).toString() === item._id.toString()) || (chat?.groupAdmin && (chat.groupAdmin._id || chat.groupAdmin).toString() === item._id.toString())) && (
                     <View style={styles.adminBadge}>
                        <Shield size={10} color={THEME.colors.secondary} />
                        <Text style={styles.adminLabel}>Admin</Text>
@@ -337,7 +340,7 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
                   )}
                </View>
                
-               {isAdmin && item._id !== user._id && (
+               {isAdminComp && item._id.toString() !== currentUserId && (
                  <TouchableOpacity onPress={() => showMemberOptions(item)}>
                     <MoreVertical color={THEME.colors.textDim} size={20} />
                  </TouchableOpacity>
@@ -417,7 +420,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 20,
   },
-  avatar: { width: 120, height: 120, borderRadius: 60, borderWide: 3, borderColor: THEME.colors.primary },
+  avatar: { width: 120, height: 120, borderRadius: 60, borderWidth: 3, borderColor: THEME.colors.primary },
   cameraIcon: {
     position: 'absolute',
     bottom: 0,

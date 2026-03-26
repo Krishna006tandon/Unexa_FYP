@@ -1,11 +1,12 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Image, KeyboardAvoidingView, ScrollView, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, ActivityIndicator, Dimensions, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
+import { useUI } from '../context/UIContext';
 import axios from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Mail, Lock, CheckCircle2 } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
+
 
 import ENVIRONMENT from '../config/environment';
 
@@ -31,6 +32,7 @@ const AuthScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const { login } = useContext(AuthContext);
+  const { showAlert } = useUI();
 
   const handleSubmit = async () => {
     if (authMode === 'forgot') {
@@ -38,7 +40,7 @@ const AuthScreen = () => {
     }
 
     if ((authMode === 'signup' && !username) || !email || !password) {
-      return Alert.alert("Hold on", "Please fill out all the fields");
+      return showAlert("Hold on", "Please fill out all the fields", "warning");
     }
 
     setIsLoading(true);
@@ -66,24 +68,24 @@ const AuthScreen = () => {
         console.log('❌ Auto-profile error:', profileError.message);
       }
     } catch (error) {
-      Alert.alert("Auth Failed", error.response?.data?.error || error.message);
+      showAlert("Auth Failed", error.response?.data?.error || error.message, "error");
     }
     setIsLoading(false);
   };
 
   const handleResetPassword = async () => {
-    if (!email || !newResetPassword) return Alert.alert("Required", "Please enter both Email and New Password");
+    if (!email || !newResetPassword) return showAlert("Required", "Please enter both Email and New Password", "warning");
     setIsLoading(true);
     try {
       const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/auth/reset-password`, { 
         email: email.trim(), 
         newPassword: newResetPassword 
       });
-      Alert.alert("Success", "Password updated! You can login now.");
+      showAlert("Success", "Password updated! You can login now.", "success");
       setAuthMode('login');
       setNewResetPassword("");
     } catch (error) {
-      Alert.alert("Error", error.response?.data?.error || "Reset failed");
+      showAlert("Error", error.response?.data?.error || "Reset failed", "error");
     }
     setIsLoading(false);
   };
