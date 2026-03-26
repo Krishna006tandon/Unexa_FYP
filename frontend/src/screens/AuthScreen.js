@@ -5,6 +5,7 @@ import { useUI } from '../context/UIContext';
 import axios from 'axios';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Mail, Lock, CheckCircle2 } from 'lucide-react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 
 
@@ -45,6 +46,23 @@ const AuthScreen = () => {
       return showAlert("Hold on", "Please fill out all the fields", "warning");
     }
 
+    if (authMode === 'login') {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (hasHardware && isEnrolled) {
+        const biometricAuth = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Verify identity to login to UNEXA',
+          fallbackLabel: 'Use Password',
+          disableDeviceFallback: false,
+        });
+        
+        if (!biometricAuth.success) {
+          return showAlert("Authentication Failed", "Biometric verification failed or was cancelled.", "error");
+        }
+      }
+    }
+
     setIsLoading(true);
     try {
       const endpoint = authMode === 'login' ? "/api/auth/login" : "/api/auth";
@@ -54,28 +72,13 @@ const AuthScreen = () => {
 
       if (data.requiresOTP) {
         setIsOTPMode(true);
-        showAlert("OTP Sent", "Check your console for the 2FA code.", "info");
+        showAlert("OTP Sent", "Check your email for the verification code.", "success");
         setIsLoading(false);
         return;
       }
 
       await login(data); // Move to main app automatically
       
-      // Auto-create profile after successful login
-      try {
-        const profileData = {
-          username: data.username,
-          fullName: data.username,
-          email: data.email,
-          bio: 'Welcome to UNEXA! 🎉',
-        };
-        
-        await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
-          headers: { Authorization: `Bearer ${data.token}` }
-        });
-      } catch (profileError) {
-        console.log('❌ Auto-profile error:', profileError.message);
-      }
     } catch (error) {
       showAlert("Auth Failed", error.response?.data?.error || error.message, "error");
     }
@@ -91,6 +94,22 @@ const AuthScreen = () => {
         otp: otp.trim() 
       });
       await login(data);
+      
+      // Auto-create profile after successful registration and verification
+      try {
+        const profileData = {
+          username: data.username,
+          fullName: data.username,
+          email: data.email,
+          bio: 'Welcome to UNEXA! 🎉',
+        };
+        
+        await axios.post(`${ENVIRONMENT.API_URL}/api/profile`, profileData, {
+          headers: { Authorization: `Bearer ${data.token}` }
+        });
+      } catch (profileError) {
+        console.log('❌ Auto-profile error:', profileError.message);
+      }
     } catch (error) {
       showAlert("Verification Failed", error.response?.data?.error || "Invalid OTP", "error");
     }

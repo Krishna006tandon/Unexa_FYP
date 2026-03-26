@@ -33,12 +33,35 @@ exports.registerUser = async (req, res) => {
     });
 
   if (user) {
+    // Generate 6 digit OTP for new user
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    console.log(`🔐 [2FA-SECURITY] Sending Verification OTP ${otp} to ${cleanEmail}`);
+    
+    // Send Real Email with OTP
+    try {
+      await sendEmail({
+        email: cleanEmail,
+        subject: 'UNEXA Account Verification',
+        message: `Your UNEXA account verification code is: ${otp}.`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #7B61FF;">Welcome to UNEXA</h2>
+            <p>Please verify your email address. Your One-Time Password is:</p>
+            <h1 style="background: #F4F4F4; padding: 15px; border-radius: 10px; text-align: center; letter-spacing: 12px; font-size: 32px; border: 1px dashed #7B61FF;">${otp}</h1>
+            <p>Valid for <b>10 minutes</b>.</p>
+          </div>
+        `
+      });
+    } catch (e) { console.error('Email error:', e); }
+
     res.status(201).json({
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      profilePhoto: user.profilePhoto,
-      token: generateToken(user._id),
+      message: 'OTP sent to your email. Please verify to complete registration.',
+      email: cleanEmail,
+      requiresOTP: true
     });
   } else {
     res.status(400).json({ error: 'Failed to create the user' });
@@ -61,42 +84,15 @@ exports.authUser = async (req, res) => {
   console.log(`🔑 [AUTH-LOGIN] Password match result for ${cleanEmail}: ${isPasswordMatch}`);
 
   if (isPasswordMatch) {
-    // Generate 6 digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.otp = otp;
-    user.otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins expiry
-    await user.save();
-
-    console.log(`🔐 [2FA-SECURITY] Sending OTP ${otp} to ${email}`);
-    // Audit Log for login attempt
-    await logAudit(req, 'Login Attempt', { email: cleanEmail }, 'success');
-
-    // Send Real Email with OTP
-    try {
-      await sendEmail({
-        email: cleanEmail,
-        subject: 'UNEXA Security Code',
-        message: `Your UNEXA login verification code is: ${otp}. This code is valid for 10 minutes.`,
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #333;">
-            <h2 style="color: #7B61FF;">UNEXA SuperApp Security</h2>
-            <p>Your one-time verification code (OTP) for login is:</p>
-            <h1 style="background: #F4F4F4; padding: 15px; border-radius: 10px; text-align: center; letter-spacing: 12px; font-size: 32px; border: 1px dashed #7B61FF;">${otp}</h1>
-            <p>This code is valid for <b>10 minutes</b>. If you didn't request this, please ignore this email.</p>
-            <hr style="border: 0; border-top: 1px solid #EEE;" />
-            <p style="font-size: 12px; color: #999;">Nexbyte Security Systems & UNEXA FYP Team</p>
-          </div>
-        `
-      });
-    } catch (emailError) {
-      console.error('❌ [2FA-EMAIL-ERROR] Failed to send OTP email:', emailError.message);
-      // Still log but response continues (OTP will still be in console for dev)
-    }
-
+    console.log(`✅ [AUTH-LOGIN] Successful login for: ${cleanEmail}`);
+    await logAudit(req, 'Login Success', { userId: user._id }, 'success');
+    
     res.json({
-      message: 'OTP sent to your email. Please verify to login.',
-      email: email, // to be used in next step
-      requiresOTP: true
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      profilePhoto: user.profilePhoto,
+      token: generateToken(user._id),
     });
   } else {
     res.status(401).json({ error: 'Invalid Email or Password' });
