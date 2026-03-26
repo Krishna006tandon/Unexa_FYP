@@ -101,8 +101,15 @@ const CallScreen = ({ route, navigation }) => {
       // Listen for call ended from other party
       socket.on('call-ended', (data) => {
         if (data.chatId === chatId) {
-          console.log('🛑 [SOCKET-MOBILE] Call was ended via socket for chatId:', chatId);
-          endCall();
+          // In group calls, we don't end the call just because ONE person left
+          // The Agora 'user-left' event handles individual exits from the stream
+          const isGroupCall = (receivers && receivers.length > 1);
+          if (!isGroupCall) {
+            console.log('🛑 [SOCKET-MOBILE] 1-on-1 Call was ended via socket');
+            endCall();
+          } else {
+            console.log('ℹ️ [SOCKET-MOBILE] A member left the group call, staying in conversation.');
+          }
         }
       });
     }
@@ -162,8 +169,17 @@ const CallScreen = ({ route, navigation }) => {
     console.log('🏁 Ending call...');
     if (socket && (receivers || receiverId)) {
       const targetIds = receivers || [receiverId];
+      const isGroupCall = targetIds.length > 1;
+      
       targetIds.forEach(rid => {
-         if (rid) socket.emit('call-ended', { receiverId: rid, chatId });
+         if (rid) {
+           // For group calls, we can notify others but we don't want to force them to close unless we are finishing it
+           socket.emit('call-ended', { 
+             receiverId: rid, 
+             chatId,
+             isGroupCall 
+           });
+         }
       });
     }
     if (callTimer.current) clearInterval(callTimer.current);
@@ -214,13 +230,45 @@ const CallScreen = ({ route, navigation }) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.18.2.js"></script>
         <style>
-          body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; }
-          #remote-video-container { width: 100%; height: 100%; position: absolute; z-index: 1; }
-          #local-video-container { 
-            width: 130px; height: 190px; position: absolute; top: 30px; right: 20px; 
-            z-index: 999; border-radius: 16px; overflow: hidden; border: 3px solid #7B61FF; 
+          body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
+          #remote-video-container { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
+            gap: 4px; 
+            width: 100%; 
+            height: 100%; 
+            position: absolute; 
+            z-index: 1; 
+            padding: 4px;
+            box-sizing: border-box;
+            background: #000;
           }
-          video { object-fit: cover !important; width: 100%; height: 100%; }
+          /* When only one remote user, make it full screen */
+          #remote-video-container:has(> .video-block:nth-child(1):nth-last-child(1)) {
+            display: block;
+            padding: 0;
+          }
+          .video-block { 
+            position: relative; 
+            background: #111; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          #local-video-container { 
+            width: 90px; height: 130px; position: absolute; top: 10px; right: 10px; 
+            z-index: 999; border-radius: 12px; overflow: hidden; border: 2px solid #7B61FF; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            background: #1A1A2E;
+          }
+          video { object-fit: cover !important; width: 100% !important; height: 100% !important; }
+          .uid-label { 
+            position: absolute; bottom: 8px; left: 8px; color: #FFF; font-size: 10px; 
+            background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; z-index: 10;
+          }
         </style>
     </head>
     <body onload="join()">
@@ -322,7 +370,17 @@ const CallScreen = ({ route, navigation }) => {
                             await client.subscribe(user, mediaType);
                             remoteUsers[user.uid] = user; 
                             
-                            if (mediaType === "video") user.videoTrack.play("remote-video-container");
+                            if (mediaType === "video") {
+                                // Create specific container for this user
+                                let div = document.getElementById("player-" + user.uid);
+                                if (!div) {
+                                    div = document.createElement("div");
+                                    div.id = "player-" + user.uid;
+                                    div.className = "video-block";
+                                    document.getElementById("remote-video-container").appendChild(div);
+                                }
+                                user.videoTrack.play(div.id);
+                            }
                             if (mediaType === "audio") {
                                 user.audioTrack.setVolume(100);
                                 try {
@@ -337,11 +395,17 @@ const CallScreen = ({ route, navigation }) => {
 
                     client.on("user-unpublished", (user, mediaType) => {
                         console.log("🔌 [STREAM] User unpublished:", user.uid, mediaType);
+                        if (mediaType === "video") {
+                            const div = document.getElementById("player-" + user.uid);
+                            if (div) div.remove();
+                        }
                     });
 
                     client.on("user-left", (user) => {
                         console.log("[AGORA] User left:", user.uid);
                         delete remoteUsers[user.uid];
+                        const div = document.getElementById("player-" + user.uid);
+                        if (div) div.remove();
                     });
                     
                     await client.join("${appId}", "${chatId}", "${agoraToken}", ${uid});

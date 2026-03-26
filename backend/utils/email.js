@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 const sendEmail = async (options) => {
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsc4miOlq1QvyQhB94W84Svy3k0pzd48NVGPjL9JEFSNsX1gwBw1nEdankHr8yTo1yKA/exec';
+  const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL || 'https://script.google.com/macros/s/AKfycbzGAP3ZsUstdtcjVB4cyAS4YQlD_l7tjnrFkLns6QiMQuVhwZqvccMJ3aYDk1JYYM7F/exec';
 
   try {
     console.log(`✉️ [EMAIL-SECURITY] Forwarding mail request to Google Script for ${options.email}...`);

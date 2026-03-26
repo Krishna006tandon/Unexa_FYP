@@ -13,11 +13,25 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: AWS_ACCESS_KEY_ID
+      - key: CLOUDINARY_CLOUD_NAME
         sync: false
-      - key: AWS_SECRET_ACCESS_KEY
+      - key: CLOUDINARY_API_KEY
         sync: false
-      - key: AWS_REGION
-        value: us-east-1
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: AGORA_APP_ID
+        sync: false
+      - key: AGORA_PRIMARY_CERTIFICATE
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: ENCRYPTION_IV
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: GOOGLE_SCRIPT_URL
+        sync: false
       - key: PORT
         value: 5000

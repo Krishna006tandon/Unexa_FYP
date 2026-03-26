@@ -26,7 +26,8 @@ const THEME = {
 };
 
 const CallScreenWeb = ({ route, navigation }) => {
-  const { chatId, type, name, receiverId, isIncoming } = route.params || {};
+  const { chatId, type, name, receivers, receiverId: passedReceiverId, isIncoming } = route.params || {};
+  const receiverId = passedReceiverId || (receivers && receivers.length > 0 ? receivers[0] : null);
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
   const { stopRinging } = useContext(CallContext);
@@ -50,24 +51,33 @@ const CallScreenWeb = ({ route, navigation }) => {
   useEffect(() => {
     fetchAgoraToken();
     if (socket) {
-      if (!isIncoming && receiverId) {
-        const payload = {
-          callerId: user._id || user.id,
-          receiverId,
-          callerName: user.fullName || user.username || 'Friend',
-          callerAvatar: user.profilePhoto || user.avatar, // NEW
-          chatId,
-          type
-        };
-        console.log(`[FRONTEND-WEB] 📡 Emitting call-invite with payload:`, payload);
-        socket.emit('call-invite', payload);
+      if (!isIncoming && (receivers || receiverId)) {
+        const targetIds = receivers || [receiverId];
+        targetIds.forEach(rid => {
+          if (!rid) return;
+          const payload = {
+            callerId: user._id || user.id,
+            receiverId: rid,
+            callerName: user.fullName || user.username || 'Friend',
+            callerAvatar: user.profilePhoto || user.avatar,
+            chatId,
+            type
+          };
+          console.log(`[FRONTEND-WEB] 📡 Emitting call-invite to ${rid}`);
+          socket.emit('call-invite', payload);
+        });
       }
 
       // Sync End Call
       socket.on('call-ended', (data) => {
          if (data.chatId === chatId) {
-            console.log('🛑 [SOCKET-WEB] Call ended by other party');
-            navigation.goBack();
+            const isGroupCall = (receivers && receivers.length > 1);
+            if (!isGroupCall) {
+              console.log('🛑 [SOCKET-WEB] 1-on-1 Call was ended via socket');
+              navigation.goBack();
+            } else {
+              console.log('ℹ️ [SOCKET-WEB] A member left the group call.');
+            }
          }
       });
     }
@@ -75,9 +85,14 @@ const CallScreenWeb = ({ route, navigation }) => {
     return () => {
       if (socket) {
         // ONLY Caller can cancel a ringing call
-        if (!isIncoming && !callJoined.current && receiverId) {
-          console.log('🚫 [CLEANUP-WEB] Cancelling call signal');
-          socket.emit('cancel-call', { receiverId, chatId });
+        if (!isIncoming && !callJoined.current && (receivers || receiverId)) {
+          const targetIds = receivers || [receiverId];
+          targetIds.forEach(rid => {
+            if (rid) {
+              console.log('🚫 [CLEANUP-WEB] Sending cancel-call for:', rid);
+              socket.emit('cancel-call', { receiverId: rid, chatId });
+            }
+          });
         }
         socket.off('call-ended');
       }
@@ -116,8 +131,12 @@ const CallScreenWeb = ({ route, navigation }) => {
 
   const endCall = () => {
     console.log('[WEB] Ending call...');
-    if (socket && receiverId) {
-       socket.emit('call-ended', { receiverId, chatId });
+    if (socket && (receivers || receiverId)) {
+       const targetIds = receivers || [receiverId];
+       const isGroupCall = targetIds.length > 1;
+       targetIds.forEach(rid => {
+         if (rid) socket.emit('call-ended', { receiverId: rid, chatId, isGroupCall });
+       });
     }
     navigation.goBack();
   };
@@ -192,7 +211,17 @@ const CallScreenWeb = ({ route, navigation }) => {
           console.log(`✅ [AGORA-WEB] Subscribed to ${user.uid} - ${mediaType}`);
           
           if (mediaType === 'video' && type === 'video') {
-            user.videoTrack.play('remote-video-web');
+            const container = document.getElementById('remote-video-web');
+            if (container) {
+              let div = document.getElementById('player-' + user.uid);
+              if (!div) {
+                div = document.createElement('div');
+                div.id = 'player-' + user.uid;
+                div.className = 'remote-player';
+                container.appendChild(div);
+              }
+              user.videoTrack.play(div.id);
+            }
           }
           if (mediaType === 'audio') {
             console.log(`🎙️ [AGORA-WEB] Attempting to play audio from ${user.uid}`);
@@ -213,6 +242,19 @@ const CallScreenWeb = ({ route, navigation }) => {
         } catch (subError) {
            console.error(`❌ [AGORA-WEB] Subscription failed for ${user.uid}`, subError);
         }
+      });
+
+      client.current.on('user-left', (user) => {
+         console.log(`🔌 [AGORA-WEB] User left: ${user.uid}`);
+         const div = document.getElementById('player-' + user.uid);
+         if (div) div.remove();
+      });
+
+      client.current.on('user-unpublished', (user, mediaType) => {
+         if (mediaType === 'video') {
+            const div = document.getElementById('player-' + user.uid);
+            if (div) div.remove();
+         }
       });
 
       // Handle Autoplay restrictions on Web
@@ -283,13 +325,13 @@ const CallScreenWeb = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 20, zIndex: 100 },
-  localPreview: { width: 120, height: 160, position: 'absolute', top: 30, right: 20, zIndex: 999, borderRadius: 12, overflow: 'hidden', border: '2px solid #7B61FF' },
-  header: { alignItems: 'center', marginTop: 30 },
+  container: { flex: 1, backgroundColor: '#000', position: 'relative' },
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 20, zIndex: 100, pointerEvents: 'none' },
+  localPreview: { width: 120, height: 160, position: 'absolute', top: 30, right: 20, zIndex: 999, borderRadius: 12, overflow: 'hidden', border: '2px solid #7B61FF', backgroundColor: '#111' },
+  header: { alignItems: 'center', marginTop: 30, pointerEvents: 'auto' },
   statusText: { color: THEME.colors.secondary, fontSize: 16, fontWeight: 'bold' },
   timerText: { color: '#FFF', fontSize: 32, fontWeight: '300', marginTop: 10 },
-  footer: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', padding: 20, width: '100%', maxWidth: 500, alignSelf: 'center' },
+  footer: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', padding: 20, width: '100%', maxWidth: 500, alignSelf: 'center', pointerEvents: 'auto' },
   btn: { alignItems: 'center', minWidth: 70 },
   iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   btnLabel: { color: '#FFF', fontSize: 11, opacity: 0.8 },
@@ -297,5 +339,38 @@ const styles = StyleSheet.create({
   loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#FFF', marginBottom: 20, fontSize: 18 }
 });
+
+// Add Web-Specific Global Styles for Grid
+if (Platform.OS === 'web') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    #remote-video-web {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      padding: 10px;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      background: #000;
+      z-index: 1;
+    }
+    .remote-player {
+      position: relative;
+      background: #111;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .remote-player video {
+      object-fit: cover !important;
+      width: 100% !important;
+      height: 100% !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 export default CallScreenWeb;
