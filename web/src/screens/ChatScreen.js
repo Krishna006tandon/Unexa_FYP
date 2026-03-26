@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking, Modal, Alert } from 'react-native';
+import React, { useState, useEffect, useRef, useContext } from 'react'; // Updated UI and Reactions
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking, Modal, Alert, Dimensions } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenCapture from 'expo-screen-capture';
-import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone, Clock, Star, X } from 'lucide-react-native';
+import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Square, Video, Phone, Clock, Star, X, Trash2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
@@ -11,7 +12,10 @@ import io from 'socket.io-client';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import ProfileContext from '../context/ProfileContext';
+import { useUI } from '../context/UIContext';
 import ENVIRONMENT from '../config/environment';
+
+
 
 // Removed local socket variable - using socket from ProfileContext now
 
@@ -31,9 +35,17 @@ const THEME = {
 };
 
 const ChatScreen = ({ route, navigation }) => {
-  const { chatId, name, receiverId: passedReceiverId, avatar } = route.params;
+  const { chatId, name, receiverId: passedReceiverId, avatar, isGroupChat } = route.params;
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
+  const { showAlert } = useUI();
+
+  const getSenderColor = (username) => {
+    const colors = ['#FF8A65', '#4DB6AC', '#9575CD', '#F06292', '#AED581', '#FFD54F', '#4FC3F7'];
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash % colors.length)];
+  };
   
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -50,6 +62,11 @@ const ChatScreen = ({ route, navigation }) => {
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
   const [receiverStatus, setReceiverStatus] = useState("offline");
   const [lastSeen, setLastSeen] = useState(null);
+  const [chatUsers, setChatUsers] = useState([]);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [reactionMsgId, setReactionMsgId] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
 
   const flatListRef = useRef(null);
   let recordingTimer = useRef(null);
@@ -105,7 +122,7 @@ const ChatScreen = ({ route, navigation }) => {
     } catch (err) {
       console.error('❌ Error playing audio:', err);
       setIsPlayingAudio(false);
-      Alert.alert('Audio Error', 'Could not play audio: ' + err.message);
+      showAlert('Audio Error', 'Could not play audio: ' + err.message, 'error');
     }
   };
 
@@ -119,6 +136,16 @@ const ChatScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     if (!socket) return;
+
+    const fetchChatInfo = async () => {
+      try {
+        const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/chat/${chatId}`, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        setChatUsers(data.users || []);
+      } catch (e) { console.warn('Error fetching chat info in chatScreen', e); }
+    };
+    fetchChatInfo();
 
     // Join room for real-time messages
     socket.emit("join_chat", chatId);
@@ -141,9 +168,14 @@ const ChatScreen = ({ route, navigation }) => {
       setMessages(prev => prev.map(m => m._id === messageId ? { ...m, content } : m));
     };
 
+    const handleMessageReacted = ({ messageId, reactions }) => {
+      setMessages(prev => prev.map(m => m._id === messageId ? { ...m, reactions } : m));
+    };
+
     socket.on("message_received", handleMessageReceived);
     socket.on("message_deleted_update", handleMessageDeleted);
     socket.on("message_edited_update", handleMessageEdited);
+    socket.on("message_reacted_update", handleMessageReacted);
 
     fetchMessages();
     fetchReceiverStatus();
@@ -168,6 +200,7 @@ const ChatScreen = ({ route, navigation }) => {
       socket.off('message_received', handleMessageReceived);
       socket.off('message_deleted_update', handleMessageDeleted);
       socket.off('message_edited_update', handleMessageEdited);
+      socket.off('message_reacted_update', handleMessageReacted);
       socket.off('user_online_status');
       socket.emit("leave_chat", chatId);
       unsubscribeFocus();
@@ -176,16 +209,12 @@ const ChatScreen = ({ route, navigation }) => {
   }, [chatId, socket]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      if (modalImage) {
-        ScreenCapture.preventScreenCaptureAsync();
-      } else {
-        ScreenCapture.allowScreenCaptureAsync();
-      }
+    if (modalImage) {
+      ScreenCapture.preventScreenCaptureAsync();
+    } else {
+      ScreenCapture.allowScreenCaptureAsync();
     }
-    return () => {
-      if (Platform.OS !== 'web') ScreenCapture.allowScreenCaptureAsync();
-    };
+    return () => ScreenCapture.allowScreenCaptureAsync();
   }, [modalImage]);
 
   const fetchMessages = async () => {
@@ -292,7 +321,7 @@ const ChatScreen = ({ route, navigation }) => {
     } catch(err) { 
       console.log(err);
       setMessages(prev => prev.filter(m => m._id !== tempId));
-      Alert.alert("Error", "Failed to send media");
+      showAlert("Error", "Failed to send media", 'error');
     }
   };
 
@@ -336,16 +365,28 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const handleLongPress = (msg) => {
-    Alert.alert(
-      "Message Options",
-      "Choose an action",
-      [
-        { text: "Forward", onPress: () => openForwardModal(msg) },
-        { text: msg.isStarredBy?.includes(user._id) ? "Unstar" : "Star", onPress: () => toggleStar(msg._id) },
-        { text: "Delete", style: "destructive", onPress: () => deleteMessage(msg._id) },
-        { text: "Cancel", style: "cancel" }
-      ]
-    );
+    setSelectedMessage(msg);
+    setShowOptionsModal(true);
+  };
+
+  const handleReact = async (emoji, msgIdArg) => {
+    const msgId = msgIdArg || reactionMsgId;
+    if (!msgId) return;
+
+    try {
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message/react`, 
+        { messageId: msgId, emoji },
+        { headers: { Authorization: `Bearer ${user.token}` }}
+      );
+      
+      setMessages(prev => prev.map(m => m._id === msgId ? data : m));
+      socket.emit("message_reacted", { messageId: msgId, reactions: data.reactions, chatId });
+    } catch(e) { 
+      console.log("Reaction error:", e);
+      showAlert("Error", "Failed to add reaction", 'error');
+    } finally {
+      setReactionMsgId(null);
+    }
   };
 
   const toggleStar = async (msgId) => {
@@ -371,7 +412,7 @@ const ChatScreen = ({ route, navigation }) => {
         chatIds: [targetChatId] 
       }, { headers: { Authorization: `Bearer ${user.token}` }});
       setShowForwardModal(false);
-      Alert.alert("Success", "Message forwarded!");
+      showAlert("Success", "Message forwarded!", 'success');
     } catch(e) { console.log(e); }
   };
 
@@ -382,7 +423,7 @@ const ChatScreen = ({ route, navigation }) => {
   const handleTyping = (text) => {
     setNewMessage(text);
     socket.emit('typing', chatId);
-    setTimeout(() => socket.emit("stop_typing", chatId), 3000);
+    // Debounce stop typing would be better, but simple timeout for now
   };
 
   // --- MEDIA PICKERS --- //
@@ -406,7 +447,7 @@ const ChatScreen = ({ route, navigation }) => {
       }
     } catch (error) {
       console.error('❌ Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image: ' + error.message);
+      showAlert('Error', 'Failed to pick image: ' + error.message, 'error');
     }
   };
 
@@ -440,7 +481,7 @@ const ChatScreen = ({ route, navigation }) => {
       }
     } catch (error) {
       console.error('❌ Camera error:', error);
-      Alert.alert('Error', 'Failed to capture photo: ' + error.message);
+      showAlert('Error', 'Failed to capture photo: ' + error.message, 'error');
     }
   };
 
@@ -496,7 +537,7 @@ const ChatScreen = ({ route, navigation }) => {
       sendMediaMessage(url, 'audio', recordingDuration);
     } catch (err) {
       console.error('Failed to send recording', err);
-      Alert.alert('Voice Chat Error', 'Could not send voice message: ' + err.message);
+      showAlert('Voice Chat Error', 'Could not send voice message: ' + err.message, 'error');
     }
   };
 
@@ -510,84 +551,99 @@ const ChatScreen = ({ route, navigation }) => {
         item.sending && { opacity: 0.7 }
       ]}>
         <TouchableOpacity 
-          activeOpacity={0.8}
+          activeOpacity={0.9}
           onLongPress={() => !item.sending && handleLongPress(item)}
-          style={[
-            styles.bubble, 
-            isMine ? styles.bubbleMine : styles.bubbleTheirs, 
-            item.expiresAt && styles.vanishBubble
-          ]}
+          style={{ width: '82%' }}
         >
-          {item.isForwarded && (
-            <View style={styles.forwardedHeader}>
-              <Text style={styles.forwardedText}>Forwarded</Text>
-            </View>
-          )}
-          
-          {item.messageType === 'image' && (
-             <TouchableOpacity onPress={() => setModalImage(item.mediaUrl)}>
-               <Image source={{ uri: item.mediaUrl }} style={styles.mediaPreview} />
-             </TouchableOpacity>
-          )}
-          {item.messageType === 'file' && (
-             <TouchableOpacity style={styles.fileContainer} onPress={() => openFile(item.mediaUrl)}>
-                <Paperclip color={THEME.colors.text} size={20} />
-                <Text style={styles.messageText}> Open File</Text>
-             </TouchableOpacity>
-          )}
-          {item.messageType === 'audio' && (
-             <View style={styles.audioContainer}>
-               <TouchableOpacity 
-                 style={styles.playButton} 
-                 onPress={() => playAudio(item.mediaUrl)}
-               >
-                 <Play color={THEME.colors.text} size={20} />
-               </TouchableOpacity>
-               
-               {/* Waveform visualization */}
-               <View style={styles.waveformContainer}>
-                 <View style={styles.waveformBase} />
-                 <View style={[styles.waveformProgress, { width: `${(currentAudioTime / (item.voiceDuration || 1)) * 100}%` }]} />
-                 {/* Simulated waveform bars */}
-                 <View style={styles.waveformBars}>
-                   {[...Array(20)].map((_, i) => (
-                     <View 
-                       key={i} 
-                       style={[
-                         styles.waveformBar,
-                         { height: Math.random() * 20 + 10 }
-                       ]} 
-                     />
-                   ))}
-                 </View>
-               </View>
-               
-               <Text style={styles.durationText}>
-                 {isPlayingAudio ? currentAudioTime : item.voiceDuration}s
-               </Text>
-             </View>
-          )}
-          
-          {item.content ? <Text style={[styles.messageText, isMine && { color: '#FFF' }]}>{item.content}</Text> : null}
-
-          <View style={styles.metaContainer}>
-            {item.sending ? (
-              <Clock size={12} color="rgba(255,255,255,0.5)" />
-            ) : (
-              <>
-                {item.isStarredBy?.includes(user._id) && <Star size={10} color="#FFD700" style={{marginRight: 4}} />}
-                <Text style={[styles.timestamp, isMine && { color: 'rgba(255,255,255,0.7)' }]}>
-                  {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                {isMine && (
-                  <CheckCheck 
-                    color={item.seenBy?.length > 0 ? THEME.colors.readBlue : 'rgba(255,255,255,0.7)'} 
-                    size={14} 
-                  />
-                )}
-              </>
+          <LinearGradient
+            colors={isMine ? ['#7B61FF', '#5A4FCF'] : ['#1E1E1E', '#161616']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+               styles.bubble,
+               isMine ? styles.bubbleMine : styles.bubbleTheirs,
+               item.expiresAt && styles.vanishBubble
+            ]}
+          >
+            {item.isForwarded && (
+              <View style={styles.forwardedHeader}>
+                <Text style={styles.forwardedText}>Forwarded</Text>
+              </View>
             )}
-          </View>
+  
+            {isGroupChat && (
+              <Text style={[
+                styles.senderName, 
+                { color: isMine ? '#A0A0A0' : getSenderColor(item.sender?.username || item.sender?._id || 'User') }
+              ]}>
+                {isMine ? 'You' : (item.sender?.username || 'User')}
+              </Text>
+            )}
+  
+            {item.messageType === 'image' && (
+               <TouchableOpacity onPress={() => setModalImage(item.mediaUrl)} style={styles.mediaContainer}>
+                 <Image source={{ uri: item.mediaUrl }} style={styles.mediaPreview} />
+               </TouchableOpacity>
+            )}
+            
+            {item.messageType === 'file' && (
+               <TouchableOpacity style={styles.fileContainer} onPress={() => openFile(item.mediaUrl)}>
+                  <Paperclip color="#FFF" size={20} />
+                  <Text style={styles.messageText}> Open File</Text>
+               </TouchableOpacity>
+            )}
+  
+            {item.messageType === 'audio' && (
+               <View style={styles.audioContainer}>
+                 <TouchableOpacity 
+                   style={styles.playButton} 
+                   onPress={() => playAudio(item.mediaUrl)}
+                 >
+                   <Play color="#FFF" size={20} />
+                 </TouchableOpacity>
+                 <View style={styles.waveformContainer}>
+                   <View style={styles.waveformBase} />
+                   <View style={[styles.waveformProgress, { width: `${(currentAudioTime / (item.voiceDuration || 1)) * 100}%` }]} />
+                   <View style={styles.waveformBars}>
+                     {[...Array(15)].map((_, i) => (
+                       <View key={i} style={[styles.waveformBar, { height: Math.random() * 15 + 8 }]} />
+                     ))}
+                   </View>
+                 </View>
+                 <Text style={styles.durationText}>{isPlayingAudio ? currentAudioTime : item.voiceDuration}s</Text>
+               </View>
+            )}
+            
+            {item.content ? <Text style={styles.messageText}>{item.content}</Text> : null}
+  
+            {item.reactions && item.reactions.length > 0 && (
+              <View style={[styles.reactionsContainer, isMine ? { alignSelf: 'flex-start' } : { alignSelf: 'flex-end' }]}>
+                 {Array.from(new Set(item.reactions.map(r => r.emoji))).slice(0, 3).map((emoji, idx) => (
+                   <Text key={idx} style={styles.reactionEmoji}>{emoji}</Text>
+                 ))}
+                 <Text style={styles.reactionCount}>{item.reactions.length}</Text>
+              </View>
+            )}
+  
+            <View style={styles.metaContainer}>
+              {item.sending ? (
+                <Clock size={12} color="rgba(255,255,255,0.5)" />
+              ) : (
+                <>
+                  {item.isStarredBy?.includes(user._id) && <Star size={10} color="#FFD700" style={{marginRight: 4}} />}
+                  <Text style={styles.timestamp}>
+                    {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                  {isMine && (
+                    <CheckCheck 
+                      color={item.seenBy?.length > 0 ? THEME.colors.readBlue : 'rgba(255,255,255,0.5)'} 
+                      size={14} 
+                    />
+                  )}
+                </>
+              )}
+            </View>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     );
@@ -596,36 +652,61 @@ const ChatScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Full Screen Image Modal */}
-      <Modal visible={modalImage !== null} transparent={true} onRequestClose={() => setModalImage(null)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.modalClose} onPress={() => setModalImage(null)}>
-            <Text style={styles.modalCloseText}>Close</Text>
-          </TouchableOpacity>
-          {modalImage && <Image source={{ uri: modalImage }} style={styles.fullImage} resizeMode="contain" />}
-        </View>
+      <Modal visible={modalImage !== null} transparent={true} animationType="fade" onRequestClose={() => setModalImage(null)}>
+        <BlurView intensity={100} tint="dark" style={styles.modalContainer}>
+          <View style={styles.modalHeaderRow}>
+            <TouchableOpacity style={styles.modalCloseBtnCircle} onPress={() => setModalImage(null)}>
+              <X color="#FFF" size={24} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.modalCloseBtnCircle} onPress={() => {}}>
+               {/* Could add download icon here */}
+            </TouchableOpacity>
+          </View>
+          {modalImage && <Image source={{ uri: modalImage }} style={styles.fullImageStyled} resizeMode="contain" />}
+        </BlurView>
       </Modal>
 
       {/* Forward Modal */}
-      <Modal visible={showForwardModal} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: THEME.colors.background }}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Forward to...</Text>
-            <TouchableOpacity onPress={() => setShowForwardModal(false)}>
-              <X size={24} color={THEME.colors.text} />
-            </TouchableOpacity>
-          </View>
-          <FlatList 
-            data={availableChats}
-            keyExtractor={item => item._id}
-            renderItem={({item}) => (
-              <TouchableOpacity style={styles.forwardItem} onPress={() => forwardMsgToChat(item._id)}>
-                <Image source={{ uri: item.isGroupChat ? 'https://via.placeholder.com/150' : item.users.find(u => u._id !== user._id)?.profilePhoto }} style={styles.forwardAvatar} />
-                <Text style={styles.forwardName}>{item.isGroupChat ? item.chatName : item.users.find(u => u._id !== user._id)?.username}</Text>
-                <Send size={18} color={THEME.colors.primary} />
-              </TouchableOpacity>
-            )}
-          />
-        </SafeAreaView>
+      <Modal visible={showForwardModal} animationType="slide" transparent={true}>
+        <BlurView intensity={90} tint="dark" style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1 }}>
+            <View style={styles.modalHeaderExtended}>
+              <View style={styles.modalGrabber} />
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitlePremium}>Forward Message</Text>
+                <TouchableOpacity onPress={() => setShowForwardModal(false)} style={styles.modalCloseBtn}>
+                  <X size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+              <TextInput 
+                style={styles.modalSearch} 
+                placeholder="Search chats..." 
+                placeholderTextColor="rgba(255,255,255,0.4)"
+              />
+            </View>
+            <FlatList 
+              data={availableChats}
+              keyExtractor={item => item._id}
+              contentContainerStyle={{ padding: 20 }}
+              renderItem={({item}) => {
+                const chatName = item.isGroupChat ? item.chatName : item.users.find(u => u._id !== user._id)?.username;
+                const chatAvatar = item.isGroupChat ? 'https://via.placeholder.com/150' : item.users.find(u => u._id !== user._id)?.profilePhoto;
+                return (
+                  <TouchableOpacity style={styles.forwardItemPremium} onPress={() => forwardMsgToChat(item._id)}>
+                    <Image source={{ uri: chatAvatar || 'https://i.pravatar.cc/150' }} style={styles.forwardAvatarPremium} />
+                    <View style={{ flex: 1, marginLeft: 15 }}>
+                      <Text style={styles.forwardNamePremium}>{chatName}</Text>
+                      <Text style={styles.forwardSubtext}>{item.isGroupChat ? 'Group' : 'Direct Message'}</Text>
+                    </View>
+                    <LinearGradient colors={['#7B61FF', '#3DDCFF']} style={styles.sendIconWrapper}>
+                      <Send size={16} color="#000" />
+                    </LinearGradient>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </SafeAreaView>
+        </BlurView>
       </Modal>
 
       <View style={styles.header}>
@@ -636,9 +717,13 @@ const ChatScreen = ({ route, navigation }) => {
         <TouchableOpacity 
           style={styles.headerProfile} 
           onPress={() => {
-            const receiverId = passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender;
-            if (receiverId) navigation.navigate('ProfileScreen', { userId: receiverId });
-            else Alert.alert("Error", "Could not identify user profile.");
+            if (isGroupChat) {
+               navigation.navigate('GroupChatDetailScreen', { chatId });
+            } else {
+               const receiverId = passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender;
+               if (receiverId) navigation.navigate('ProfileScreen', { userId: receiverId });
+               else showAlert("Error", "Could not identify user profile.", "error");
+            }
           }}
         >
            <Image 
@@ -661,24 +746,30 @@ const ChatScreen = ({ route, navigation }) => {
               <Clock color={vanishMode ? THEME.colors.danger : THEME.colors.textDim} size={24} style={{ marginRight: 20 }} />
            </TouchableOpacity>
            
-           {/* Passing receiverId to CallScreen for initiating invitations */}
-           <TouchableOpacity onPress={() => {
-              const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
-              console.log(`[FRONTEND] Starting Video Call with Receiver ID: ${receiverId}`);
-              if (!receiverId) Alert.alert("Error", "Could not identify the user to call.");
-              else navigation.navigate('CallScreen', { chatId, type: 'video', name, receiverId, isIncoming: false });
-           }}>
-              <Video color={THEME.colors.primary} size={24} style={{ marginRight: 20 }} />
-           </TouchableOpacity>
-           
-           <TouchableOpacity onPress={() => {
-              const receiverId = passedReceiverId || messages.find(m => m.sender._id !== user._id)?.sender?._id || messages.find(m => m.sender !== user._id)?.sender;
-              console.log(`[FRONTEND] Starting Audio Call with Receiver ID: ${receiverId}`);
-              if (!receiverId) Alert.alert("Error", "Could not identify the user to call.");
-               else navigation.navigate('CallScreen', { chatId, type: 'audio', name, receiverId, isIncoming: false });
-           }}>
-              <Phone color={THEME.colors.secondary} size={24} style={{ marginRight: 10 }} />
-           </TouchableOpacity>
+            {/* Passing receiverId or participants to CallScreen for initiating invitations */}
+            <TouchableOpacity onPress={() => {
+               const receivers = isGroupChat 
+                 ? chatUsers.filter(u => u._id !== user._id).map(u => u._id)
+                 : [passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender];
+               
+               console.log(`[FRONTEND] Starting Video Call with ${receivers.length} recipients`);
+               if (receivers.length === 0 || !receivers[0]) showAlert("Error", "Could not identify users to call.", "error");
+               else navigation.navigate('CallScreen', { chatId, type: 'video', name, receivers, isIncoming: false });
+            }}>
+               <Video color={THEME.colors.primary} size={24} style={{ marginRight: 20 }} />
+            </TouchableOpacity>
+            
+            <TouchableOpacity onPress={() => {
+               const receivers = isGroupChat 
+                 ? chatUsers.filter(u => u._id !== user._id).map(u => u._id)
+                 : [passedReceiverId || messages.find(m => m.sender?._id !== user?._id)?.sender?._id || messages.find(m => typeof m.sender === 'string' && m.sender !== user?._id)?.sender];
+               
+               console.log(`[FRONTEND] Starting Audio Call with ${receivers.length} recipients`);
+               if (receivers.length === 0 || !receivers[0]) showAlert("Error", "Could not identify users to call.", "error");
+               else navigation.navigate('CallScreen', { chatId, type: 'audio', name, receivers, isIncoming: false });
+            }}>
+               <Phone color={THEME.colors.secondary} size={24} style={{ marginRight: 10 }} />
+            </TouchableOpacity>
         </View>
       </View>
 
@@ -696,36 +787,78 @@ const ChatScreen = ({ route, navigation }) => {
         />
       )}
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.inputContainer}>
-          <TouchableOpacity style={styles.iconButton} onPress={pickDocument}><Paperclip color={THEME.colors.textDim} size={24} /></TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={pickImage}><ImageIcon color={THEME.colors.textDim} size={24} /></TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={openCamera}><Video color={THEME.colors.primary} size={24} /></TouchableOpacity>
-          
-          {recording ? (
-             <View style={styles.recordingBar}>
-                <Text style={styles.recordingText}>Recording... {recordingDuration}s</Text>
-             </View>
-          ) : (
-            <TextInput
-              style={styles.textInput}
-              placeholder="Message..."
-              placeholderTextColor={THEME.colors.textDim}
-              value={newMessage}
-              onChangeText={handleTyping}
-              multiline
-            />
-          )}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        style={styles.keyboardView}
+      >
+        <LinearGradient
+            colors={['rgba(20,20,20,0.8)', 'rgba(10,10,10,1)']}
+            style={styles.inputAreaGradient}
+        >
+            <View style={styles.inputContainer}>
+              <TouchableOpacity style={styles.iconButton} onPress={pickDocument}><Paperclip color={THEME.colors.textDim} size={24} /></TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={pickImage}><ImageIcon color={THEME.colors.textDim} size={24} /></TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={openCamera}><Video color={THEME.colors.primary} size={24} /></TouchableOpacity>
+              
+              {recording ? (
+                 <View style={styles.recordingBar}>
+                    <Text style={styles.recordingText}>Recording... {recordingDuration}s</Text>
+                 </View>
+              ) : (
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Message..."
+                  placeholderTextColor={THEME.colors.textDim}
+                  value={newMessage}
+                  onChangeText={handleTyping}
+                  multiline
+                />
+              )}
 
-          {newMessage.trim() ? (
-            <TouchableOpacity onPress={sendMessage} style={[styles.iconButton, { backgroundColor: THEME.colors.primary, borderRadius: 25, padding: 8 }]}><Send color="#FFF" size={20} /></TouchableOpacity>
-          ) : recording ? (
-            <TouchableOpacity onPress={stopRecording} style={[styles.iconButton, { backgroundColor: THEME.colors.danger, borderRadius: 25, padding: 8 }]}><Square color="#FFF" size={20} /></TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={startRecording} style={styles.iconButton}><Mic color={THEME.colors.textDim} size={24} /></TouchableOpacity>
-          )}
-        </View>
+              {newMessage.trim() ? (
+                <TouchableOpacity onPress={sendMessage} style={[styles.iconButton, { backgroundColor: THEME.colors.primary, borderRadius: 25, padding: 8 }]}><Send color="#FFF" size={20} /></TouchableOpacity>
+              ) : recording ? (
+                <TouchableOpacity onPress={stopRecording} style={[styles.iconButton, { backgroundColor: THEME.colors.danger, borderRadius: 25, padding: 8 }]}><Square color="#FFF" size={20} /></TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={startRecording} style={styles.iconButton}><Mic color={THEME.colors.textDim} size={24} /></TouchableOpacity>
+              )}
+            </View>
+        </LinearGradient>
       </KeyboardAvoidingView>
+
+      {/* NEW: Premium Message Options & Reaction Modal */}
+      <Modal visible={showOptionsModal} transparent animationType="slide" onRequestClose={() => setShowOptionsModal(false)}>
+         <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowOptionsModal(false)}>
+           <View style={styles.optionsContent}>
+              <View style={styles.reactionRow}>
+                 {['❤️', '😂', '👍', '😮', '😢', '🙏'].map((emoji) => (
+                   <TouchableOpacity key={emoji} onPress={() => { handleReact(emoji, selectedMessage?._id); setShowOptionsModal(false); }}>
+                      <Text style={styles.reactionEmojiBtn}>{emoji}</Text>
+                   </TouchableOpacity>
+                 ))}
+              </View>
+
+              <View style={styles.optionsList}>
+                 <TouchableOpacity style={styles.optionItem} onPress={() => { setShowOptionsModal(false); openForwardModal(selectedMessage); }}>
+                    <View style={[styles.optionIcon, { backgroundColor: 'rgba(61, 220, 255, 0.1)' }]}><Send color={THEME.colors.secondary} size={20} /></View>
+                    <Text style={styles.optionText}>Forward Message</Text>
+                 </TouchableOpacity>
+
+                 <TouchableOpacity style={styles.optionItem} onPress={() => { setShowOptionsModal(false); toggleStar(selectedMessage?._id); }}>
+                    <View style={[styles.optionIcon, { backgroundColor: 'rgba(255, 215, 0, 0.1)' }]}><Star color="#FFD700" size={20} /></View>
+                    <Text style={styles.optionText}>{selectedMessage?.isStarredBy?.includes(user._id) ? "Remove Star" : "Star Message"}</Text>
+                 </TouchableOpacity>
+
+                 <TouchableOpacity style={styles.optionItem} onPress={() => { setShowOptionsModal(false); deleteMessage(selectedMessage?._id); }}>
+                    <View style={[styles.optionIcon, { backgroundColor: 'rgba(255, 75, 75, 0.1)' }]}><Trash2 color={THEME.colors.danger} size={20} /></View>
+                    <Text style={[styles.optionText, { color: THEME.colors.danger }]}>Delete Message</Text>
+                 </TouchableOpacity>
+              </View>
+           </View>
+         </TouchableOpacity>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -794,23 +927,30 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start' 
   },
   bubble: { 
-    padding: 14, 
-    borderRadius: 22, 
-    maxWidth: '82%', 
-    minWidth: 85,
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    borderRadius: 20, 
+    elevation: 1, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 1 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 2,
     marginVertical: 4,
   },
   bubbleMine: { 
-    backgroundColor: THEME.colors.primary, 
-    borderBottomRightRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderBottomRightRadius: 4,
+    borderWidth: 0,
   },
   bubbleTheirs: { 
-    backgroundColor: 'rgba(255, 255, 255, 0.08)', 
-    borderBottomLeftRadius: 6,
+    borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  senderName: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    opacity: 0.9,
   },
   mediaPreview: { 
     width: 220, 
@@ -896,29 +1036,38 @@ const styles = StyleSheet.create({
     minWidth: 40,
   },
   messageText: { 
-    color: THEME.colors.text, 
+    color: '#FFFFFF', 
     fontSize: 16,
     lineHeight: 22,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   metaContainer: { 
     flexDirection: 'row', 
     justifyContent: 'flex-end', 
     alignItems: 'center', 
-    marginTop: 8,
+    marginTop: 6,
     gap: 4,
   },
   timestamp: { 
-    color: THEME.colors.textDim, 
-    fontSize: 11,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)', 
+    fontSize: 10,
+    fontWeight: '600',
   },
   inputContainer: { 
     flexDirection: 'row', 
     alignItems: 'flex-end', 
-    padding: 15, 
+    padding: 12, 
     backgroundColor: 'transparent', 
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
     gap: 8,
+  },
+  keyboardView: {
+    width: '100%',
+  },
+  inputAreaGradient: {
+    paddingBottom: Platform.OS === 'ios' ? 25 : 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
   textInput: { 
     flex: 1, 
@@ -956,30 +1105,104 @@ const styles = StyleSheet.create({
   },
   modalContainer: { 
     flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.95)', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  modalClose: { 
-    position: 'absolute', 
-    top: 60, 
-    right: 20, 
-    zIndex: 10, 
-    padding: 10,
-    backgroundColor: THEME.colors.glass,
-    borderRadius: 20,
+  modalHeaderRow: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  modalCloseBtnCircle: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: THEME.colors.border,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  modalCloseText: { 
-    color: THEME.colors.text, 
-    fontSize: 16, 
-    fontWeight: '600' 
+  fullImageStyled: { 
+    width: Dimensions.get('window').width, 
+    height: Dimensions.get('window').height * 0.8,
   },
-  fullImage: { 
-    width: '100%', 
-    height: '80%',
+  modalHeaderExtended: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(123, 97, 255, 0.05)',
+  },
+  modalGrabber: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    marginBottom: 15,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitlePremium: {
+    color: '#FFF',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  modalSearch: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 15,
+    padding: 12,
+    color: '#FFF',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  forwardItemPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 20,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  forwardAvatarPremium: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(123, 97, 255, 0.3)',
+  },
+  forwardNamePremium: {
+    color: '#FFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  forwardSubtext: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  sendIconWrapper: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#7B61FF',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
   },
   forwardedHeader: {
     marginBottom: 4,
@@ -997,23 +1220,72 @@ const styles = StyleSheet.create({
     borderColor: '#FF4B4B',
     borderWidth: 1,
   },
-  forwardItem: {
+  reactionsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  forwardAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 15,
+  reactionEmoji: { fontSize: 12, marginRight: 2 },
+  reactionCount: { fontSize: 10, color: '#FFF', fontWeight: '800' },
+  reactionPickerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  reactionPickerContent: { 
+    flexDirection: 'row', 
+    backgroundColor: '#1E1E1E', 
+    padding: 15, 
+    borderRadius: 30, 
+    gap: 15,
+    borderWidth: 1,
+    borderColor: THEME.colors.primary,
+    elevation: 10
   },
-  forwardName: {
-    color: THEME.colors.text,
-    fontSize: 16,
+  reactionEmojiBtn: { fontSize: 28 },
+  modalBackdrop: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  optionsContent: {
+    backgroundColor: '#1A1A1A',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  reactionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    padding: 15,
+    borderRadius: 20,
+    marginBottom: 24,
+  },
+  optionsList: {
+    gap: 16,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: 4,
+  },
+  optionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionText: {
+    color: '#FFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

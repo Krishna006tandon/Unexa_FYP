@@ -12,16 +12,18 @@ import {
   Modal,
   Dimensions,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Share
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
-import { ProfileContext, useProfile } from '../context/ProfileContext';
+import ProfileContext, { useProfile } from '../context/ProfileContext';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { CameraView } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useUI } from '../context/UIContext';
 import ENVIRONMENT from '../config/environment';
 import {
   User,
@@ -48,17 +50,18 @@ import {
   Plus,
   UserPlus,
   Lock,
-  MessageSquare
+  MessageSquare,
+  Video
 } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 
-const { width, height } = Dimensions.get('window');
+
 
 const THEME = {
   colors: {
     background: '#0A0A0A',
-    primary: '#7B61FF',
-    secondary: '#3DDCFF',
+    primary: '#edeaeaff',
+    secondary: '#160d0dff',
     text: '#FFFFFF',
     textDim: '#A0A0A0',
     glass: 'rgba(255, 255, 255, 0.05)',
@@ -83,7 +86,8 @@ const ProfileScreen = ({ navigation, route }) => {
     toggleVisibility,
     clearError
   } = useProfile();
-  
+  const { showAlert } = useUI();
+
   const [refreshing, setRefreshing] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({});
@@ -102,17 +106,19 @@ const ProfileScreen = ({ navigation, route }) => {
   const [hlTitle, setHlTitle] = useState("");
   const [otherProfile, setOtherProfile] = useState(null);
   const scrollViewRef = useRef(null);
+  const [permission, requestPermission] = useCameraPermissions();
 
   const isMyProfile = !route.params?.userId || route.params?.userId === user?._id;
   const displayProfile = isMyProfile ? profile : otherProfile;
 
   useEffect(() => {
     if (!isMyProfile) {
-       console.log('👤 [PROFILE-VIEW] Loading profile for ID:', route.params?.userId);
-       fetchOtherProfile(route.params.userId);
+      console.log('👤 [PROFILE-VIEW] Loading profile for ID:', route.params?.userId);
+      fetchOtherProfile(route.params.userId);
     } else {
-       loadProfile();
-       fetchInsights();
+      loadProfile();
+      fetchInsights();
+      fetchHighlights();
     }
   }, [route.params?.userId]);
 
@@ -129,6 +135,9 @@ const ProfileScreen = ({ navigation, route }) => {
       // Fetch mutuals
       const mutRes = await axios.get(`${ENVIRONMENT.API_URL}/api/advanced/profile/${id}/mutuals`, { headers: { Authorization: `Bearer ${user.token}` } });
       setMutualFriends(mutRes.data);
+      
+      // Fetch highlights for other user
+      fetchHighlights(id);
     } catch (e) { console.log(e); }
   };
 
@@ -136,10 +145,17 @@ const ProfileScreen = ({ navigation, route }) => {
     try {
       const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/advanced/profile/insights`, { headers: { Authorization: `Bearer ${user.token}` } });
       setInsights(data);
-      
-      const hlRes = await axios.get(`${ENVIRONMENT.API_URL}/api/advanced/profile/${user._id}/highlights`, { headers: { Authorization: `Bearer ${user.token}` } });
-      setHighlights(hlRes.data);
     } catch (e) { console.log(e); }
+  };
+
+  const fetchHighlights = async (id) => {
+    try {
+      const targetId = id || user._id;
+      const hlRes = await axios.get(`${ENVIRONMENT.API_URL}/api/advanced/profile/${targetId}/highlights`, { headers: { Authorization: `Bearer ${user.token}` } });
+      setHighlights(hlRes.data);
+    } catch (e) {
+      console.log('Error fetching highlights:', e);
+    }
   };
 
   const fetchArchive = async () => {
@@ -151,7 +167,7 @@ const ProfileScreen = ({ navigation, route }) => {
   };
 
   const handleCreateHighlight = async () => {
-    if (!hlTitle || selectedArchiveStories.length === 0) return Alert.alert("Required", "Title and stories selection required");
+    if (!hlTitle || selectedArchiveStories.length === 0) return showAlert("Required", "Title and stories selection required", "warning");
     try {
       await axios.post(`${ENVIRONMENT.API_URL}/api/advanced/profile/highlights`, {
         title: hlTitle,
@@ -160,37 +176,74 @@ const ProfileScreen = ({ navigation, route }) => {
       setShowArchive(false);
       setHlTitle("");
       setSelectedArchiveStories([]);
-      fetchInsights(); // Refresh highlights
+      fetchHighlights(); // Refresh highlights
     } catch (e) { console.log(e); }
+  };
+
+  const handleOpenScanner = async () => {
+    if (!permission?.granted) {
+      const res = await requestPermission();
+      if (!res.granted) {
+        return showAlert("Permission Required", "Please allow camera access to scan profile QR codes.", "warning");
+      }
+    }
+    setShowScanner(true);
+  };
+
+  const handleShareLink = async () => {
+    try {
+      const shareUrl = `${ENVIRONMENT.API_URL}/profile/${displayProfile?.user?._id || displayProfile?.user || user?._id}`;
+      await Share.share({
+        message: `Connect with me on Unexa! 🚀\nProfile: ${shareUrl}`,
+        url: shareUrl, // For iOS
+        title: 'Unexa Profile Share'
+      });
+    } catch (error) {
+      console.log('Share Error:', error.message);
+    }
   };
 
   const onBarCodeScanned = ({ data }) => {
     if (!showScanner) return;
     setShowScanner(false);
+    console.log('📸 [SCANNER] Scanned content:', data);
     try {
-      // Expecting unexa://profile/USER_ID or just USER_ID
-      const userId = data.includes('profile/') ? data.split('profile/')[1] : data;
-      if (userId.length === 24) { // MongoDB ID length
-         navigation.push('ProfileScreen', { userId });
+      // Handle unexa://profile/ID, http://.../profile/ID, or just ID
+      let userId = '';
+      if (data.includes('profile/')) {
+        userId = data.split('profile/')[1].split('/')[0].split('?')[0];
       } else {
-         Alert.alert("Invalid QR", "This does not look like a valid Unexa profile QR.");
+        // Fallback: If it's a URL, take the last part. If not, take it as is.
+        const parts = data.split('/');
+        userId = parts[parts.length - 1].split('?')[0] || data;
       }
-    } catch (e) { Alert.alert("Error", "Failed to process QR code."); }
+      
+      userId = userId.trim();
+
+      if (userId.length === 24) { // MongoDB ID length
+        navigation.push('ProfileScreen', { userId });
+      } else {
+        showAlert("Invalid QR", "This does not look like a valid Unexa profile QR.", "error");
+      }
+    } catch (e) {
+      console.log('❌ [SCANNER] Error processing QR:', e.message);
+      showAlert("Error", "Failed to process QR code.", "error");
+    }
   };
 
   const handleFollow = async () => {
     const targetUserId = displayProfile?.user?._id || displayProfile?.user;
     if (!targetUserId) return Alert.alert("Error", "Target user ID not found");
-    
+
     try {
       const endpoint = isFollowing ? 'unfollow' : 'follow';
       const url = `${ENVIRONMENT.API_URL}/api/profile/${targetUserId}/${endpoint}`;
       console.log('📡 [FOLLOW] Sending request to:', url);
-      
+
       await axios.post(url, {}, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
-      
+
       // Update follow count in UI immediately
       if (!isMyProfile) {
         setOtherProfile(prev => ({
@@ -198,11 +251,11 @@ const ProfileScreen = ({ navigation, route }) => {
           followersCount: isFollowing ? (prev.followersCount - 1) : (prev.followersCount + 1)
         }));
       }
-      
+
       setIsFollowing(!isFollowing);
     } catch (e) {
       console.log('❌ [FOLLOW] Error:', e.response?.status, e.message);
-      Alert.alert("Error", e.response?.data?.message || "Failed to update following status");
+      showAlert("Error", e.response?.data?.message || "Failed to update following status", "error");
     }
   };
 
@@ -213,14 +266,14 @@ const ProfileScreen = ({ navigation, route }) => {
     try {
       const url = `${ENVIRONMENT.API_URL}/api/profile/${targetUserId}/close-friend`;
       console.log('📡 [CLOSE-FRIEND] Sending request to:', url);
-      
+
       const res = await axios.post(url, {}, {
         headers: { Authorization: `Bearer ${user.token}` }
       });
       setIsCloseFriend(res.data.isCloseFriend);
     } catch (e) {
       console.log('❌ [CLOSE-FRIEND] Error:', e.response?.status, e.message);
-      Alert.alert("Error", "Failed to update close friend status");
+      showAlert("Error", "Failed to update close friend status", "error");
     }
   };
 
@@ -254,7 +307,7 @@ const ProfileScreen = ({ navigation, route }) => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Required', 'Please grant camera roll permissions');
+        showAlert('Permission Required', 'Please grant camera roll permissions', 'warning');
         return;
       }
 
@@ -281,10 +334,10 @@ const ProfileScreen = ({ navigation, route }) => {
       } else {
         await uploadCoverImage(image.uri);
       }
-      Alert.alert('Success', `${type === 'avatar' ? 'Avatar' : 'Cover image'} updated successfully`);
+      showAlert('Success', `${type === 'avatar' ? 'Avatar' : 'Cover image'} updated successfully`, 'success');
     } catch (error) {
       console.error('Error uploading image:', error);
-      Alert.alert('Error', `Failed to upload ${type}`);
+      showAlert('Error', `Failed to upload ${type}`, 'error');
     }
   };
 
@@ -309,10 +362,10 @@ const ProfileScreen = ({ navigation, route }) => {
 
       await updateProfile(updateData);
       setEditMode(false);
-      Alert.alert('Success', 'Profile updated successfully');
+      showAlert('Success', 'Profile updated successfully', 'success');
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('Error', error.message || 'Failed to update profile');
+      showAlert('Error', error.message || 'Failed to update profile', 'error');
     }
   };
 
@@ -338,7 +391,7 @@ const ProfileScreen = ({ navigation, route }) => {
             style={styles.coverPlaceholder}
           />
         )}
-        
+
         {isMyProfile && (
           <TouchableOpacity
             style={styles.cameraButton}
@@ -360,13 +413,13 @@ const ProfileScreen = ({ navigation, route }) => {
               <User size={40} color={THEME.colors.textDim} />
             </View>
           )}
-          
+
           {displayProfile?.isVerified && (
             <View style={styles.verifiedBadge}>
               <Star size={12} color={THEME.colors.text} />
             </View>
           )}
-          
+
           {isMyProfile && (
             <TouchableOpacity
               style={styles.avatarCameraButton}
@@ -389,9 +442,9 @@ const ProfileScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
         </View>
-        
+
         <Text style={styles.username}>@{displayProfile?.username}</Text>
-        
+
         {displayProfile?.bio && (
           <Text style={styles.bio}>{displayProfile.bio}</Text>
         )}
@@ -418,21 +471,25 @@ const ProfileScreen = ({ navigation, route }) => {
             <Text style={styles.statNumber}>{displayProfile?.followingCount || 0}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </TouchableOpacity>
+          <View style={styles.statItem}>
+            <Text style={styles.statNumber}>🔥 {displayProfile?.totalStreaks || 0}</Text>
+            <Text style={styles.statLabel}>Streaks</Text>
+          </View>
         </View>
 
         <View style={styles.actionButtons}>
           {!isMyProfile ? (
             <>
-              <TouchableOpacity 
-                style={[styles.actionButton, isFollowing && styles.followingButton]} 
+              <TouchableOpacity
+                style={[styles.actionButton, isFollowing && styles.followingButton]}
                 onPress={handleFollow}
               >
                 <UserPlus size={20} color={isFollowing ? THEME.colors.textDim : THEME.colors.text} />
                 <Text style={styles.actionButtonText}>{isFollowing ? 'Following' : 'Follow'}</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, isCloseFriend && styles.closeFriendActiveButton]} 
+
+              <TouchableOpacity
+                style={[styles.actionButton, isCloseFriend && styles.closeFriendActiveButton]}
                 onPress={handleToggleCloseFriend}
               >
                 <Heart size={20} color={isCloseFriend ? '#1DB954' : THEME.colors.text} fill={isCloseFriend ? '#1DB954' : 'transparent'} />
@@ -451,7 +508,7 @@ const ProfileScreen = ({ navigation, route }) => {
                   {displayProfile?.isPrivate ? 'Private' : 'Public'}
                 </Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.actionButton} onPress={() => setShowSettings(true)}>
                 <Settings size={20} color={THEME.colors.text} />
                 <Text style={styles.actionButtonText}>Settings</Text>
@@ -465,18 +522,16 @@ const ProfileScreen = ({ navigation, route }) => {
           <Text style={styles.qrShareText}>My Profile QR</Text>
         </TouchableOpacity>
 
-        {Platform.OS !== 'web' && (
-          <TouchableOpacity style={styles.qrScanButton} onPress={() => setShowScanner(true)}>
-            <Camera size={20} color={THEME.colors.secondary} />
-            <Text style={styles.qrScanText}>Scan Profile QR</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.qrScanButton} onPress={handleOpenScanner}>
+          <Camera size={20} color={THEME.colors.secondary} />
+          <Text style={styles.qrScanText}>Scan Profile QR</Text>
+        </TouchableOpacity>
 
         {isProfileLocked && (
           <View style={styles.lockedContainer}>
-             <Lock size={60} color={THEME.colors.textDim} />
-             <Text style={styles.lockedTitle}>Private Profile</Text>
-             <Text style={styles.lockedSubtitle}>Follow this user to see their full profile and interaction stats.</Text>
+            <Lock size={60} color={THEME.colors.textDim} />
+            <Text style={styles.lockedTitle}>Private Profile</Text>
+            <Text style={styles.lockedSubtitle}>Follow this user to see their full profile and interaction stats.</Text>
           </View>
         )}
 
@@ -484,20 +539,43 @@ const ProfileScreen = ({ navigation, route }) => {
         {!isProfileLocked && (
           <View style={styles.highlightsContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-               {!route.params?.userId && (
-                 <TouchableOpacity style={styles.addHighlightBtn} onPress={fetchArchive}>
-                   <View style={styles.addHighlightCircle}>
-                     <Plus size={24} color={THEME.colors.primary} />
-                   </View>
-                   <Text style={styles.highlightTitle}>New</Text>
-                 </TouchableOpacity>
-               )}
-               {highlights.map((hl, i) => (
-                 <TouchableOpacity key={i} style={styles.highlightItem}>
-                   <Image source={{ uri: hl.coverImage || hl.stories[0]?.mediaUrl }} style={styles.highlightCircle} />
-                   <Text style={styles.highlightTitle} numberOfLines={1}>{hl.title}</Text>
-                 </TouchableOpacity>
-               ))}
+              {!route.params?.userId && (
+                <TouchableOpacity style={styles.addHighlightBtn} onPress={fetchArchive}>
+                  <View style={styles.addHighlightCircle}>
+                    <Plus size={24} color={THEME.colors.primary} />
+                  </View>
+                  <Text style={styles.highlightTitle}>New</Text>
+                </TouchableOpacity>
+              )}
+              {highlights.map((hl, i) => (
+                <TouchableOpacity 
+                   key={i} 
+                   style={styles.highlightItem}
+                   onPress={() => {
+                     if (hl.stories && hl.stories.length > 0) {
+                        const owner = isMyProfile ? { 
+                          _id: user._id, 
+                          username: profile?.username, 
+                          profilePhoto: profile?.avatar 
+                        } : { 
+                          _id: otherProfile?.user?._id || otherProfile?.user, 
+                          username: otherProfile?.username, 
+                          profilePhoto: otherProfile?.avatar 
+                        };
+                        
+                        navigation.navigate('StoryScreen', { 
+                          stories: hl.stories, 
+                          user: owner
+                        });
+                     } else {
+                        showAlert('Empty Highlight', 'This highlight contains no stories.', 'info');
+                     }
+                   }}
+                >
+                  <Image source={{ uri: hl.coverImage || hl.stories[0]?.mediaUrl }} style={styles.highlightCircle} />
+                  <Text style={styles.highlightTitle} numberOfLines={1}>{hl.title}</Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
           </View>
         )}
@@ -509,7 +587,7 @@ const ProfileScreen = ({ navigation, route }) => {
     <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false}>
       <View style={styles.formSection}>
         <Text style={styles.sectionTitle}>Basic Information</Text>
-        
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Full Name</Text>
           <TextInput
@@ -654,8 +732,8 @@ const ProfileScreen = ({ navigation, route }) => {
           <View style={styles.chartContainer}>
             {insights.map((day, idx) => (
               <View key={idx} style={styles.chartBarWrapper}>
-                 <View style={[styles.chartBar, { height: Math.min(day.views * 10, 100) }]} />
-                 <Text style={styles.chartLabel}>{day._id.split('-')[2]}</Text>
+                <View style={[styles.chartBar, { height: Math.min(day.views * 10, 100) }]} />
+                <Text style={styles.chartLabel}>{day._id.split('-')[2]}</Text>
               </View>
             ))}
           </View>
@@ -703,39 +781,57 @@ const ProfileScreen = ({ navigation, route }) => {
       <Modal
         visible={showSettings}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent={true}
         onRequestClose={() => setShowSettings(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Settings</Text>
-            <TouchableOpacity onPress={() => setShowSettings(false)}>
-              <X size={24} color={THEME.colors.text} />
-            </TouchableOpacity>
+        <BlurView intensity={95} tint="dark" style={{ flex: 1 }}>
+          <View style={styles.modalHeaderPremium}>
+            <View style={styles.modalGrabberLine} />
+            <View style={styles.modalHeaderRowText}>
+              <Text style={styles.modalTitleLarge}>Settings</Text>
+              <TouchableOpacity onPress={() => setShowSettings(false)} style={styles.modalCloseCircle}>
+                <X size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
           </View>
-          
-          <ScrollView style={styles.settingsContent}>
-            <TouchableOpacity style={styles.settingItem}>
-              <MessageCircle size={20} color={THEME.colors.textDim} />
-              <Text style={styles.settingText}>Message Settings</Text>
+
+          <ScrollView style={styles.settingsContentPremium}>
+            <TouchableOpacity style={styles.settingItemPremium}>
+              <View style={[styles.settingIconBox, { backgroundColor: 'rgba(123, 97, 255, 0.1)' }]}>
+                <MessageCircle size={22} color="#7B61FF" />
+              </View>
+              <Text style={styles.settingTextPremium}>Message Settings</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingItem}>
-              <Users size={20} color={THEME.colors.textDim} />
-              <Text style={styles.settingText}>Privacy Settings</Text>
+
+            <TouchableOpacity style={styles.settingItemPremium}>
+              <View style={[styles.settingIconBox, { backgroundColor: 'rgba(61, 220, 255, 0.1)' }]}>
+                <Users size={22} color="#3DDCFF" />
+              </View>
+              <Text style={styles.settingTextPremium}>Privacy Settings</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingItem}>
-              <Heart size={20} color={THEME.colors.textDim} />
-              <Text style={styles.settingText}>Notification Settings</Text>
+
+            <TouchableOpacity style={styles.settingItemPremium}>
+              <View style={[styles.settingIconBox, { backgroundColor: 'rgba(255, 75, 75, 0.1)' }]}>
+                <Heart size={22} color="#FF4B4B" />
+              </View>
+              <Text style={styles.settingTextPremium}>Notification Settings</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity style={styles.settingItem}>
-              <Share2 size={20} color={THEME.colors.textDim} />
-              <Text style={styles.settingText}>Share Profile</Text>
+
+            <TouchableOpacity style={styles.settingItemPremium} onPress={handleShareLink}>
+              <View style={[styles.settingIconBox, { backgroundColor: 'rgba(255, 255, 255, 0.05)' }]}>
+                <Share2 size={22} color="#FFF" />
+              </View>
+              <Text style={styles.settingTextPremium}>Share Profile</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.settingItemPremium, { marginTop: 40 }]} onPress={logout}>
+              <View style={[styles.settingIconBox, { backgroundColor: 'rgba(255, 75, 75, 0.1)' }]}>
+                <X size={22} color="#FF4B4B" />
+              </View>
+              <Text style={[styles.settingTextPremium, { color: '#FF4B4B' }]}>Logout Account</Text>
             </TouchableOpacity>
           </ScrollView>
-        </View>
+        </BlurView>
       </Modal>
 
       {/* QR Code Modal */}
@@ -745,89 +841,108 @@ const ProfileScreen = ({ navigation, route }) => {
         transparent={true}
         onRequestClose={() => setShowQR(false)}
       >
-        <View style={styles.qrModalContainer}>
-          <View style={styles.qrModalContent}>
-            <TouchableOpacity style={styles.qrCloseButton} onPress={() => setShowQR(false)}>
-              <X size={24} color={THEME.colors.text} />
+        <BlurView intensity={100} tint="dark" style={styles.qrModalContainer}>
+          <TouchableOpacity style={styles.qrCloseOverlay} onPress={() => setShowQR(false)} />
+          <LinearGradient
+            colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.01)']}
+            style={styles.qrModalContentStyled}
+          >
+            <TouchableOpacity style={styles.qrCloseBtnInner} onPress={() => setShowQR(false)}>
+              <X size={24} color="#FFF" />
             </TouchableOpacity>
-            
-            <Text style={styles.qrTitle}>@{profile?.username}</Text>
-            <Text style={styles.qrSubtitle}>Scan to connect on Unexa</Text>
-            
-            <View style={styles.qrCodeWrapper}>
+
+            <View style={styles.qrUserHeader}>
+              <Image source={{ uri: profile?.avatar }} style={styles.qrAvatarMini} />
+              <View>
+                <Text style={styles.qrTitleLarge}>@{profile?.username}</Text>
+                <Text style={styles.qrSubtitleSmall}>Scan to connect</Text>
+              </View>
+            </View>
+
+            <View style={styles.qrCodeContainer}>
               <QRCode
-                value={`unexa://profile/${profile?._id}`}
-                size={200}
-                color={THEME.colors.text}
+                value={`${ENVIRONMENT.API_URL}/profile/${displayProfile?.user?._id || displayProfile?.user || user?._id}`}
+                size={220}
+                color="#7B61FF"
                 backgroundColor="transparent"
               />
             </View>
-            
-            <TouchableOpacity style={styles.qrShareBtn} onPress={() => { /* Real share action */ }}>
-              <Share2 size={20} color="#FFF" />
-              <Text style={styles.qrShareBtnText}>Share Link</Text>
+
+            <TouchableOpacity style={styles.qrShareBtnPremium} onPress={handleShareLink}>
+              <LinearGradient colors={['#7B61FF', '#3DDCFF']} style={styles.qrShareGradient}>
+                <Share2 size={20} color="#000" />
+                <Text style={styles.qrShareBtnTextPremium}>Share Profile Link</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          </View>
-        </View>
+          </LinearGradient>
+        </BlurView>
       </Modal>
 
-      {/* Scanner Modal */}
-      {Platform.OS !== 'web' && (
-        <Modal visible={showScanner} animationType="slide">
-          <View style={styles.scannerModal}>
-             <CameraView 
-               style={StyleSheet.absoluteFill} 
-               facing="back"
-               onBarcodeScanned={onBarCodeScanned}
-               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-             />
-             <View style={styles.scannerOverlay}>
-                <View style={styles.scanFrame} />
-                <TouchableOpacity style={styles.scanClose} onPress={() => setShowScanner(false)}>
-                  <X color="#FFF" size={30} />
-                </TouchableOpacity>
-             </View>
-          </View>
-        </Modal>
-      )}
       {/* Archive Modal */}
       <Modal visible={showArchive} animationType="slide">
         <View style={{ flex: 1, backgroundColor: THEME.colors.background }}>
-           <View style={styles.modalHeader}>
-             <Text style={styles.modalTitle}>New Highlight</Text>
-             <TouchableOpacity onPress={() => setShowArchive(false)}>
-               <X size={24} color={THEME.colors.text} />
-             </TouchableOpacity>
-           </View>
-           <TextInput 
-             style={styles.hlInput} 
-             placeholder="Highlight Title" 
-             placeholderTextColor={THEME.colors.textDim}
-             value={hlTitle}
-             onChangeText={setHlTitle}
-           />
-           <FlatList 
-             numColumns={3}
-             data={archivedStories}
-             keyExtractor={item => item._id}
-             renderItem={({item}) => (
-               <TouchableOpacity 
-                 onPress={() => toggleArchiveSelection(item._id)}
-                 style={[styles.archiveItem, selectedArchiveStories.includes(item._id) && { borderColor: THEME.colors.primary, borderWidth: 2 }]}
-               >
-                 <Image source={{ uri: item.mediaUrl }} style={styles.archiveThumb} />
-                 {item.mediaType === 'video' && (
-                   <View style={styles.videoIndicator}>
-                      <Video color="#FFF" size={20} />
-                   </View>
-                 )}
-               </TouchableOpacity>
-             )}
-           />
-           <TouchableOpacity style={styles.createHlBtn} onPress={handleCreateHighlight}>
-             <Text style={styles.createHlText}>Create Highlight</Text>
-           </TouchableOpacity>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>New Highlight</Text>
+            <TouchableOpacity onPress={() => setShowArchive(false)}>
+              <X size={24} color={THEME.colors.text} />
+            </TouchableOpacity>
+          </View>
+          <TextInput
+            style={styles.hlInput}
+            placeholder="Highlight Title"
+            placeholderTextColor={THEME.colors.textDim}
+            value={hlTitle}
+            onChangeText={setHlTitle}
+          />
+          <FlatList
+            numColumns={3}
+            data={archivedStories}
+            keyExtractor={item => item._id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => toggleArchiveSelection(item._id)}
+                style={[styles.archiveItem, selectedArchiveStories.includes(item._id) && { borderColor: THEME.colors.primary, borderWidth: 2 }]}
+              >
+                <Image source={{ uri: item.mediaUrl }} style={styles.archiveThumb} />
+                {item.mediaType === 'video' && (
+                  <View style={styles.videoIndicator}>
+                    <Video color="#FFF" size={20} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+          />
+          <TouchableOpacity style={styles.createHlBtn} onPress={handleCreateHighlight}>
+            <Text style={styles.createHlText}>Create Highlight</Text>
+          </TouchableOpacity>
         </View>
+      </Modal>
+
+      {/* QR Scanner Modal */}
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        onRequestClose={() => setShowScanner(false)}
+      >
+        <SafeAreaView style={styles.scannerModal}>
+          <CameraView
+            style={StyleSheet.absoluteFillObject}
+            onBarcodeScanned={onBarCodeScanned}
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+          />
+          <View style={styles.scannerOverlay}>
+            <View style={styles.scannerTarget} />
+            <Text style={styles.scannerText}>Align QR code within the frame</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.scannerClose}
+            onPress={() => setShowScanner(false)}
+          >
+            <X size={32} color="#FFF" />
+          </TouchableOpacity>
+        </SafeAreaView>
       </Modal>
 
       {uploading && (
@@ -1377,7 +1492,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   archiveItem: {
-    flex: 1/3,
+    flex: 1 / 3,
     aspectRatio: 1,
     margin: 2,
     borderRadius: 8,
@@ -1481,6 +1596,142 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalHeaderPremium: {
+    paddingTop: 20,
+    backgroundColor: 'rgba(123, 97, 255, 0.05)',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  modalGrabberLine: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignSelf: 'center',
+    marginTop: 10,
+  },
+  modalHeaderRowText: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalTitleLarge: {
+    color: '#FFF',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  modalCloseCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  settingsContentPremium: {
+    padding: 24,
+  },
+  settingItemPremium: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  settingIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  settingTextPremium: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  qrModalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qrCloseOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  qrModalContentStyled: {
+    width: Dimensions.get('window').width * 0.85,
+    backgroundColor: 'rgba(15, 15, 20, 0.95)',
+    borderRadius: 40,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#7B61FF',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 20 },
+    shadowRadius: 40,
+    elevation: 20,
+  },
+  qrCloseBtnInner: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    padding: 5,
+  },
+  qrUserHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    gap: 15,
+    alignSelf: 'flex-start',
+  },
+  qrAvatarMini: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#7B61FF',
+  },
+  qrTitleLarge: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  qrSubtitleSmall: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 14,
+  },
+  qrCodeContainer: {
+    padding: 20,
+    backgroundColor: '#FFF',
+    borderRadius: 30,
+    marginBottom: 30,
+  },
+  qrShareBtnPremium: {
+    width: '100%',
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  qrShareGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+    gap: 12,
+  },
+  qrShareBtnTextPremium: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
 

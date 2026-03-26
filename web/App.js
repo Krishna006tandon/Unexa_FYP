@@ -7,6 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 import { ProfileProvider } from './src/context/ProfileContext';
 import { CallProvider } from './src/context/CallContext';
+import { UIProvider } from './src/context/UIContext';
 import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
@@ -159,13 +160,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <AuthProvider>
-          <ProfileProvider>
-            <CallProvider>
-              <AppNavigator />
-            </CallProvider>
-          </ProfileProvider>
-        </AuthProvider>
+        <UIProvider>
+          <AuthProvider>
+            <ProfileProvider>
+              <CallProvider>
+                <AppNavigator />
+              </CallProvider>
+            </ProfileProvider>
+          </AuthProvider>
+        </UIProvider>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
