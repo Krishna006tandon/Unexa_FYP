@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const Streak = require('../models/Streak');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 // @desc    Create or update profile
 // @route   POST /api/profile
@@ -31,7 +32,7 @@ const createOrUpdateProfile = async (req, res) => {
     // Check if username is already taken by another user
     if (username) {
       const existingProfile = await Profile.findOne({ 
-        username, 
+        username: encrypt(username), 
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
@@ -42,7 +43,7 @@ const createOrUpdateProfile = async (req, res) => {
     // Check if email is already taken by another user
     if (email) {
       const existingProfile = await Profile.findOne({ 
-        email, 
+        email: encrypt(email.toLowerCase().trim()), 
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
@@ -167,7 +168,7 @@ const getProfileByIdentifier = async (req, res) => {
     if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
       query.$or = [{ user: identifier }, { _id: identifier }];
     } else {
-      query.username = identifier;
+      query.username = encrypt(identifier);
     }
 
     let profile = await Profile.findOne(query)
@@ -179,7 +180,7 @@ const getProfileByIdentifier = async (req, res) => {
       console.log('📝 Profile not found for:', identifier, 'Checking User table...');
       const user = identifier.match(/^[0-9a-fA-F]{24}$/) 
          ? await User.findById(identifier) 
-         : await User.findOne({ username: identifier });
+         : await User.findOne({ username: encrypt(identifier) });
 
       if (!user) {
         return res.status(404).json({ success: false, message: 'User not found' });
@@ -543,13 +544,13 @@ const searchProfiles = async (req, res) => {
     }
 
     const skip = (page - 1) * limit;
-    const searchRegex = new RegExp(q, 'i');
+    const encryptedQ = encrypt(q);
 
     const profiles = await Profile.find({
       $or: [
-        { username: searchRegex },
-        { fullName: searchRegex },
-        { bio: searchRegex }
+        { username: encryptedQ },
+        { fullName: encryptedQ },
+        { email: encryptedQ }
       ],
       isActive: true
     })
@@ -561,9 +562,9 @@ const searchProfiles = async (req, res) => {
 
     const total = await Profile.countDocuments({
       $or: [
-        { username: searchRegex },
-        { fullName: searchRegex },
-        { bio: searchRegex }
+        { username: encryptedQ },
+        { fullName: encryptedQ },
+        { email: encryptedQ }
       ],
       isActive: true
     });
