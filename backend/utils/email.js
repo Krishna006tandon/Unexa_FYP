@@ -1,38 +1,27 @@
-const nodemailer = require('nodemailer');
+const axios = require('axios');
 
 const sendEmail = async (options) => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('EMAIL_USER or EMAIL_PASS environment variables are not set.');
-  }
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsc4miOlq1QvyQhB94W84Svy3k0pzd48NVGPjL9JEFSNsX1gwBw1nEdankHr8yTo1yKA/exec';
 
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // upgrade later with STARTTLS
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    connectionTimeout: 10000, // 10 seconds timeout
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-    tls: {
-      rejectUnauthorized: false
+  try {
+    console.log(`✉️ [EMAIL-SECURITY] Forwarding mail request to Google Script for ${options.email}...`);
+    
+    const response = await axios.post(GOOGLE_SCRIPT_URL, {
+      email: options.email,
+      subject: options.subject,
+      message: options.message,
+      html: options.html || `<b>${options.message}</b>`
+    });
+
+    if (response.data && response.data.success === false) {
+      throw new Error(response.data.message);
     }
-  });
 
-  const message = {
-    from: `"UNEXA" <${process.env.EMAIL_USER}>`,
-    to: options.email,
-    subject: options.subject,
-    text: options.message,
-    html: options.html || `<b>${options.message}</b>`,
-  };
-
-  console.log(`✉️ [EMAIL-SECURITY] Attempting to send mail to ${options.email}...`);
-  const info = await transporter.sendMail(message);
-
-  console.log("✉️ [EMAIL-SECURITY] Message sent: %s", info.messageId);
+    console.log("✅ [EMAIL-SECURITY] Message successfully delivered via Google Script!");
+  } catch (error) {
+    console.error("❌ [EMAIL-SECURITY] Google Script Error:", error.message);
+    throw new Error('Failed to send email via App Script');
+  }
 };
 
 module.exports = sendEmail;
