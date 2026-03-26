@@ -19,7 +19,14 @@ const server = http.createServer(app);
 const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
-    origin: ["http://localhost:8081", "https://unexa-fyp.onrender.com"], // Match frontend domains
+    origin: (origin, callback) => {
+      const allowed = ["https://unexa-fyp.onrender.com"];
+      if (!origin || allowed.indexOf(origin) !== -1 || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
+        callback(null, true);
+      } else {
+        callback(new Error('❌ [CORS-SOCKET] Origin not allowed'));
+      }
+    },
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -51,10 +58,12 @@ app.use(helmet({
   contentSecurityPolicy: false, // Required for WebRTC/Agora script execution
 }));
 
-// Critical Environment Check
+// Critical Infrastructure Verification
 console.log('🚀 [DEPLOY-READY] Checking Infrastructure...');
-console.log('   AGORA_APP_ID:', process.env.AGORA_APP_ID ? '✅ READY' : '❌ MISSING (Check Render Envs)');
+console.log('   AGORA_APP_ID:', process.env.AGORA_APP_ID ? '✅ READY' : '❌ MISSING (Call system will fail)');
+console.log('   AGORA_CERTIFICATE:', process.env.AGORA_PRIMARY_CERTIFICATE ? '✅ READY' : '⚠️ MISSING (Token generation will fail)');
 console.log('   MONGO_URI:', process.env.MONGO_URI ? '✅ READY' : '⚠️ USING FALLBACK');
+console.log('   ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? '✅ READY' : '❌ MISSING (Security features compromised)');
 
 // Rate Limiting for overall API
 const limiter = rateLimit({
@@ -143,7 +152,7 @@ app.get('/profile/:id', (req, res) => {
 
 // Test endpoint for debugging
 app.get('/api/test', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Test endpoint working',
     timestamp: new Date().toISOString(),
     headers: req.headers

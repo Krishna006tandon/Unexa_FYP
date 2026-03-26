@@ -90,8 +90,13 @@ exports.accessChat = async (req, res) => {
 // Fetch all chats for a logged in user
 exports.fetchChats = async (req, res) => {
   try {
+    const Chat = require('../models/Chat');
+    const User = require('../models/User');
+    const Message = require('../models/Message');
+    const mongoose = require('mongoose');
+
     Chat.find({ users: { $elemMatch: { $eq: req.user._id } } })
-      .populate('users', 'username profilePhoto isOnline lastSeen') // Get basic user info + status
+      .populate('users', 'username profilePhoto isOnline lastSeen')
       .populate('groupAdmin', 'username profilePhoto')
       .populate('admins', 'username profilePhoto')
       .populate('latestMessage')
@@ -102,25 +107,34 @@ exports.fetchChats = async (req, res) => {
           select: 'username profilePhoto',
         });
 
-        // DEEP SYNC: Ensure real profile pictures (avatars) are used
-        const mongoose = require('mongoose');
+        const chatIds = results.map(c => c._id);
+        const unreadAggregation = await Message.aggregate([
+          { 
+            $match: { 
+              chat: { $in: chatIds }, 
+              sender: { $ne: req.user._id }, 
+              seenBy: { $ne: req.user._id } 
+            } 
+          },
+          { $group: { _id: "$chat", count: { $sum: 1 } } }
+        ]);
+
+        const unreadMap = {};
+        unreadAggregation.forEach(item => {
+          unreadMap[item._id.toString()] = item.count;
+        });
+
         const Profile = mongoose.model('Profile');
-        console.log(`[BACKEND-CHAT] ⚙️ Starting Deep Sync for ${results.length} chats...`);
         
         const enrichedResults = await Promise.all(results.map(async (chat) => {
           const chatObj = chat.toObject();
+          chatObj.unreadCount = unreadMap[chat._id.toString()] || 0;
+
           chatObj.users = await Promise.all(chatObj.users.map(async (u) => {
-             try {
-                const userProfile = await Profile.findOne({ user: u._id });
-                if (userProfile && userProfile.avatar) {
-                   console.log(`   ✅ SUCCESS: Found Avatar for ${u.username} (${u._id}): ${userProfile.avatar}`);
-                   u.avatar = userProfile.avatar;
-                   u.profilePhoto = userProfile.avatar;
-                } else {
-                   console.log(`   ⚠️ WARNING: No Avatar in Profile for ${u.username} (${u._id})`);
-                }
-             } catch (err) {
-                console.log(`   ❌ ERROR syncing profile for ${u.username}:`, err.message);
+             const userProfile = await Profile.findOne({ user: u._id }).select('avatar');
+             if (userProfile && userProfile.avatar) {
+                u.avatar = userProfile.avatar;
+                u.profilePhoto = userProfile.avatar;
              }
              return u;
           }));

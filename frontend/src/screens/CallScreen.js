@@ -48,6 +48,7 @@ const CallScreen = ({ route, navigation }) => {
   const uid = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const callTimer = useRef(null);
   const callConnected = useRef(false); // Track if Agora channel was joined
+  const ringingSound = useRef(null); // Caller-side ringing sound
 
   useEffect(() => {
     const init = async () => {
@@ -112,6 +113,13 @@ const CallScreen = ({ route, navigation }) => {
           }
         }
       });
+
+      socket.on('call-cancelled', (data) => {
+        if (data.chatId === chatId) {
+          console.log('🚫 [SOCKET-MOBILE] Call was cancelled/declined');
+          endCall();
+        }
+      });
     }
 
     return () => {
@@ -129,10 +137,34 @@ const CallScreen = ({ route, navigation }) => {
           });
         }
         socket.off('call-ended');
+        socket.off('call-cancelled');
       }
       stopRinging();
+      stopRingingSound(); 
     };
   }, []);
+
+  const playRingingSound = async () => {
+    try {
+      if (!isIncoming) {
+        // Standard "Ringing" sound for caller
+        const { sound } = await Audio.Sound.createAsync(
+          { uri: 'https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3' },
+          { shouldPlay: true, isLooping: true }
+        );
+        ringingSound.current = sound;
+        setCallStatus('Ringing...');
+      }
+    } catch (e) { console.log("Error playing ringing sound", e); }
+  };
+
+  const stopRingingSound = async () => {
+    if (ringingSound.current) {
+      await ringingSound.current.stopAsync();
+      await ringingSound.current.unloadAsync();
+      ringingSound.current = null;
+    }
+  };
 
   const fetchAgoraToken = async () => {
     try {
@@ -145,6 +177,9 @@ const CallScreen = ({ route, navigation }) => {
       setAgoraToken(data.token);
       setAppId(data.appId);
       setLoading(false);
+      
+      // Start ringing sound for the caller
+      if (!isIncoming) playRingingSound();
     } catch (e) {
       console.error('❌ [MOBILE] Token Fetch Failed:', e.response?.data || e.message);
       Alert.alert('Call Error', 'Failed to initialize secure connection');
@@ -167,13 +202,13 @@ const CallScreen = ({ route, navigation }) => {
 
   const endCall = () => {
     console.log('🏁 Ending call...');
+    stopRingingSound(); // Stop ringing if caller ends before connection
     if (socket && (receivers || receiverId)) {
       const targetIds = receivers || [receiverId];
       const isGroupCall = targetIds.length > 1;
       
       targetIds.forEach(rid => {
          if (rid) {
-           // For group calls, we can notify others but we don't want to force them to close unless we are finishing it
            socket.emit('call-ended', { 
              receiverId: rid, 
              chatId,
@@ -370,6 +405,9 @@ const CallScreen = ({ route, navigation }) => {
                             await client.subscribe(user, mediaType);
                             remoteUsers[user.uid] = user; 
                             
+                            // NOTIFY NATIVE: Remote user is actually here!
+                            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'remote-joined', uid: user.uid }));
+
                             if (mediaType === "video") {
                                 // Create specific container for this user
                                 let div = document.getElementById("player-" + user.uid);
@@ -448,7 +486,14 @@ const CallScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       {type === 'audio' ? (
-        <View style={styles.audioCallInterface}>
+        <TouchableOpacity 
+          activeOpacity={1} 
+          style={styles.audioCallInterface} 
+          onPress={() => {
+            console.log('👆 [NATIVE] Manual tap relay to WebView...');
+            webViewRef.current?.injectJavaScript('document.body.click()');
+          }}
+        >
            <LinearGradient colors={['#0F0F1A', '#1A1A2E']} style={StyleSheet.absoluteFill} />
            <View style={styles.audioContent}>
               <View style={styles.audioAvatarWrapper}>
@@ -465,7 +510,7 @@ const CallScreen = ({ route, navigation }) => {
               <Text style={styles.audioNameText}>{name}</Text>
               <Text style={styles.audioStatusText}>{callStatus === 'Ongoing' ? 'In Conversation' : callStatus}</Text>
            </View>
-        </View>
+        </TouchableOpacity>
       ) : (
         <WebView
           ref={webViewRef}
@@ -495,9 +540,12 @@ const CallScreen = ({ route, navigation }) => {
             console.log(`[WebView Response] Type: ${data.type}`, data);
   
             if (data.type === 'joined') {
+              callConnected.current = true; 
+            }
+            if (data.type === 'remote-joined') {
               setCallStatus('Ongoing');
               startTimer();
-              callConnected.current = true; 
+              stopRingingSound(); // STOP CALLER RINGING
             }
             if (data.type === 'autoplay-failed') {
               setCallStatus('Tap to Unmute');
@@ -511,21 +559,33 @@ const CallScreen = ({ route, navigation }) => {
         />
       )}
 
-      {/* For Audio calls we still need WebView hidden in background to run Agora JS */}
+      {/* For Audio calls we still need WebView but keep it full screen and transparent to prevent OS muting */}
       {type === 'audio' && (
-        <View style={{ height: 0, width: 0, opacity: 0, position: 'absolute' }}>
+        <View style={{ ...StyleSheet.absoluteFillObject, opacity: 0, zIndex: -1 }}>
           <WebView
             ref={webViewRef}
             originWhitelist={['*']}
             source={{ html: agoraHtmlString, baseUrl: ENVIRONMENT.API_URL }}
             javaScriptEnabled={true}
             domStorageEnabled={true}
+            mediaPlaybackRequiresUserAction={false}
+            mediaCapturePermissionGrantingEnabled={true}
+            allowsInlineMediaPlayback={true}
             onMessage={(e) => {
               const data = JSON.parse(e.nativeEvent.data);
               if (data.type === 'joined') {
+                // Local user joined, but stay in "Ringing..." or "Calling..." until remote joins
+                callConnected.current = true;
+              }
+              if (data.type === 'remote-joined') {
                 setCallStatus('Ongoing');
                 startTimer();
-                callConnected.current = true;
+                stopRingingSound(); // STOP CALLER RINGING
+                console.log('🟢 [NATIVE] Remote user joined, call ongoing');
+              }
+              if (data.type === 'autoplay-failed') {
+                setCallStatus('Audio Blocked');
+                Alert.alert('Audio Issue', 'Tap the screen to enable call audio.');
               }
             }}
           />

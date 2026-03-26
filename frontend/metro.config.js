@@ -17,7 +17,7 @@ config.transformer.minifierConfig = {
 };
 
 // Optimize bundling for development
-config.maxWorkers = 2;
-config.resetCache = true;
+config.maxWorkers = 4; // Use 4 workers if available
+config.resetCache = false; // DON'T reset cache every time (This makes it SLOW)
 
 module.exports = config;

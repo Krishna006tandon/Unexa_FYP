@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
+const { logCall, getCalls } = require('../controllers/callController');
+const CallLog = require('../models/Call');
 
 // Store active calls and peer connections
 const activeCalls = new Map();
@@ -12,8 +14,11 @@ const setupWebRTCSignaling = (io) => {
     console.log('🔗 WebRTC client connected:', socket.id);
 
     socket.on('setup', (userData) => {
-      socket.join(userData?._id || userData?.id);
-      socket.userId = userData?._id || userData?.id;
+      const id = userData?._id || userData?.id;
+      if (!id) return;
+      socket.join(id.toString());
+      socket.join(`profile_${id.toString()}`);
+      socket.userId = id.toString();
       console.log('User joined profile room:', socket.userId);
     });
 
@@ -22,34 +27,50 @@ const setupWebRTCSignaling = (io) => {
       console.log(`[BACKEND] 📡 Received call-invite:`, data);
       const { callerId, receiverId, callerName, callerAvatar, chatId, type } = data;
       console.log(`🔔 Sending Call Invite from ${callerName} to User ${receiverId}`);
-      // Send to the specific profile room (ProfileContext socket uses profile_${userId})
-      socket.to(`profile_${receiverId}`).emit('call-invite', {
+      
+      // Send to the specific profile room
+      socket.to(`profile_${receiverId.toString()}`).emit('call-invite', {
         callerId,
         callerName,
-        callerAvatar, // NEW: Include avatar URL
+        callerAvatar,
         chatId,
         type
       });
+
+      // LOG START OF CALL
+      CallLog.create({ 
+        caller: callerId, 
+        receivers: Array.isArray(receiverId) ? receiverId : [receiverId], 
+        chatId, 
+        type, 
+        status: 'ongoing' 
+      }).then(call => {
+        socket.lastCallId = call._id;
+      }).catch(e => console.log("Call log failed", e));
     });
 
     socket.on('call-decline', (data) => {
       console.log(`[BACKEND] 🚫 Received call-decline:`, data);
       const { callerId, chatId } = data;
       console.log(`🚫 Call Declined for Chat ${chatId}`);
-      socket.to(`profile_${callerId}`).emit('call-cancelled', { chatId });
+      // Update log to missed/cancelled
+      CallLog.findOneAndUpdate({ chatId, status: 'ongoing' }, { status: 'missed', endedAt: Date.now() }).catch(e => {});
+      socket.to(`profile_${callerId.toString()}`).emit('call-cancelled', { chatId });
     });
 
     socket.on('cancel-call', (data) => {
       console.log(`[BACKEND] 🚫 Received cancel-call:`, data);
       const { receiverId, chatId } = data;
       console.log(`🚫 Call Cancelled by caller for Chat ${chatId}`);
-      socket.to(`profile_${receiverId}`).emit('call-cancelled', { chatId });
+      socket.to(`profile_${receiverId.toString()}`).emit('call-cancelled', { chatId });
     });
 
     socket.on('call-ended', (data) => {
       const { receiverId, chatId } = data;
-      console.log(`🔚 Call Ended for Chat ${chatId}`);
-      socket.to(`profile_${receiverId}`).emit('call-ended', { chatId });
+      console.log(`🔚 [WEBRTC] Call ended for chat ${chatId} by user ${socket.userId || socket.id}`);
+      if (receiverId) {
+        socket.to(`profile_${receiverId.toString()}`).emit('call-ended', { chatId });
+      }
     });
       
     // WebRTC Signaling Events
@@ -144,6 +165,10 @@ router.post('/token', protect, (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to generate token' });
   }
 });
+
+// Call Log Endpoints
+router.route('/calls').get(protect, getCalls);
+router.route('/log').post(protect, logCall);
 
 // Get active call status
 router.get('/status/:chatId', protect, (req, res) => {

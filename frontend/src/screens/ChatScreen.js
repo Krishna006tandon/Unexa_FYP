@@ -154,9 +154,10 @@ const ChatScreen = ({ route, navigation }) => {
     socket.on('stop_typing', () => setIsTyping(false));
 
     const handleMessageReceived = (msg) => {
-      if (chatId === msg.chat._id || chatId === msg.chat) {
+      const receivedChatId = (msg.chat?._id || msg.chat || '').toString();
+      if (chatId.toString() === receivedChatId) {
         setMessages(prev => [msg, ...prev]); 
-        socket.emit("measure_read", { messageId: msg._id, userId: user._id, chatId });
+        socket.emit("measure_read", { messageId: msg._id, userId: user._id, chatId: chatId.toString() });
       }
     };
 
@@ -391,8 +392,15 @@ const ChatScreen = ({ route, navigation }) => {
 
   const toggleStar = async (msgId) => {
     try {
-      await axios.post(`${ENVIRONMENT.API_URL}/api/advanced/chat/${msgId}/star`, {}, { headers: { Authorization: `Bearer ${user.token}` }});
-      fetchMessages(); // Refresh star state
+      const { data } = await axios.post(`${ENVIRONMENT.API_URL}/api/message/star`, { messageId: msgId }, { headers: { Authorization: `Bearer ${user.token}` }});
+      if (data.success) {
+        setMessages(prev => prev.map(m => m._id === msgId ? {
+          ...m, 
+          isStarredBy: data.isStarred 
+            ? [...(m.isStarredBy || []), user._id] 
+            : (m.isStarredBy || []).filter(id => id !== user._id)
+        } : m));
+      }
     } catch(e) { console.log(e); }
   };
 
@@ -407,17 +415,32 @@ const ChatScreen = ({ route, navigation }) => {
 
   const forwardMsgToChat = async (targetChatId) => {
     try {
-      await axios.post(`${ENVIRONMENT.API_URL}/api/advanced/chat/forward`, { 
+      await axios.post(`${ENVIRONMENT.API_URL}/api/message/forward`, { 
         messageId: msgToForward._id, 
         chatIds: [targetChatId] 
       }, { headers: { Authorization: `Bearer ${user.token}` }});
       setShowForwardModal(false);
       showAlert("Success", "Message forwarded!", 'success');
-    } catch(e) { console.log(e); }
+      
+      // If we are currently in the target chat, we should refresh (highly unlikely in current navigation flow but good practice)
+      if (targetChatId === chatId) fetchMessages();
+    } catch(e) { 
+      console.log(e); 
+      showAlert("Error", "Forwarding failed", 'error');
+    }
   };
 
   const deleteMessage = async (msgId) => {
-    // Delete logic existing or new
+    try {
+      const { data } = await axios.delete(`${ENVIRONMENT.API_URL}/api/message/${msgId}`, { headers: { Authorization: `Bearer ${user.token}` }});
+      if (data.success) {
+        setMessages(prev => prev.map(m => m._id === msgId ? { ...m, deleted: true, content: "This message was deleted" } : m));
+        socket.emit("message_deleted", { messageId: msgId, chatId });
+      }
+    } catch(e) { 
+      console.log(e);
+      showAlert("Error", "Cannot delete message", "error");
+    }
   };
 
   const handleTyping = (text) => {

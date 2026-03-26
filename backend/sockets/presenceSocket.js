@@ -13,6 +13,10 @@ module.exports = (io) => {
         io.emit('user_online_status', { userId, isOnline: true });
       }
       
+      // Ensure the user joins their personal rooms immediately upon connection
+      socket.join(userId.toString());
+      socket.join(`profile_${userId.toString()}`);
+      
       onlineUsers.get(userId).add(socket.id);
       socket.presenceUserId = userId; 
     });

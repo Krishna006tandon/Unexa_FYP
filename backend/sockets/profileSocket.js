@@ -6,7 +6,8 @@ module.exports = (io) => {
 
     // Join user to their personal room for profile updates
     socket.on('joinProfileRoom', (userId) => {
-      socket.join(`profile_${userId}`);
+      if (!userId) return;
+      socket.join(`profile_${userId.toString()}`);
       console.log(`User ${userId} joined profile room`);
     });
 

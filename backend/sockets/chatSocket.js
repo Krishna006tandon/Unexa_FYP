@@ -14,11 +14,13 @@ module.exports = (io) => {
     });
 
     socket.on('typing', (room) => {
-      socket.in(room).emit('typing');
+      if (!room) return;
+      socket.to(room.toString()).emit('typing');
     });
 
     socket.on('stop_typing', (room) => {
-      socket.in(room).emit('stop_typing');
+      if (!room) return;
+      socket.to(room.toString()).emit('stop_typing');
     });
 
     // Send generic new message
@@ -29,16 +31,16 @@ module.exports = (io) => {
       console.log(`✉️ [SOCKET] New message from ${newMessageReceived.sender.username} in room ${chat._id || chat}`);
       
       // Broadcast to the whole chat room
-      const roomId = chat._id || chat;
-      socket.in(roomId).emit('message_received', newMessageReceived);
+      const roomId = (chat._id || chat).toString();
+      socket.to(roomId).emit('message_received', newMessageReceived);
 
       // Also ensure delivery to individual user rooms if they aren't active in the chat room
       if (chat.users) {
         chat.users.forEach((user) => {
-          const targetUserId = user._id || user;
-          if (targetUserId.toString() === newMessageReceived.sender._id.toString()) return;
+          const targetUserId = (user._id || user).toString();
+          if (targetUserId === newMessageReceived.sender._id.toString()) return;
           
-          socket.in(targetUserId.toString()).emit('message_received', newMessageReceived);
+          socket.to(`profile_${targetUserId}`).emit('message_received', newMessageReceived);
         });
       }
 
@@ -59,7 +61,7 @@ module.exports = (io) => {
     // Advance features - Delivered to Event
     socket.on('measure_delivered', async ({ messageId, userId, chatId }) => {
        await Message.findByIdAndUpdate(messageId, { $addToSet: { deliveredTo: userId } });
-       socket.in(chatId).emit('message_delivered', { messageId, userId });
+       socket.in(chatId.toString()).emit('message_delivered', { messageId, userId }); // Ensure chatId is a string
     });
 
     // Advance features - Read Receipts
@@ -86,17 +88,20 @@ module.exports = (io) => {
 
     // Edit message live broadcast
     socket.on('message_edited', ({ messageId, content, chatId }) => {
-       socket.in(chatId).emit('message_edited_update', { messageId, content });
+       if (!chatId) return;
+       socket.to(chatId.toString()).emit('message_edited_update', { messageId, content });
     });
 
     // Delete message live broadcast
     socket.on('message_deleted', ({ messageId, chatId }) => {
-       socket.in(chatId).emit('message_deleted_update', { messageId });
+       if (!chatId) return;
+       socket.to(chatId.toString()).emit('message_deleted_update', { messageId });
     });
 
     // Reaction live broadcast
     socket.on('message_reacted', ({ messageId, reactions, chatId }) => {
-       socket.in(chatId).emit('message_reacted_update', { messageId, reactions });
+       if (!chatId) return;
+       socket.to(chatId.toString()).emit('message_reacted_update', { messageId, reactions });
     });
   });
 };
