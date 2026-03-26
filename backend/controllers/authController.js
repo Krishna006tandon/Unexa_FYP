@@ -46,7 +46,8 @@ exports.registerUser = async (req, res) => {
 exports.authUser = async (req, res) => {
   const { email, password } = req.body;
   const cleanEmail = email.toLowerCase().trim();
-  const user = await User.findOne({ email: cleanEmail });
+  const encryptedEmail = encrypt(cleanEmail);
+  const user = await User.findOne({ email: encryptedEmail });
 
   if (user && (await user.matchPassword(password))) {
     // Generate 6 digit OTP
@@ -97,7 +98,7 @@ exports.verifyOTP = async (req, res) => {
   try {
      const { email, otp } = req.body;
      const cleanEmail = email.toLowerCase().trim();
-     const user = await User.findOne({ email: cleanEmail });
+     const user = await User.findOne({ email: encrypt(cleanEmail) });
 
      if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
         await logAudit(req, 'OTP Verification Failed', { email: cleanEmail }, 'failure');
@@ -129,7 +130,7 @@ exports.resetPassword = async (req, res) => {
   try {
     const { email, newPassword } = req.body;
     const cleanEmail = email.toLowerCase().trim();
-    const user = await User.findOne({ email: cleanEmail });
+    const user = await User.findOne({ email: encrypt(cleanEmail) });
 
     if (!user) {
       return res.status(404).json({ error: "User not found with this email" });
@@ -154,8 +155,8 @@ exports.allUsers = async (req, res) => {
   const keyword = req.query.search
     ? {
         $or: [
-          { username: { $regex: req.query.search, $options: 'i' } },
-          { email: { $regex: req.query.search, $options: 'i' } },
+          { username: encrypt(req.query.search) },
+          { email: encrypt(req.query.search.toLowerCase().trim()) },
         ],
       }
     : {};

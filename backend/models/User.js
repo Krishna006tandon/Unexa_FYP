@@ -4,18 +4,29 @@ const { encrypt, decrypt } = require('../utils/encryption');
 
 const userSchema = new mongoose.Schema(
   {
-    username: { type: String, required: true },
-    email: { 
-      type: String, 
-      required: true, 
-      unique: true, 
-      lowercase: true, 
+    username: {
+      type: String,
+      required: true,
+      unique: true, // Added unique constraint as per instruction note
+      get: decrypt,
+      set: encrypt
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
       trim: true,
       get: decrypt,
       set: encrypt
     },
     passwordHash: { type: String, required: true },
-    profilePhoto: { type: String, default: "https://i.pravatar.cc/150" },
+    profilePhoto: {
+      type: String,
+      default: "https://i.pravatar.cc/150",
+      get: decrypt,
+      set: encrypt
+    },
     bio: { type: String, default: "" },
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -28,7 +39,7 @@ const userSchema = new mongoose.Schema(
     otp: { type: String },
     otpExpires: { type: Date }
   },
-  { 
+  {
     timestamps: true,
     toJSON: { getters: true },
     toObject: { getters: true }

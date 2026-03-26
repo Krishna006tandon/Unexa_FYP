@@ -1,17 +1,18 @@
 const mongoose = require('mongoose');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 const messageSchema = new mongoose.Schema(
   {
     sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     chat: { type: mongoose.Schema.Types.ObjectId, ref: 'Chat', required: true },
-    content: { type: String, trim: true },
+    content: { type: String, trim: true, get: decrypt, set: encrypt },
     messageType: { 
       type: String, 
       enum: ['text', 'image', 'video', 'audio', 'file'], 
       default: 'text' 
     },
-    mediaUrl: { type: String, default: null },
-    fileName: { type: String, default: null },
+    mediaUrl: { type: String, default: null, get: decrypt, set: encrypt },
+    fileName: { type: String, default: null, get: decrypt, set: encrypt },
     fileSize: { type: Number, default: null },
     voiceDuration: { type: Number, default: null }, // in seconds
     replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
@@ -29,7 +30,11 @@ const messageSchema = new mongoose.Schema(
     edited: { type: Boolean, default: false },
     deleted: { type: Boolean, default: false },
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true }
+  }
 );
 
 // Indexes optimized for advanced queries

@@ -14,29 +14,34 @@ const profileSchema = new mongoose.Schema(
       required: true, 
       unique: true,
       trim: true,
-      minlength: 3,
-      maxlength: 30
+      get: decrypt,
+      set: encrypt
     },
     fullName: { 
       type: String, 
       required: true,
       trim: true,
-      maxlength: 200, // Increased to accommodate encrypted length
+      maxlength: 200, 
       get: decrypt,
       set: encrypt
     },
     bio: { 
       type: String, 
       trim: true,
-      maxlength: 500,
+      get: decrypt,
+      set: encrypt,
       default: ''
     },
     avatar: { 
       type: String,
+      get: decrypt,
+      set: encrypt,
       default: ''
     },
     coverImage: {
       type: String,
+      get: decrypt,
+      set: encrypt,
       default: ''
     },
     email: {
@@ -63,13 +68,15 @@ const profileSchema = new mongoose.Schema(
       default: 'prefer_not_to_say'
     },
     location: {
-      country: { type: String, trim: true },
-      state: { type: String, trim: true },
-      city: { type: String, trim: true }
+      country: { type: String, trim: true, get: decrypt, set: encrypt },
+      state: { type: String, trim: true, get: decrypt, set: encrypt },
+      city: { type: String, trim: true, get: decrypt, set: encrypt }
     },
     website: {
       type: String,
-      trim: true
+      trim: true,
+      get: decrypt,
+      set: encrypt
     },
     socialLinks: {
       instagram: { type: String, trim: true },

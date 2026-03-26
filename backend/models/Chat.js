@@ -1,9 +1,15 @@
 const mongoose = require('mongoose');
+const { encrypt, decrypt } = require('../utils/encryption');
 
 const chatSchema = new mongoose.Schema(
   {
-    chatName: { type: String, trim: true },
-    groupPhoto: { type: String, default: "https://via.placeholder.com/150?text=Group" },
+    chatName: { type: String, trim: true, get: decrypt, set: encrypt },
+    groupPhoto: { 
+      type: String, 
+      default: "https://via.placeholder.cc/150?text=Group",
+      get: decrypt,
+      set: encrypt
+    },
     isGroupChat: { type: Boolean, default: false },
     users: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     groupAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -14,7 +20,11 @@ const chatSchema = new mongoose.Schema(
     },
     pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    toJSON: { getters: true },
+    toObject: { getters: true }
+  }
 );
 
 chatSchema.index({ users: 1, updatedAt: -1 });
