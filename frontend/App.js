@@ -25,6 +25,7 @@ const MediaShareScreen = React.lazy(() => import('./src/screens/MediaShareScreen
 const ProfileScreen = React.lazy(() => import('./src/screens/ProfileScreen'));
 const StreaksScreen = React.lazy(() => import('./src/screens/StreaksScreen'));
 const GroupChatDetailScreen = React.lazy(() => import('./src/screens/GroupChatDetailScreen'));
+const StarredMessagesScreen = React.lazy(() => import('./src/screens/StarredMessagesScreen'));
 
 const LazyFallback = () => (
   <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
@@ -45,6 +46,7 @@ const LazyStoryScreen = withSuspense(StoryScreen);
 const LazyMediaShareScreen = withSuspense(MediaShareScreen);
 const LazyProfileScreen = withSuspense(ProfileScreen);
 const LazyGroupChatDetailScreen = withSuspense(GroupChatDetailScreen);
+const LazyStarredMessagesScreen = withSuspense(StarredMessagesScreen);
 
 
 class ErrorBoundary extends React.Component {
@@ -83,6 +85,23 @@ const THEME = {
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+const linking = {
+  prefixes: ['unexa://', 'https://unexa-fyp.onrender.com'],
+  config: {
+    screens: {
+      Main: {
+        screens: {
+          Home: 'home',
+          Chats: 'chats',
+          Profile: 'profile-tab',
+        },
+      },
+      ProfileScreen: 'profile/:userId',
+      ChatScreen: 'chat/:chatId',
+    },
+  },
+};
 
 const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
 const CreateScreen = ({ navigation }) => (
@@ -150,6 +169,7 @@ const AppNavigator = () => {
 
     <NavigationContainer 
       ref={navigationRef} 
+      linking={linking}
       theme={{ colors: { background: THEME.colors.background }}}
     >
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
@@ -161,6 +181,7 @@ const AppNavigator = () => {
             <Stack.Screen name="StoryScreen" component={LazyStoryScreen} options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="ProfileScreen" component={LazyProfileScreen} />
             <Stack.Screen name="GroupChatDetailScreen" component={LazyGroupChatDetailScreen} />
+            <Stack.Screen name="StarredMessagesScreen" component={LazyStarredMessagesScreen} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />

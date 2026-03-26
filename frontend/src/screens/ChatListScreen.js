@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import ProfileContext from '../context/ProfileContext';
@@ -24,6 +24,7 @@ const ChatListScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' or 'calls'
   const [chats, setChats] = useState([]);
   const [calls, setCalls] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
@@ -147,9 +148,11 @@ const ChatListScreen = ({ navigation }) => {
 
         <View style={styles.metaData}>
           <Text style={styles.timestamp}>{formatTime(item.latestMessage?.createdAt || item.updatedAt)}</Text>
-          {item.unreadCount > 0 && (
+          {item.unreadCounts && item.unreadCounts[user?._id] > 0 && (
             <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{item.unreadCount > 99 ? '99+' : item.unreadCount}</Text>
+              <Text style={styles.unreadText}>
+                {item.unreadCounts[user?._id] > 99 ? '99+' : item.unreadCounts[user?._id]}
+              </Text>
             </View>
           )}
         </View>
@@ -208,6 +211,16 @@ const ChatListScreen = ({ navigation }) => {
          </TouchableOpacity>
       </View>
 
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={`Search ${activeTab === 'chats' ? 'messages' : 'logs'}...`}
+          placeholderTextColor={THEME.colors.textDim}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
       <View style={styles.tabBar}>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'chats' && styles.activeTab]} 
@@ -231,13 +244,23 @@ const ChatListScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={activeTab === 'chats' ? chats : calls}
+          data={(activeTab === 'chats' ? chats : calls).filter(item => {
+            if (activeTab === 'chats') {
+              const otherUser = item.users.find(u => u._id !== user._id) || {};
+              const name = item.isGroupChat ? item.chatName : otherUser.username;
+              return name?.toLowerCase().includes(searchQuery.toLowerCase());
+            } else {
+              const isOutgoing = item.caller._id === user._id;
+              const otherParty = isOutgoing ? (item.receivers[0] || {}) : item.caller;
+              return otherParty.username?.toLowerCase().includes(searchQuery.toLowerCase());
+            }
+          })}
           keyExtractor={item => item._id}
           renderItem={activeTab === 'chats' ? renderChatItem : renderCallItem}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-               <Text style={styles.emptyText}>No {activeTab} yet.</Text>
+               <Text style={styles.emptyText}>No results found for "{searchQuery}"</Text>
             </View>
           }
         />
@@ -273,5 +296,18 @@ const styles = StyleSheet.create({
   callBackBtn: { padding: 10 },
   loadingContainer: { flex: 1, justifyContent: 'center' },
   emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
-  emptyText: { color: THEME.colors.textDim, fontSize: 16 }
+  emptyText: { color: THEME.colors.textDim, fontSize: 16 },
+  searchContainer: {
+    marginHorizontal: 25,
+    marginBottom: 5,
+  },
+  searchInput: {
+    backgroundColor: THEME.colors.glass,
+    color: '#FFF',
+    padding: 12,
+    borderRadius: 12,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
 });

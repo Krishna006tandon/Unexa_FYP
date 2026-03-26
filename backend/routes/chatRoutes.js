@@ -10,6 +10,8 @@ const {
   removeFromGroup,
   updateGroupPhoto,
   toggleAdmin,
+  markAsRead,
+  leaveGroup
 } = require('../controllers/chatController');
 
 const router = express.Router();
@@ -21,6 +23,8 @@ router.route('/group').post(protect, createGroupChat);
 router.route('/rename').put(protect, renameGroup);
 router.route('/remove').put(protect, removeFromGroup);
 router.route('/add').put(protect, addToGroup);
+router.route('/leave').put(protect, leaveGroup);
+router.route('/read/:chatId').post(protect, markAsRead);
 router.route('/update-photo').put(protect, updateGroupPhoto);
 router.route('/toggle-admin').put(protect, toggleAdmin);
 router.route('/:chatId').get(protect, accessChat);

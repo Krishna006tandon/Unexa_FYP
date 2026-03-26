@@ -335,3 +335,70 @@ exports.fetchFriends = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// Reset unread counts for a user in a specific chat
+exports.markAsRead = async (req, res) => {
+  const { chatId } = req.params;
+  const userId = req.user._id;
+
+  try {
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+
+    // Reset unread count for current user
+    if (chat.unreadCounts) {
+       chat.unreadCounts.set(userId.toString(), 0);
+       await chat.save();
+    }
+
+    res.json({ success: true, message: "Chat marked as read" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Add members to group
+exports.addToGroup = async (req, res) => {
+  const { chatId, userIds } = req.body;
+  try {
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+    
+    // Add only if not already present
+    userIds.forEach(uId => {
+       if (!chat.users.includes(uId)) chat.users.push(uId);
+    });
+    
+    await chat.save();
+    const fullChat = await Chat.findById(chatId).populate("users", "-passwordHash");
+    res.json(fullChat);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+// Remove member from group
+exports.removeFromGroup = async (req, res) => {
+  const { chatId, userId } = req.body;
+  try {
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ error: "Chat not found" });
+    
+    chat.users = chat.users.filter(u => u.toString() !== userId.toString());
+    await chat.save();
+    const fullChat = await Chat.findById(chatId).populate("users", "-passwordHash");
+    res.json(fullChat);
+  } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+// Leave group
+exports.leaveGroup = async (req, res) => {
+    const { chatId } = req.body;
+    const userId = req.user._id;
+    try {
+      const chat = await Chat.findById(chatId);
+      if (!chat) return res.status(404).json({ error: "Chat not found" });
+      
+      chat.users = chat.users.filter(u => u.toString() !== userId.toString());
+      await chat.save();
+      res.json({ success: true, message: "Left group successfully" });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};

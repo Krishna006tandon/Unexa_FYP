@@ -27,16 +27,8 @@ export const requestPermissions = async () => {
 
   if (finalStatus !== 'granted') {
     console.log('❌ [Notifications] Permission NOT granted');
-    showAlertGlobal(
-      'Notifications Disabled',
-      'Please enable notifications in your settings to receive alerts for calls and messages.',
-      'warning'
-    );
     return false;
   }
-
-
-  console.log('✅ [Notifications] Permission granted');
 
   // Android specific channel setup
   if (Platform.OS === 'android') {
@@ -46,18 +38,27 @@ export const requestPermissions = async () => {
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#7B61FF',
     });
-    
-    await Notifications.setNotificationChannelAsync('calls', {
-      name: 'Incoming Calls',
-      importance: Notifications.AndroidImportance.MAX,
-      sound: 'default', // Ideally use a ringtone
-      vibrationPattern: [0, 500, 500, 500],
-      lightColor: '#7B61FF',
-      enableVibration: true,
-    });
   }
 
   return true;
+};
+
+export const getPushToken = async () => {
+  if (Platform.OS === 'web') return null;
+  
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') return null;
+
+    const token = (await Notifications.getExpoPushTokenAsync({
+       projectId: '16ce1f59-3a00-442f-94a7-50bf0c6d17a9'
+    })).data;
+    
+    return token;
+  } catch (error) {
+    console.error('❌ [Notifications] Error getting push token:', error);
+    return null;
+  }
 };
 
 export const scheduleLocalNotification = async (title, body, data = {}, channelId = 'default') => {

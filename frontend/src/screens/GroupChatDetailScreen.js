@@ -92,8 +92,8 @@ const GroupChatDetailScreen = ({ route, navigation }) => {
           onPress: async () => {
             try {
               await axios.put(
-                `${ENVIRONMENT.API_URL}/api/chat/remove`,
-                { chatId, userId: user._id },
+                `${ENVIRONMENT.API_URL}/api/chat/leave`,
+                { chatId },
                 { headers: { Authorization: `Bearer ${user.token}` } }
               );
               navigation.navigate('ChatList');

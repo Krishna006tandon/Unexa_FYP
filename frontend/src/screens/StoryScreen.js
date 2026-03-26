@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ActivityIndicator, Dimensions, TextInput, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { useUI } from '../context/UIContext';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video } from 'expo-av';
 import { usePreventScreenCapture } from 'expo-screen-capture';
-import { X, Send, Eye, Heart, MessageCircle, Smile } from 'lucide-react-native';
+import { X, Send, Eye, Heart, MessageCircle, Smile, Trash2 } from 'lucide-react-native';
+import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
 
@@ -26,9 +27,9 @@ const THEME = {
 const StoryScreen = ({ route, navigation }) => {
   const { width, height } = Dimensions.get('window');
   usePreventScreenCapture();
-  const { showAlert } = useUI();
-  
   const { stories, initialIndex = 0 } = route.params;
+  const { user } = useContext(AuthContext);
+  const { showAlert } = useUI();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -42,6 +43,11 @@ const StoryScreen = ({ route, navigation }) => {
   const videoRef = useRef(null);
   const progressInterval = useRef(null);
   const currentStory = stories[currentIndex];
+
+  if (!currentStory) {
+    navigation.goBack();
+    return null;
+  }
 
   useEffect(() => {
     loadStory();
@@ -173,6 +179,45 @@ const StoryScreen = ({ route, navigation }) => {
     }
   };
 
+  const [showViewersModal, setShowViewersModal] = useState(false);
+  const [viewers, setViewers] = useState([]);
+  const [loadingViewers, setLoadingViewers] = useState(false);
+
+  const fetchViewers = async () => {
+    setLoadingViewers(true);
+    setShowViewersModal(true);
+    try {
+      const response = await axios.get(`${ENVIRONMENT.API_URL}/api/story/${currentStory._id}/viewers`, {
+        headers: { Authorization: `Bearer ${route.params.token}` }
+      });
+      setViewers(response.data);
+    } catch (error) {
+      console.error('Error fetching viewers:', error);
+      showAlert('Error', 'Failed to fetch viewers', 'error');
+    } finally {
+      setLoadingViewers(false);
+    }
+  };
+
+  const handleDeleteStory = async () => {
+    try {
+      await axios.delete(`${ENVIRONMENT.API_URL}/api/story/${currentStory._id}`, {
+        headers: { Authorization: `Bearer ${route.params.token}` }
+      });
+      showAlert('Success', 'Story deleted successfully', 'success');
+      
+      // If last story, go back, otherwise go to next
+      if (stories.length === 1) {
+        navigation.goBack();
+      } else {
+        goToNextStory();
+      }
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      showAlert('Error', 'Failed to delete story', 'error');
+    }
+  };
+
   const renderProgressBar = () => {
     return (
       <View style={styles.progressContainer}>
@@ -253,9 +298,16 @@ const StoryScreen = ({ route, navigation }) => {
               </Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <X color={THEME.colors.text} size={24} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+            {(currentStory?.user?._id === user?._id || currentStory?.user === user?._id) && (
+              <TouchableOpacity onPress={handleDeleteStory}>
+                <Trash2 color="#FF4B4B" size={22} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <X color={THEME.colors.text} size={24} />
+            </TouchableOpacity>
+          </View>
         </LinearGradient>
       </View>
 
@@ -282,7 +334,14 @@ const StoryScreen = ({ route, navigation }) => {
 
       {/* Actions */}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => {
+            if (currentStory?.user?._id === user?._id || currentStory?.user === user?._id) {
+              fetchViewers();
+            }
+          }}
+        >
           <Eye color={THEME.colors.text} size={24} />
           <Text style={styles.actionText}>{viewCount}</Text>
         </TouchableOpacity>
@@ -343,9 +402,9 @@ const StoryScreen = ({ route, navigation }) => {
                   <X size={20} color="rgba(255,255,255,0.6)" />
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={[styles.storySendBtn, !replyText.trim() && { opacity: 0.5 }]} 
-                  onPress={handleReply}
-                  disabled={!replyText.trim()}
+                   style={[styles.storySendBtn, !replyText.trim() && { opacity: 0.5 }]} 
+                   onPress={handleReply}
+                   disabled={!replyText.trim()}
                 >
                   <LinearGradient colors={['#7B61FF', '#3DDCFF']} style={styles.sendGrad}>
                     <Send size={20} color="#000" />
@@ -356,9 +415,61 @@ const StoryScreen = ({ route, navigation }) => {
           </KeyboardAvoidingView>
         </BlurView>
       </Modal>
-    </View>
-  );
-};
+
+        {/* Story Viewers Modal */}
+        <Modal 
+          visible={showViewersModal} 
+          animationType="slide" 
+          transparent={true}
+          onRequestClose={() => setShowViewersModal(false)}
+        >
+          <BlurView intensity={90} tint="dark" style={styles.viewersModalContainer}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} onPress={() => setShowViewersModal(false)} />
+            <View style={styles.viewersContent}>
+              <View style={styles.modalGrabberPremium} />
+              <View style={styles.viewersHeader}>
+                <Text style={styles.viewersTitle}>Story Viewers</Text>
+                <TouchableOpacity onPress={() => setShowViewersModal(false)}>
+                  <X size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+              
+              {loadingViewers ? (
+                <View style={{ padding: 50 }}>
+                  <ActivityIndicator color={THEME.colors.primary} size="large" />
+                </View>
+              ) : (
+                <FlatList
+                  data={viewers}
+                  keyExtractor={(v) => v._id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity 
+                      style={styles.viewerItem} 
+                      onPress={() => {
+                          setShowViewersModal(false);
+                          navigation.navigate('ProfileScreen', { userId: item._id });
+                      }}
+                    >
+                      <Image source={{ uri: item.profilePhoto }} style={styles.viewerAvatar} />
+                      <Text style={styles.viewerName}>{item.username}</Text>
+                      <View style={styles.viewerDot} />
+                    </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={
+                    <View style={styles.emptyViewers}>
+                      <User size={40} color="rgba(255,255,255,0.2)" />
+                      <Text style={styles.noViewersText}>No views yet. Share it with friends!</Text>
+                    </View>
+                  }
+                  contentContainerStyle={{ paddingBottom: 30 }}
+                />
+              )}
+            </View>
+          </BlurView>
+        </Modal>
+      </View>
+    );
+  };
 
 // End of StoryScreen component
 
@@ -665,6 +776,67 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     gap: 8,
+  },
+  viewersModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  viewersContent: {
+    backgroundColor: '#1E1E1E',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    minHeight: '60%',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+  },
+  viewersHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+    paddingHorizontal: 5,
+  },
+  viewersTitle: {
+    color: '#FFF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  viewerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  viewerAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  viewerName: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  viewerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: THEME.colors.primary,
+  },
+  emptyViewers: {
+    alignItems: 'center',
+    marginTop: 50,
+    gap: 15,
+  },
+  noViewersText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 15,
+    textAlign: 'center',
   },
 });
 

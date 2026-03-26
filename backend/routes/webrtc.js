@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
 const { logCall, getCalls } = require('../controllers/callController');
 const CallLog = require('../models/Call');
+const User = require('../models/User');
+const { sendPushNotification } = require('../utils/notifier');
 
 // Store active calls and peer connections
 const activeCalls = new Map();
@@ -36,6 +38,26 @@ const setupWebRTCSignaling = (io) => {
         chatId,
         type
       });
+
+      // 📩 Background Push Notification for Call
+      User.findById(receiverId).then(usr => {
+        if (usr && usr.pushToken) {
+           sendPushNotification(
+             usr.pushToken,
+             `Incoming ${type} call`,
+             `${callerName} is calling you...`,
+             { 
+                route: 'CallScreen', 
+                params: { 
+                   chatId: chatId.toString(), 
+                   type: type, 
+                   name: callerName,
+                   isIncoming: true
+                } 
+             }
+           );
+        }
+      }).catch(e => console.log("Push trigger failed for call", e));
 
       // LOG START OF CALL
       CallLog.create({ 

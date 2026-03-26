@@ -192,10 +192,13 @@ const ProfileScreen = ({ navigation, route }) => {
 
   const handleShareLink = async () => {
     try {
-      const shareUrl = `${ENVIRONMENT.API_URL}/profile/${displayProfile?.user?._id || displayProfile?.user || user?._id}`;
+      const userId = displayProfile?.user?._id || displayProfile?.user || user?._id;
+      const shareUrl = `unexa://profile/${userId}`;
+      const webUrl = `${ENVIRONMENT.API_URL}/profile/${userId}`;
+      
       await Share.share({
-        message: `Connect with me on Unexa! 🚀\nProfile: ${shareUrl}`,
-        url: shareUrl, // For iOS
+        message: `Connect with me on Unexa! 🚀\nProfile: ${shareUrl}\nWeb: ${webUrl}`,
+        url: shareUrl, 
         title: 'Unexa Profile Share'
       });
     } catch (error) {
@@ -726,7 +729,7 @@ const ProfileScreen = ({ navigation, route }) => {
         </View>
       )}
 
-      {insights.length > 0 && !route.params?.userId && (
+      {insights.length > 0 && !route.params?.userId && !profile?.isPrivate && (
         <View style={styles.analyticsSection}>
           <Text style={styles.sectionTitle}>Profile Insights</Text>
           <View style={styles.chartContainer}>
@@ -796,6 +799,19 @@ const ProfileScreen = ({ navigation, route }) => {
           </View>
 
           <ScrollView style={styles.settingsContentPremium}>
+            <TouchableOpacity 
+              style={styles.settingItemPremium} 
+              onPress={() => {
+                setShowSettings(false);
+                navigation.navigate('StarredMessagesScreen');
+              }}
+            >
+              <View style={[styles.settingIconBox, { backgroundColor: 'rgba(255, 215, 0, 0.1)' }]}>
+                <Star size={22} color="#FFD700" fill="#FFD700" />
+              </View>
+              <Text style={styles.settingTextPremium}>Starred Messages</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.settingItemPremium}>
               <View style={[styles.settingIconBox, { backgroundColor: 'rgba(123, 97, 255, 0.1)' }]}>
                 <MessageCircle size={22} color="#7B61FF" />
@@ -861,7 +877,7 @@ const ProfileScreen = ({ navigation, route }) => {
 
             <View style={styles.qrCodeContainer}>
               <QRCode
-                value={`${ENVIRONMENT.API_URL}/profile/${displayProfile?.user?._id || displayProfile?.user || user?._id}`}
+                value={`unexa://profile/${displayProfile?.user?._id || displayProfile?.user || user?._id}`}
                 size={220}
                 color="#7B61FF"
                 backgroundColor="transparent"
@@ -1113,12 +1129,13 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginTop: 25,
     marginBottom: 25,
     backgroundColor: 'rgba(255,255,255,0.03)',
     borderRadius: 20,
-    padding: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
   },
@@ -1133,10 +1150,10 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     color: THEME.colors.textDim,
-    fontSize: 11,
+    fontSize: 9.5,
     marginTop: 3,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   actionButtons: {
     flexDirection: 'row',

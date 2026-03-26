@@ -1,6 +1,7 @@
 const Message = require('../models/Message');
 const Chat = require('../models/Chat');
 const User = require('../models/User');
+const { sendPushNotification } = require('../utils/notifier');
 
 // Send Message (Advanced Text/Media/Audio)
 exports.sendMessage = async (req, res) => {
@@ -38,8 +39,48 @@ exports.sendMessage = async (req, res) => {
       message = await message.populate('replyTo', 'content messageType sender'); 
     }
 
-    // Update Chat's latest message and touch timestamp
-    await Chat.findByIdAndUpdate(chatId, { latestMessage: message._id });
+    // Update Chat's latest message, touch timestamp, and increment unread counts for others
+    const chat = await Chat.findById(chatId);
+    if (chat) {
+        chat.latestMessage = message._id;
+        
+        // Setup unreadCounts Map if missing
+        if (!chat.unreadCounts) chat.unreadCounts = new Map();
+        
+        // Increment for all users except sender
+        chat.users.forEach(uId => {
+           if (uId.toString() !== req.user._id.toString()) {
+               const currentCount = chat.unreadCounts.get(uId.toString()) || 0;
+               chat.unreadCounts.set(uId.toString(), currentCount + 1);
+           }
+        });
+
+        await chat.save();
+        await chat.populate("users", "pushToken username");
+    }
+
+    // 📩 Background Push Notifications
+    if (chat && chat.users) {
+      chat.users.forEach(async (usr) => {
+        // Don't notify the sender
+        if (usr._id.toString() === req.user._id.toString()) return;
+
+        if (usr.pushToken) {
+          const body = messageType === 'text' ? content : `Sent a ${messageType}`;
+          const title = chat.isGroupChat ? `${chat.chatName}` : `${req.user.username}`;
+          
+          await sendPushNotification(
+            usr.pushToken, 
+            title, 
+            body, 
+            { 
+               route: 'ChatScreen', 
+               params: { chatId: chatId.toString(), name: req.user.username } 
+            }
+          );
+        }
+      });
+    }
 
     res.json(message);
   } catch (error) {
@@ -206,5 +247,20 @@ exports.forwardMessages = async (req, res) => {
     res.json({ success: true, messages: forwardedMessages });
   } catch (error) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+// Get all Starred messages for a user
+exports.getStarredMessages = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const messages = await Message.find({ isStarredBy: userId })
+      .populate("sender", "username profilePhoto")
+      .populate("chat", "chatName isGroupChat users")
+      .sort({ createdAt: -1 });
+
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };

@@ -135,7 +135,7 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !chatId) return;
 
     const fetchChatInfo = async () => {
       try {
@@ -143,6 +143,11 @@ const ChatScreen = ({ route, navigation }) => {
           headers: { Authorization: `Bearer ${user.token}` }
         });
         setChatUsers(data.users || []);
+        
+        // Mark as read on entry
+        await axios.post(`${ENVIRONMENT.API_URL}/api/chat/read/${chatId}`, {}, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
       } catch (e) { console.warn('Error fetching chat info in chatScreen', e); }
     };
     fetchChatInfo();
@@ -156,7 +161,11 @@ const ChatScreen = ({ route, navigation }) => {
     const handleMessageReceived = (msg) => {
       const receivedChatId = (msg.chat?._id || msg.chat || '').toString();
       if (chatId.toString() === receivedChatId) {
-        setMessages(prev => [msg, ...prev]); 
+        setMessages(prev => {
+          // ⚡ FIX: Prevent Duplicate Messages
+          if (prev.find(m => m._id === msg._id)) return prev;
+          return [msg, ...prev];
+        }); 
         socket.emit("measure_read", { messageId: msg._id, userId: user._id, chatId: chatId.toString() });
       }
     };
@@ -812,7 +821,7 @@ const ChatScreen = ({ route, navigation }) => {
 
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 25}
         style={styles.keyboardView}
       >
         <LinearGradient

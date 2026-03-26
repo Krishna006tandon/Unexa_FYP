@@ -41,4 +41,7 @@ router.route('/:storyId/reply').post(protect, replyToStory);
 // Get story interactions (reactions and replies)
 router.route('/:storyId/interactions').get(protect, getStoryInteractions);
 
+// Get list of users who viewed a story
+router.route('/:storyId/viewers').get(protect, getStoryViewers);
+
 module.exports = router;

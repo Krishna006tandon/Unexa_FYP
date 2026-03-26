@@ -202,3 +202,22 @@ exports.allUsers = async (req, res) => {
     res.status(500).json({ error: 'Server error during user search' });
   }
 };
+
+// Update Push Token
+exports.updatePushToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: "Token not provided" });
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    user.pushToken = token;
+    await user.save();
+
+    console.log(`📲 [PUSH] Updated token for user: ${user.username}`);
+    res.json({ success: true, message: "Push token updated" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

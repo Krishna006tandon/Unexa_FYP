@@ -277,3 +277,28 @@ exports.getStoryInteractions = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch story interactions' });
   }
 };
+
+// Get list of users who viewed a story
+exports.getStoryViewers = async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    const userId = req.user._id;
+
+    const story = await Story.findById(storyId)
+      .populate('views.user', 'username profilePhoto');
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    // Only owner can see viewers
+    if (story.user.toString() !== userId.toString()) {
+       return res.status(403).json({ error: 'Not authorized to see viewers' });
+    }
+
+    const viewers = story.views.map(v => v.user);
+    res.json(viewers);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

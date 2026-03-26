@@ -18,7 +18,12 @@ const chatSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Message',
     },
-    pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
+    pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    unreadCounts: {
+      type: Map,
+      of: Number,
+      default: {}
+    }
   },
   { 
     timestamps: true,

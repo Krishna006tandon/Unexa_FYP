@@ -268,13 +268,14 @@ const CallScreen = ({ route, navigation }) => {
           body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
           #remote-video-container { 
             display: grid; 
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); 
-            gap: 4px; 
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+            grid-auto-rows: 1fr;
+            gap: 10px; 
             width: 100%; 
             height: 100%; 
             position: absolute; 
             z-index: 1; 
-            padding: 4px;
+            padding: 10px;
             box-sizing: border-box;
             background: #000;
           }
@@ -286,13 +287,19 @@ const CallScreen = ({ route, navigation }) => {
           .video-block { 
             position: relative; 
             background: #111; 
-            border-radius: 8px; 
+            border-radius: 12px; 
             overflow: hidden; 
-            height: 100%;
+            aspect-ratio: 1 / 1;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             display: flex;
             align-items: center;
             justify-content: center;
           }
+           #remote-video-container:has(> .video-block:nth-child(1):nth-last-child(1)) .video-block {
+             aspect-ratio: unset;
+             height: 100%;
+             border-radius: 0;
+           }
           #local-video-container { 
             width: 90px; height: 130px; position: absolute; top: 10px; right: 10px; 
             z-index: 999; border-radius: 12px; overflow: hidden; border: 2px solid #7B61FF; 
