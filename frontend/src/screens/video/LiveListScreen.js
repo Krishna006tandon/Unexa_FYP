@@ -39,7 +39,7 @@ export default function LiveListScreen({ navigation }) {
     <SafeAreaView style={styles.safe}>
       <ScreenHeader title="Live Streams" onBack={() => navigation.goBack()} />
       <View style={styles.body}>
-        <TouchableOpacity style={styles.goLive} onPress={() => navigation.navigate('GoLive')}>
+        <TouchableOpacity style={styles.goLive} onPress={() => navigation.navigate('LiveScreen')}>
           <Radio color={THEME.accent} size={18} />
           <Text style={styles.goLiveText}>Go Live</Text>
         </TouchableOpacity>
@@ -51,7 +51,9 @@ export default function LiveListScreen({ navigation }) {
           renderItem={({ item }) => (
             <LiveCard
               item={item}
-              onPress={() => navigation.navigate('LiveStream', { streamId: item._id, playbackUrl: item.playbackUrl })}
+              onPress={() =>
+                navigation.navigate('WatchLiveScreen', { playbackId: item.playbackId, title: item.title })
+              }
             />
           )}
           ListEmptyComponent={
@@ -84,4 +86,3 @@ const styles = StyleSheet.create({
   },
   goLiveText: { color: THEME.accent, fontWeight: '900' },
 });
-

@@ -28,8 +28,8 @@ const GroupChatDetailScreen = React.lazy(() => import('./src/screens/GroupChatDe
 const StarredMessagesScreen = React.lazy(() => import('./src/screens/StarredMessagesScreen'));
 const VideoHomeScreen = React.lazy(() => import('./src/screens/video/VideoHomeScreen'));
 const LiveListScreen = React.lazy(() => import('./src/screens/video/LiveListScreen'));
-const LiveStreamScreen = React.lazy(() => import('./src/screens/video/LiveStreamScreen'));
-const GoLiveScreen = React.lazy(() => import('./src/screens/video/GoLiveScreen'));
+const LiveScreen = React.lazy(() => import('./src/screens/LiveScreen'));
+const WatchLiveScreen = React.lazy(() => import('./src/screens/WatchLiveScreen'));
 const VideoFeedScreen = React.lazy(() => import('./src/screens/video/VideoFeedScreen'));
 const VideoPlayerScreen = React.lazy(() => import('./src/screens/video/VideoPlayerScreen'));
 const UploadVideoScreen = React.lazy(() => import('./src/screens/video/UploadVideoScreen'));
@@ -56,8 +56,8 @@ const LazyGroupChatDetailScreen = withSuspense(GroupChatDetailScreen);
 const LazyStarredMessagesScreen = withSuspense(StarredMessagesScreen);
 const LazyVideoHomeScreen = withSuspense(VideoHomeScreen);
 const LazyLiveListScreen = withSuspense(LiveListScreen);
-const LazyLiveStreamScreen = withSuspense(LiveStreamScreen);
-const LazyGoLiveScreen = withSuspense(GoLiveScreen);
+const LazyLiveScreen = withSuspense(LiveScreen);
+const LazyWatchLiveScreen = withSuspense(WatchLiveScreen);
 const LazyVideoFeedScreen = withSuspense(VideoFeedScreen);
 const LazyVideoPlayerScreen = withSuspense(VideoPlayerScreen);
 const LazyUploadVideoScreen = withSuspense(UploadVideoScreen);
@@ -128,8 +128,8 @@ const VideoStack = () => (
   <VideoStackNav.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: THEME.colors.background } }}>
     <VideoStackNav.Screen name="VideoHome" component={LazyVideoHomeScreen} />
     <VideoStackNav.Screen name="LiveList" component={LazyLiveListScreen} />
-    <VideoStackNav.Screen name="GoLive" component={LazyGoLiveScreen} />
-    <VideoStackNav.Screen name="LiveStream" component={LazyLiveStreamScreen} />
+    <VideoStackNav.Screen name="LiveScreen" component={LazyLiveScreen} />
+    <VideoStackNav.Screen name="WatchLiveScreen" component={LazyWatchLiveScreen} />
     <VideoStackNav.Screen name="VideoFeed" component={LazyVideoFeedScreen} />
     <VideoStackNav.Screen name="UploadVideo" component={LazyUploadVideoScreen} />
     <VideoStackNav.Screen name="VideoPlayer" component={LazyVideoPlayerScreen} />

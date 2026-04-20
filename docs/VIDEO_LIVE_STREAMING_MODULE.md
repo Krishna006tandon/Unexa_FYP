@@ -54,6 +54,12 @@ From `F:\\Project\\Unexa_FYP`:
 - Backend API: `cd backend; npm run dev`
 - Node Media Server (separate process): `cd backend; npm run streaming`
 
+### Test from phone (ngrok)
+See `docs/NGROK_LIVE_TESTING.md`.
+
+### Production deployment
+See `docs/DEPLOYMENT_PRODUCTION_STREAMING.md`.
+
 If you set `ENABLE_NMS=true`, the API server can start NMS automatically, but you still must expose ports `1935` and `8000` on your machine.
 
 ---

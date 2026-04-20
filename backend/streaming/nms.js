@@ -6,21 +6,53 @@ require('dotenv').config();
 
 const LiveStream = require('../models/LiveStream');
 const { markLiveStartedByKey, markLiveEndedByKey } = require('../services/streamService');
-
+console.log('[NMS] Booting...');
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 }
 
+function tryFindBundledFfmpeg() {
+  try {
+    // Looks for workspace-downloaded FFmpeg: <repo>/tmp/ffmpeg/**/bin/ffmpeg.exe
+    const repoRoot = path.join(__dirname, '..', '..');
+    const ffmpegRoot = path.join(repoRoot, 'tmp', 'ffmpeg');
+    if (!fs.existsSync(ffmpegRoot)) return null;
+
+    const stack = [ffmpegRoot];
+    while (stack.length) {
+      const dir = stack.pop();
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) stack.push(full);
+        else if (entry.isFile() && entry.name.toLowerCase() === 'ffmpeg.exe') return full;
+      }
+    }
+
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function resolveFfmpegPath() {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  const bundled = tryFindBundledFfmpeg();
+  if (bundled) return bundled;
+  return 'ffmpeg';
+}
+
 function getNmsConfig() {
-  const mediaRoot = process.env.NMS_MEDIA_ROOT || path.join(__dirname, '..', 'uploads', 'nms');
+  // Default to backend/media for easier local debugging.
+  const mediaRoot = process.env.NMS_MEDIA_ROOT || path.join(__dirname, '..', 'media');
   ensureDir(mediaRoot);
+  ensureDir(path.join(mediaRoot, 'live'));
 
   return {
     logType: 3,
     rtmp: {
       port: parseInt(process.env.NMS_RTMP_PORT || '1935', 10),
       chunk_size: 60000,
-      gop_cache: true,
+      gop_cache: false,
       ping: 30,
       ping_timeout: 60,
     },
@@ -30,11 +62,14 @@ function getNmsConfig() {
       allow_origin: '*',
     },
     trans: {
-      ffmpeg: process.env.FFMPEG_PATH || 'ffmpeg',
+      // Node-Media-Server v4 uses `trans` to generate HLS.
+      // DO NOT hardcode a Windows path with backslashes, it breaks JS string parsing.
+      ffmpeg: resolveFfmpegPath(),
       tasks: [
         {
           app: 'live',
           hls: true,
+          mp4: false,
           hlsFlags: '[hls_time=2:hls_list_size=6:hls_flags=delete_segments]',
         },
       ],
@@ -59,7 +94,13 @@ function parseStreamKey(StreamPath) {
 async function startNodeMediaServer({ io } = {}) {
   await ensureMongoConnected();
 
-  const nms = new NodeMediaServer(getNmsConfig());
+  const config = getNmsConfig();
+  const ffmpegPath = config?.trans?.ffmpeg;
+  const ffmpegLooksOk = ffmpegPath === 'ffmpeg' ? true : fs.existsSync(ffmpegPath);
+  console.log('[NMS] FFmpeg:', ffmpegPath, ffmpegLooksOk ? '' : '(NOT FOUND)');
+  console.log('[NMS] Media root:', config?.http?.mediaroot);
+
+  const nms = new NodeMediaServer(config);
 
   nms.on('prePublish', async (id, StreamPath, args) => {
     const streamKey = parseStreamKey(StreamPath);
@@ -72,7 +113,7 @@ async function startNodeMediaServer({ io } = {}) {
       console.log(`[NMS] Rejecting publish (unknown streamKey): ${streamKey}`);
       try {
         session.reject();
-      } catch (_) {}
+      } catch (_) { }
       return;
     }
 
@@ -93,5 +134,4 @@ async function startNodeMediaServer({ io } = {}) {
   console.log(`[NMS] RTMP=${process.env.NMS_RTMP_PORT || 1935} HTTP=${process.env.NMS_HTTP_PORT || 8000}`);
   return nms;
 }
-
-module.exports = { startNodeMediaServer };
+startNodeMediaServer();

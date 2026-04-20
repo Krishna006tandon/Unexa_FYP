@@ -43,7 +43,12 @@ require('./sockets/liveSocket')(io);
 require('./routes/webrtc').setupWebRTCSignaling(io);
 
 // Middlewares
-app.use(express.json());
+// Capture raw request body for webhook signature verification (Mux, etc.)
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(cors({
   origin: (origin, callback) => {
     if (process.env.NODE_ENV === 'development') return callback(null, true);
@@ -114,8 +119,9 @@ const streakRoutes = require('./routes/streaks');
 const profileRoutes = require('./routes/profileRoutes');
 const webrtcRoutes = require('./routes/webrtc');
 const advancedRoutes = require('./routes/advancedRoutes');
-const liveRoutes = require('./routes/liveRoutes');
+const liveRoutes = require('./routes/live');
 const videoRoutes = require('./routes/videoRoutes');
+const webhookMuxRoutes = require('./routes/webhookMux');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -185,6 +191,7 @@ app.use('/api/webrtc', webrtcRoutes);
 app.use('/api/advanced', advancedRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/webhook', webhookMuxRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {

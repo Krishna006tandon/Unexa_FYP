@@ -26,26 +26,6 @@ class LiveService {
     return res.data;
   }
 
-  async start(streamKey) {
-    const headers = await authHeaders();
-    const res = await axios.post(
-      `${API_URL}/api/live/start`,
-      { streamKey },
-      { headers, timeout: 60000 }
-    );
-    return res.data;
-  }
-
-  async end(streamKey) {
-    const headers = await authHeaders();
-    const res = await axios.post(
-      `${API_URL}/api/live/end`,
-      { streamKey },
-      { headers, timeout: 60000 }
-    );
-    return res.data;
-  }
-
   async active() {
     const res = await axios.get(`${API_URL}/api/live/active`, { timeout: 60000 });
     return res.data;
@@ -59,4 +39,3 @@ class LiveService {
 }
 
 export default new LiveService();
-

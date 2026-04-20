@@ -2,6 +2,8 @@ const LiveStream = require('../models/LiveStream');
 const { setViewerCount } = require('../services/streamService');
 
 module.exports = (io) => {
+  // Mux module uses webhook-driven status updates (live:status emitted from webhook controller).
+  // This socket file still supports live chat/reactions + viewer counts.
   // streamId -> Set(socketId)
   const streamViewers = new Map();
 

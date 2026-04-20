@@ -33,7 +33,7 @@ export default function VideoHomeScreen({ navigation }) {
           <Text style={styles.tileSub}>Browse uploads</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.tile, styles.wide]} onPress={() => navigation.navigate('GoLive')}>
+        <TouchableOpacity style={[styles.tile, styles.wide]} onPress={() => navigation.navigate('LiveScreen')}>
           <Radio color={THEME.accent} size={22} />
           <Text style={styles.wideTitle}>Go Live</Text>
           <Text style={styles.wideSub}>Generate a stream key</Text>
@@ -70,4 +70,3 @@ const styles = StyleSheet.create({
   wideTitle: { color: THEME.text, fontWeight: '900', fontSize: 15, marginTop: 10 },
   wideSub: { color: THEME.textDim, fontSize: 12, marginTop: 2 },
 });
-

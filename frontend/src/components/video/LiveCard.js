@@ -24,7 +24,7 @@ export default function LiveCard({ item, onPress }) {
           {item.title || 'Live Stream'}
         </Text>
         <Text style={styles.sub} numberOfLines={1}>
-          {item.userId?.username || 'creator'} • {item.viewerCount || 0} watching
+          {item.userId?.username || 'creator'} • LIVE
         </Text>
       </View>
       <View style={styles.livePill}>
@@ -63,4 +63,3 @@ const styles = StyleSheet.create({
   },
   liveText: { color: THEME.accent, fontWeight: '900', fontSize: 12 },
 });
-

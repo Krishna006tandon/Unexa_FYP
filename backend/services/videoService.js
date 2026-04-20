@@ -2,18 +2,7 @@ const path = require('path');
 const fs = require('fs');
 const Video = require('../models/Video');
 const { ensureDir, generateThumbnail, transcodeToHls } = require('../utils/ffmpeg');
-
-function getPublicBaseUrl(req) {
-  const configured = process.env.PUBLIC_BASE_URL;
-  if (configured) return configured.replace(/\/$/, '');
-  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
-  const host = req.get('host');
-  return `${proto}://${host}`;
-}
-
-function getUploadsBaseUrl(req) {
-  return `${getPublicBaseUrl(req)}/uploads`;
-}
+const { storageDriver, randomId, uploadFileAndGetUrl, localPublicUrl, s3PublicUrl } = require('../utils/storage');
 
 function shouldTranscodeHls() {
   return (process.env.VIDEO_TRANSCODE_HLS || '').toLowerCase() === 'true';
@@ -23,6 +12,22 @@ function safeUnlink(filePath) {
   try {
     if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
   } catch (_) {}
+}
+
+function safeRmDir(dirPath) {
+  try {
+    if (dirPath && fs.existsSync(dirPath)) fs.rmSync(dirPath, { recursive: true, force: true });
+  } catch (_) {}
+}
+
+function contentTypeForExt(ext) {
+  const e = (ext || '').toLowerCase();
+  if (e === '.m3u8') return 'application/vnd.apple.mpegurl';
+  if (e === '.ts') return 'video/mp2t';
+  if (e === '.jpg' || e === '.jpeg') return 'image/jpeg';
+  if (e === '.png') return 'image/png';
+  if (e === '.mp4') return 'video/mp4';
+  return 'application/octet-stream';
 }
 
 async function createVideoFromUpload({ req, userId, title, description, uploadedFile }) {
@@ -47,16 +52,70 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
   const finalThumbPath = path.join(thumbDir, thumbFilename);
   await generateThumbnail({ inputPath: finalVideoPath, outputPath: finalThumbPath, atSeconds: 1 });
 
-  const uploadsBase = getUploadsBaseUrl(req);
-  const videoUrl = `${uploadsBase}/videos/${encodeURIComponent(videoFilename)}`;
-  const thumbnailUrl = `${uploadsBase}/thumbnails/${encodeURIComponent(thumbFilename)}`;
+  const driver = storageDriver();
+  const videoPrefix = `video-assets/${randomId(10)}`;
 
+  let videoUrl = null;
+  let thumbnailUrl = null;
   let hlsUrl = null;
+
+  if (driver === 's3') {
+    const uploadedVideo = await uploadFileAndGetUrl({
+      req,
+      filePath: finalVideoPath,
+      keyPrefix: `${videoPrefix}/videos`,
+      filename: videoFilename,
+      contentType: contentTypeForExt(fileExt),
+      cacheControl: 'public, max-age=31536000, immutable',
+    });
+    videoUrl = uploadedVideo.url;
+
+    const uploadedThumb = await uploadFileAndGetUrl({
+      req,
+      filePath: finalThumbPath,
+      keyPrefix: `${videoPrefix}/thumbnails`,
+      filename: thumbFilename,
+      contentType: 'image/jpeg',
+      cacheControl: 'public, max-age=31536000, immutable',
+    });
+    thumbnailUrl = uploadedThumb.url;
+  } else {
+    // Local URLs
+    videoUrl = localPublicUrl(req, path.join('videos', videoFilename));
+    thumbnailUrl = localPublicUrl(req, path.join('thumbnails', thumbFilename));
+  }
+
   if (shouldTranscodeHls()) {
     const videoIdStub = path.parse(videoFilename).name;
     const outDir = path.join(hlsDir, videoIdStub);
     await transcodeToHls({ inputPath: finalVideoPath, outputDir: outDir });
-    hlsUrl = `${uploadsBase}/video-hls/${encodeURIComponent(videoIdStub)}/index.m3u8`;
+
+    if (driver === 's3') {
+      const files = fs.readdirSync(outDir);
+      for (const f of files) {
+        const fp = path.join(outDir, f);
+        const ext = path.extname(f);
+        const ct = contentTypeForExt(ext);
+        const cacheControl =
+          ext === '.m3u8' ? 'public, max-age=5' : 'public, max-age=31536000, immutable';
+        await uploadFileAndGetUrl({
+          req,
+          filePath: fp,
+          keyPrefix: `${videoPrefix}/hls/${videoIdStub}`,
+          filename: f,
+          contentType: ct,
+          cacheControl,
+        });
+      }
+      const playlistKey = `${videoPrefix}/hls/${videoIdStub}/index.m3u8`.replace(/^\/+/, '');
+      const playlistUrl = s3PublicUrl(playlistKey);
+      if (!playlistUrl) throw new Error('S3_PUBLIC_BASE_URL is required for STORAGE_DRIVER=s3');
+      hlsUrl = playlistUrl;
+
+      safeRmDir(outDir);
+    } else {
+      hlsUrl = localPublicUrl(req, path.join('video-hls', videoIdStub, 'index.m3u8'));
+    }
   }
 
   const video = await Video.create({
@@ -71,6 +130,12 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
     likedBy: [],
     comments: [],
   });
+
+  // Cleanup local source files when using S3 driver
+  if (driver === 's3') {
+    safeUnlink(finalVideoPath);
+    safeUnlink(finalThumbPath);
+  }
 
   return video;
 }

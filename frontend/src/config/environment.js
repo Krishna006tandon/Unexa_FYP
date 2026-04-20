@@ -1,9 +1,9 @@
-import Constants from 'expo-constants';
+﻿import Constants from 'expo-constants';
 
 // Environment variables for Expo app
 const ENVIRONMENT = {
-  // API Configuration (PRODUCTION - REDEPLOY PUSH IN PROGRESS)
-  API_URL: 'https://unexa-fyp.onrender.com',
+  // API Configuration (supports ngrok/local overrides via app.config.js extra.apiUrl)
+  API_URL: Constants.expoConfig?.extra?.apiUrl || 'https://unexa-fyp.onrender.com',
   
   // Cloudinary Configuration
   CLOUDINARY_CLOUD_NAME: Constants.expoConfig?.extra?.cloudinaryCloudName,
@@ -20,7 +20,8 @@ const ENVIRONMENT = {
 };
 
 // Validation
-console.log('🔧 Environment Configuration (PRODUCTION):');
+console.log('ðŸ”§ Environment Configuration:');
 console.log('   API_URL:', ENVIRONMENT.API_URL);
 
 export default ENVIRONMENT;
+
