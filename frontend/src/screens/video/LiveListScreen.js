@@ -52,7 +52,11 @@ export default function LiveListScreen({ navigation }) {
             <LiveCard
               item={item}
               onPress={() =>
-                navigation.navigate('WatchLiveScreen', { playbackId: item.playbackId, title: item.title })
+                navigation.navigate('WatchLiveScreen', {
+                  playbackId: item.playbackId,
+                  playbackUrl: item.playbackUrl,
+                  title: item.title,
+                })
               }
             />
           )}

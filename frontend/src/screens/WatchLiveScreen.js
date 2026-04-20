@@ -15,19 +15,23 @@ const THEME = {
 };
 
 export default function WatchLiveScreen({ route, navigation }) {
-  const { playbackId, title } = route.params || {};
+  const { playbackId, playbackUrl, title } = route.params || {};
   const { socket } = useContext(ProfileContext);
 
   const [status, setStatus] = useState('idle'); // idle | live | ended
   const [viewerCount] = useState(() => Math.floor(20 + Math.random() * 120)); // mock
 
-  const hlsUrl = useMemo(() => (playbackId ? `https://stream.mux.com/${playbackId}.m3u8` : null), [playbackId]);
+  const hlsUrl = useMemo(() => {
+    if (playbackUrl) return playbackUrl;
+    if (playbackId) return `https://stream.mux.com/${playbackId}.m3u8`;
+    return null;
+  }, [playbackId, playbackUrl]);
 
   useEffect(() => {
-    if (!socket || !playbackId) return;
+    if (!socket || (!playbackId && !playbackUrl)) return;
 
     const onStatus = (p) => {
-      if (p?.playbackId === playbackId) setStatus(p.status || 'idle');
+      if (playbackId && p?.playbackId === playbackId) setStatus(p.status || 'idle');
     };
 
     socket.on('live:status', onStatus);
@@ -119,4 +123,3 @@ const styles = StyleSheet.create({
   },
   chatText: { color: THEME.textDim, fontSize: 12, fontWeight: '700' },
 });
-

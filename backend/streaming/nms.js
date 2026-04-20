@@ -3,6 +3,8 @@ const fs = require('fs');
 const mongoose = require('mongoose');
 const NodeMediaServer = require('node-media-server');
 require('dotenv').config();
+const net = require('net');
+const { spawn } = require('child_process');
 
 const LiveStream = require('../models/LiveStream');
 const { markLiveStartedByKey, markLiveEndedByKey } = require('../services/streamService');
@@ -49,10 +51,15 @@ function getNmsConfig() {
 
   return {
     logType: 3,
+    // Serve generated HLS files (and any other static media under mediaRoot)
+    static: {
+      router: '/',
+      root: mediaRoot,
+    },
     rtmp: {
       port: parseInt(process.env.NMS_RTMP_PORT || '1935', 10),
       chunk_size: 60000,
-      gop_cache: false,
+      gop_cache: true,
       ping: 30,
       ping_timeout: 60,
     },
@@ -61,20 +68,16 @@ function getNmsConfig() {
       mediaroot: mediaRoot,
       allow_origin: '*',
     },
-    trans: {
-      // Node-Media-Server v4 uses `trans` to generate HLS.
-      // DO NOT hardcode a Windows path with backslashes, it breaks JS string parsing.
-      ffmpeg: resolveFfmpegPath(),
-      tasks: [
-        {
-          app: 'live',
-          hls: true,
-          mp4: false,
-          hlsFlags: '[hls_time=2:hls_list_size=6:hls_flags=delete_segments]',
-        },
-      ],
-    },
   };
+}
+
+async function assertPortAvailable(port) {
+  await new Promise((resolve, reject) => {
+    const tester = net.createServer();
+    tester.once('error', (err) => reject(err));
+    tester.once('listening', () => tester.close(() => resolve()));
+    tester.listen(port, '0.0.0.0');
+  });
 }
 
 async function ensureMongoConnected() {
@@ -91,28 +94,91 @@ function parseStreamKey(StreamPath) {
   return parts[parts.length - 1] || null;
 }
 
+function buildLocalRtmpUrl({ rtmpPort, streamKey }) {
+  return `rtmp://127.0.0.1:${rtmpPort}/live/${streamKey}`;
+}
+
+function startHlsFfmpeg({ ffmpegPath, inputRtmpUrl, outputDir }) {
+  ensureDir(outputDir);
+  const playlistPath = path.join(outputDir, 'index.m3u8');
+  const segmentPattern = path.join(outputDir, 'seg_%03d.ts');
+
+  const args = [
+    '-hide_banner',
+    '-y',
+    '-i',
+    inputRtmpUrl,
+    '-preset',
+    'veryfast',
+    '-g',
+    '48',
+    '-sc_threshold',
+    '0',
+    '-c:v',
+    'libx264',
+    '-c:a',
+    'aac',
+    '-ar',
+    '48000',
+    '-b:a',
+    '128k',
+    '-f',
+    'hls',
+    '-hls_time',
+    '2',
+    '-hls_list_size',
+    '6',
+    '-hls_flags',
+    'delete_segments',
+    '-hls_segment_filename',
+    segmentPattern,
+    playlistPath,
+  ];
+
+  const proc = spawn(ffmpegPath, args, { windowsHide: true });
+  proc.stderr.on('data', (d) => {
+    const line = d.toString();
+    if (line.trim()) console.log('[FFMPEG]', line.trim());
+  });
+  proc.on('close', (code) => console.log('[FFMPEG] exited', code));
+  return proc;
+}
+
 async function startNodeMediaServer({ io } = {}) {
   await ensureMongoConnected();
 
   const config = getNmsConfig();
-  const ffmpegPath = config?.trans?.ffmpeg;
+  const ffmpegPath = resolveFfmpegPath();
   const ffmpegLooksOk = ffmpegPath === 'ffmpeg' ? true : fs.existsSync(ffmpegPath);
   console.log('[NMS] FFmpeg:', ffmpegPath, ffmpegLooksOk ? '' : '(NOT FOUND)');
   console.log('[NMS] Media root:', config?.http?.mediaroot);
 
+  // Fail fast with a readable message instead of crashing later with EADDRINUSE.
+  try {
+    await assertPortAvailable(config.rtmp.port);
+    await assertPortAvailable(config.http.port);
+  } catch (e) {
+    console.error(`[NMS] Port not available: ${e.message}`);
+    console.error(`[NMS] If you already have an NMS process running, stop it or change NMS_HTTP_PORT/NMS_RTMP_PORT.`);
+    process.exit(1);
+  }
+
   const nms = new NodeMediaServer(config);
 
-  nms.on('prePublish', async (id, StreamPath, args) => {
-    const streamKey = parseStreamKey(StreamPath);
-    if (!streamKey) return;
-    console.log(`[NMS] prePublish id=${id} path=${StreamPath}`);
+  // streamKey -> ffmpeg proc
+  const hlsProcs = new Map();
 
-    const session = nms.getSession(id);
+  // NOTE: Node-Media-Server v4 emits a single `session` object for these events.
+  nms.on('prePublish', async (session) => {
+    const streamKey = parseStreamKey(session?.streamPath);
+    if (!streamKey) return;
+    console.log(`[NMS] prePublish id=${session.id} path=${session.streamPath}`);
+
     const existing = await LiveStream.findOne({ streamKey }).catch(() => null);
     if (!existing) {
       console.log(`[NMS] Rejecting publish (unknown streamKey): ${streamKey}`);
       try {
-        session.reject();
+        session.close();
       } catch (_) { }
       return;
     }
@@ -121,10 +187,34 @@ async function startNodeMediaServer({ io } = {}) {
     if (updated && io) io.emit('live:start', { streamId: updated._id.toString(), streamKey });
   });
 
-  nms.on('donePublish', async (id, StreamPath, args) => {
-    const streamKey = parseStreamKey(StreamPath);
+  // Confirms the RTMP publish completed; HLS muxing should start shortly after this.
+  nms.on('postPublish', (session) => {
+    const streamKey = parseStreamKey(session?.streamPath);
+    console.log(`[NMS] postPublish id=${session.id} path=${session.streamPath}`);
     if (!streamKey) return;
-    console.log(`[NMS] donePublish id=${id} path=${StreamPath}`);
+
+    const outDir = path.join(config.http.mediaroot, 'live', streamKey);
+    console.log(`[NMS] HLS expected at: ${path.join(outDir, 'index.m3u8')}`);
+
+    if (hlsProcs.has(streamKey)) return;
+    const input = buildLocalRtmpUrl({ rtmpPort: config.rtmp.port, streamKey });
+    console.log('[NMS] Starting FFmpeg HLS:', input);
+    const proc = startHlsFfmpeg({ ffmpegPath, inputRtmpUrl: input, outputDir: outDir });
+    hlsProcs.set(streamKey, proc);
+  });
+
+  nms.on('donePublish', async (session) => {
+    const streamKey = parseStreamKey(session?.streamPath);
+    if (!streamKey) return;
+    console.log(`[NMS] donePublish id=${session.id} path=${session.streamPath}`);
+
+    const proc = hlsProcs.get(streamKey);
+    if (proc) {
+      try {
+        proc.kill('SIGINT');
+      } catch (_) {}
+      hlsProcs.delete(streamKey);
+    }
 
     const updated = await markLiveEndedByKey(streamKey);
     if (updated && io) io.emit('live:end', { streamId: updated._id.toString(), streamKey });

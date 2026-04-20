@@ -57,14 +57,21 @@ export default function LiveScreen({ navigation }) {
             <Text style={styles.mono}>Stream Key: {created.streamKey}</Text>
 
             <Text style={[styles.cardTitle, { marginTop: 14 }]}>Playback</Text>
-            <Text style={styles.mono}>Playback ID: {created.playbackId}</Text>
+            {created.playbackId ? <Text style={styles.mono}>Playback ID: {created.playbackId}</Text> : null}
+            {created.playbackUrl ? <Text style={styles.mono}>Playback URL: {created.playbackUrl}</Text> : null}
             <Text style={styles.hint}>
-              Viewers can watch: https://stream.mux.com/{created.playbackId}.m3u8 (HLS)
+              Viewers can watch HLS using the Playback URL (hybrid) or `https://stream.mux.com/&lt;playbackId&gt;.m3u8` (Mux).
             </Text>
 
             <TouchableOpacity
               style={styles.watchBtn}
-              onPress={() => navigation.navigate('WatchLiveScreen', { playbackId: created.playbackId, title })}
+              onPress={() =>
+                navigation.navigate('WatchLiveScreen', {
+                  playbackId: created.playbackId,
+                  playbackUrl: created.playbackUrl,
+                  title,
+                })
+              }
             >
               <Text style={styles.watchText}>Preview Stream</Text>
             </TouchableOpacity>
@@ -130,4 +137,3 @@ const styles = StyleSheet.create({
   watchText: { color: '#fff', fontWeight: '900' },
   footer: { marginTop: 18, color: THEME.textDim, fontSize: 12 },
 });
-
