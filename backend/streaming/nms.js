@@ -6,6 +6,24 @@ require('dotenv').config();
 const net = require('net');
 const { spawn } = require('child_process');
 
+async function notifyBackend({ action, streamKey }) {
+  const url = (process.env.STREAM_NOTIFY_URL || '').trim();
+  if (!url) return;
+  const secret = (process.env.STREAM_NOTIFY_SECRET || '').trim();
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(secret ? { 'x-stream-notify-secret': secret } : {}),
+      },
+      body: JSON.stringify({ action, streamKey }),
+    });
+  } catch (e) {
+    console.log('[NMS] notifyBackend failed:', e.message);
+  }
+}
+
 const LiveStream = require('../models/LiveStream');
 const { markLiveStartedByKey, markLiveEndedByKey } = require('../services/streamService');
 console.log('[NMS] Booting...');
@@ -185,6 +203,7 @@ async function startNodeMediaServer({ io } = {}) {
 
     const updated = await markLiveStartedByKey(streamKey);
     if (updated && io) io.emit('live:start', { streamId: updated._id.toString(), streamKey });
+    await notifyBackend({ action: 'start', streamKey });
   });
 
   // Confirms the RTMP publish completed; HLS muxing should start shortly after this.
@@ -218,6 +237,7 @@ async function startNodeMediaServer({ io } = {}) {
 
     const updated = await markLiveEndedByKey(streamKey);
     if (updated && io) io.emit('live:end', { streamId: updated._id.toString(), streamKey });
+    await notifyBackend({ action: 'end', streamKey });
   });
 
   nms.run();

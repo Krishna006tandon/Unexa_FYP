@@ -15,11 +15,11 @@ const THEME = {
 };
 
 export default function WatchLiveScreen({ route, navigation }) {
-  const { playbackId, playbackUrl, title } = route.params || {};
+  const { playbackId, playbackUrl, streamId, title } = route.params || {};
   const { socket } = useContext(ProfileContext);
 
   const [status, setStatus] = useState('idle'); // idle | live | ended
-  const [viewerCount] = useState(() => Math.floor(20 + Math.random() * 120)); // mock
+  const [viewerCount, setViewerCount] = useState(0);
 
   const hlsUrl = useMemo(() => {
     if (playbackUrl) return playbackUrl;
@@ -28,15 +28,27 @@ export default function WatchLiveScreen({ route, navigation }) {
   }, [playbackId, playbackUrl]);
 
   useEffect(() => {
-    if (!socket || (!playbackId && !playbackUrl)) return;
+    if (!socket || (!playbackId && !playbackUrl && !streamId)) return;
 
     const onStatus = (p) => {
       if (playbackId && p?.playbackId === playbackId) setStatus(p.status || 'idle');
+      if (streamId && p?.streamId === streamId) setStatus(p.status || 'idle');
+    };
+
+    const onViewers = (p) => {
+      if (streamId && p?.streamId === streamId) setViewerCount(p.viewerCount || 0);
     };
 
     socket.on('live:status', onStatus);
-    return () => socket.off('live:status', onStatus);
-  }, [socket, playbackId]);
+    socket.on('live:viewers', onViewers);
+
+    if (streamId) socket.emit('live:join', { streamId });
+    return () => {
+      if (streamId) socket.emit('live:leave', { streamId });
+      socket.off('live:status', onStatus);
+      socket.off('live:viewers', onViewers);
+    };
+  }, [socket, playbackId, playbackUrl, streamId]);
 
   return (
     <SafeAreaView style={styles.safe}>

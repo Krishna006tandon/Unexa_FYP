@@ -43,6 +43,7 @@ Set these env vars on Render backend:
 - `LIVE_PROVIDER=local`
 - `STREAM_BASE_URL=https://<hls-ngrok>.ngrok-free.dev`
 - `RTMP_BASE_URL=rtmp://192.168.29.104/live` (your PC LAN IP; used only to show OBS instructions)
+- `STREAM_NOTIFY_SECRET=<random>` (optional but recommended for real-time status)
 
 ---
 
@@ -57,6 +58,12 @@ Set these env vars on Render backend:
    - Stream Key: `<streamKey>`
 4) Viewers play `playbackUrl` in app
 
+Real-time “LIVE/ENDED”:
+- Configure your local NMS to notify the backend (so Socket.IO can update the app instantly).
+- On your streaming PC set env for NMS process:
+  - `STREAM_NOTIFY_URL=https://<your-render-backend>/webhook/nms`
+  - `STREAM_NOTIFY_SECRET=<same random as backend>`
+
 ---
 
 ## 5) ngrok URL changes
@@ -65,4 +72,3 @@ Free ngrok URLs change on restart.
 When it changes:
 - update Render `STREAM_BASE_URL`
 - redeploy / restart backend (or just update env and restart service)
-

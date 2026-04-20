@@ -122,6 +122,7 @@ const advancedRoutes = require('./routes/advancedRoutes');
 const liveRoutes = require('./routes/live');
 const videoRoutes = require('./routes/videoRoutes');
 const webhookMuxRoutes = require('./routes/webhookMux');
+const webhookNmsRoutes = require('./routes/webhookNms');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -192,6 +193,7 @@ app.use('/api/advanced', advancedRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/video', videoRoutes);
 app.use('/webhook', webhookMuxRoutes);
+app.use('/webhook', webhookNmsRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {

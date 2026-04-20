@@ -69,6 +69,7 @@ export default function LiveScreen({ navigation }) {
                 navigation.navigate('WatchLiveScreen', {
                   playbackId: created.playbackId,
                   playbackUrl: created.playbackUrl,
+                  streamId: created._id,
                   title,
                 })
               }

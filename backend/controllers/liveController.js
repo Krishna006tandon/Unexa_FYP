@@ -1,7 +1,7 @@
 const { createMuxClient } = require('../config/mux');
 const MuxLiveStream = require('../models/MuxLiveStream');
 const LiveStream = require('../models/LiveStream');
-const { createLiveStream, buildLiveRtmpUrl, buildLivePlaybackUrl, markLiveStartedByKey, markLiveEndedByKey } = require('../services/streamService');
+const { createLiveStream, buildLiveRtmpUrl, buildLivePlaybackUrl } = require('../services/streamService');
 
 function liveProvider() {
   return (process.env.LIVE_PROVIDER || 'local').toLowerCase();
@@ -64,8 +64,6 @@ exports.createLive = async (req, res) => {
 
     // local/hybrid: backend generates streamKey; broadcaster streams to their local NMS.
     const live = await createLiveStream({ userId: req.user._id, title: title || 'Live Stream' });
-    // For demo UX: mark as live immediately so it shows up in active list.
-    const updated = await markLiveStartedByKey(live.streamKey);
 
     const playbackUrl = buildHybridPlaybackUrl(live.streamKey) || buildLivePlaybackUrl(live.streamKey);
     const rtmpUrl = buildLiveRtmpUrl(live.streamKey);
@@ -73,11 +71,11 @@ exports.createLive = async (req, res) => {
     return res.json({
       success: true,
       data: {
-        _id: updated?._id || live._id,
+        _id: live._id,
         streamKey: live.streamKey,
         rtmpUrl,
         playbackUrl,
-        status: updated?.isLive ? 'live' : 'idle',
+        status: 'idle',
         provider: 'local',
       },
     });
