@@ -26,6 +26,13 @@ const ProfileScreen = React.lazy(() => import('./src/screens/ProfileScreen'));
 const StreaksScreen = React.lazy(() => import('./src/screens/StreaksScreen'));
 const GroupChatDetailScreen = React.lazy(() => import('./src/screens/GroupChatDetailScreen'));
 const StarredMessagesScreen = React.lazy(() => import('./src/screens/StarredMessagesScreen'));
+const VideoHomeScreen = React.lazy(() => import('./src/screens/video/VideoHomeScreen'));
+const LiveListScreen = React.lazy(() => import('./src/screens/video/LiveListScreen'));
+const LiveStreamScreen = React.lazy(() => import('./src/screens/video/LiveStreamScreen'));
+const GoLiveScreen = React.lazy(() => import('./src/screens/video/GoLiveScreen'));
+const VideoFeedScreen = React.lazy(() => import('./src/screens/video/VideoFeedScreen'));
+const VideoPlayerScreen = React.lazy(() => import('./src/screens/video/VideoPlayerScreen'));
+const UploadVideoScreen = React.lazy(() => import('./src/screens/video/UploadVideoScreen'));
 
 const LazyFallback = () => (
   <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
@@ -47,6 +54,13 @@ const LazyMediaShareScreen = withSuspense(MediaShareScreen);
 const LazyProfileScreen = withSuspense(ProfileScreen);
 const LazyGroupChatDetailScreen = withSuspense(GroupChatDetailScreen);
 const LazyStarredMessagesScreen = withSuspense(StarredMessagesScreen);
+const LazyVideoHomeScreen = withSuspense(VideoHomeScreen);
+const LazyLiveListScreen = withSuspense(LiveListScreen);
+const LazyLiveStreamScreen = withSuspense(LiveStreamScreen);
+const LazyGoLiveScreen = withSuspense(GoLiveScreen);
+const LazyVideoFeedScreen = withSuspense(VideoFeedScreen);
+const LazyVideoPlayerScreen = withSuspense(VideoPlayerScreen);
+const LazyUploadVideoScreen = withSuspense(UploadVideoScreen);
 
 
 class ErrorBoundary extends React.Component {
@@ -85,6 +99,7 @@ const THEME = {
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const VideoStackNav = createNativeStackNavigator();
 
 const linking = {
   prefixes: ['unexa://', 'https://unexa-fyp.onrender.com'],
@@ -109,14 +124,16 @@ const CreateScreen = ({ navigation }) => (
     <MediaShareScreen navigation={navigation} />
   </Suspense>
 );
-const VideoScreen = () => (
-  <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
-    <Video color="#7B61FF" size={64} strokeWidth={1.5} />
-    <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold', marginTop: 20 }}>Live Streams</Text>
-    <Text style={{ color: '#A0A0A0', fontSize: 14, marginTop: 10, textAlign: 'center', paddingHorizontal: 40 }}>
-      Live streaming feature is coming soon. Stay tuned!
-    </Text>
-  </View>
+const VideoStack = () => (
+  <VideoStackNav.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: THEME.colors.background } }}>
+    <VideoStackNav.Screen name="VideoHome" component={LazyVideoHomeScreen} />
+    <VideoStackNav.Screen name="LiveList" component={LazyLiveListScreen} />
+    <VideoStackNav.Screen name="GoLive" component={LazyGoLiveScreen} />
+    <VideoStackNav.Screen name="LiveStream" component={LazyLiveStreamScreen} />
+    <VideoStackNav.Screen name="VideoFeed" component={LazyVideoFeedScreen} />
+    <VideoStackNav.Screen name="UploadVideo" component={LazyUploadVideoScreen} />
+    <VideoStackNav.Screen name="VideoPlayer" component={LazyVideoPlayerScreen} />
+  </VideoStackNav.Navigator>
 );
 
 const ChatStack = () => (
@@ -148,7 +165,7 @@ const MainTabs = () => (
     <Tab.Screen name="Home" component={FeedScreen} />
     <Tab.Screen name="Chats" component={ChatStack} />
     <Tab.Screen name="Create" component={CreateScreen} />
-    <Tab.Screen name="Videos" component={VideoScreen} />
+    <Tab.Screen name="Videos" component={VideoStack} />
     <Tab.Screen name="Profile" component={LazyProfileScreen} />
   </Tab.Navigator>
 );
