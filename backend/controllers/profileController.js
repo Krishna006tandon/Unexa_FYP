@@ -159,14 +159,46 @@ const createOrUpdateProfile = async (req, res) => {
 // @access  Private
 const getMyProfile = async (req, res) => {
   try {
-    const profile = await Profile.findOne({ user: req.user.id })
+    let profile = await Profile.findOne({ user: req.user.id })
       .populate('user', 'username email isOnline lastSeen');
 
     if (!profile) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Profile not found' 
-      });
+      // Auto-create a default profile for the authenticated user
+      const baseUsername = req.user?.username || `user_${String(req.user.id).slice(-6)}`;
+      const baseEmail = req.user?.email;
+
+      // Attempt to reclaim stale username/email reservations (profiles whose user no longer exists)
+      const cleanupStaleReservation = async (query) => {
+        const existing = await Profile.findOne(query);
+        if (!existing) return;
+        const linkedUserExists = await User.exists({ _id: existing.user });
+        if (!linkedUserExists) {
+          await Profile.deleteOne({ _id: existing._id });
+        }
+      };
+
+      await cleanupStaleReservation({ username: baseUsername, user: { $ne: req.user.id } });
+      if (baseEmail) await cleanupStaleReservation({ email: baseEmail.toLowerCase().trim(), user: { $ne: req.user.id } });
+
+      let resolvedUsername = baseUsername;
+      const usernameTaken = await Profile.findOne({ username: resolvedUsername, user: { $ne: req.user.id } });
+      if (usernameTaken) {
+        resolvedUsername = `${baseUsername}_${String(req.user.id).slice(-5)}`;
+      }
+
+      const profileData = {
+        user: req.user.id,
+        username: resolvedUsername,
+        fullName: req.user?.username || 'Unexa User',
+        email: baseEmail ? baseEmail.toLowerCase().trim() : undefined,
+        bio: 'Welcome to my profile!',
+      };
+
+      profile = await Profile.findOneAndUpdate(
+        { user: req.user.id },
+        { $setOnInsert: profileData },
+        { new: true, upsert: true, runValidators: true }
+      ).populate('user', 'username email isOnline lastSeen');
     }
 
     // Calculate total streaks
