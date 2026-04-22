@@ -26,7 +26,7 @@ async function notifyBackend({ action, streamKey }) {
 
 const LiveStream = require('../models/LiveStream');
 const { markLiveStartedByKey, markLiveEndedByKey } = require('../services/streamService');
-console.log('[NMS] Booting...');
+
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 }
@@ -163,6 +163,7 @@ function startHlsFfmpeg({ ffmpegPath, inputRtmpUrl, outputDir }) {
 }
 
 async function startNodeMediaServer({ io } = {}) {
+  console.log('[NMS] Booting...');
   await ensureMongoConnected();
 
   const config = getNmsConfig();
@@ -244,4 +245,13 @@ async function startNodeMediaServer({ io } = {}) {
   console.log(`[NMS] RTMP=${process.env.NMS_RTMP_PORT || 1935} HTTP=${process.env.NMS_HTTP_PORT || 8000}`);
   return nms;
 }
-startNodeMediaServer();
+
+module.exports = { startNodeMediaServer };
+
+// If executed directly (recommended for option-2 local streaming), start immediately.
+if (require.main === module) {
+  startNodeMediaServer().catch((e) => {
+    console.error('[NMS] Failed to start:', e.message);
+    process.exit(1);
+  });
+}
