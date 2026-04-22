@@ -69,6 +69,9 @@ class ProfileService {
       });
       return response.data;
     } catch (error) {
+      console.error('âŒ createOrUpdateProfile error:', error);
+      console.error('âŒ createOrUpdateProfile response:', error.response?.data);
+      console.error('âŒ createOrUpdateProfile status:', error.response?.status);
       throw error.response?.data || error;
     }
   }

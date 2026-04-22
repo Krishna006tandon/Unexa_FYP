@@ -131,32 +131,63 @@ export const ProfileProvider = ({ children }) => {
     } catch (error) {
       if (error.message === 'Profile not found' || error.status === 404) {
         console.log('📝 Profile not found, creating default profile...');
-        try {
-          const userInfo = await AsyncStorage.getItem('userInfo');
-          const user = userInfo ? JSON.parse(userInfo) : null;
-          
-          if (user && user._id) {
-            const defaultProfileData = {
-              username: user.name?.replace(/\s+/g, '').toLowerCase() || `user${Date.now()}`,
-              fullName: user.name || 'User',
-              email: user.email || '',
-              bio: 'Welcome to my profile!'
-            };
+          try {
+            const userInfo = await AsyncStorage.getItem('userInfo');
+            const user = userInfo ? JSON.parse(userInfo) : null;
             
-            const createResponse = await profileService.createOrUpdateProfile(defaultProfileData);
-            dispatch({ type: 'SET_PROFILE', payload: createResponse.data });
-            
-            if (createResponse.data.user?._id) {
-              await initializeSocket(createResponse.data.user._id);
+            if (user && user._id) {
+              const baseUsername =
+                (user.username && String(user.username).trim()) ||
+                (user.name && String(user.name).replace(/\s+/g, '').toLowerCase()) ||
+                `user${String(user._id).slice(-6)}`;
+
+              const defaultProfileData = {
+                username: baseUsername,
+                fullName: user.name || user.username || 'User',
+                email: user.email,
+                bio: 'Welcome to my profile!'
+              };
+
+              const tryCreate = async (payload) => {
+                const createResponse = await profileService.createOrUpdateProfile(payload);
+                dispatch({ type: 'SET_PROFILE', payload: createResponse.data });
+
+                if (createResponse.data.user?._id) {
+                  await initializeSocket(createResponse.data.user._id);
+                }
+              };
+
+              try {
+                await tryCreate(defaultProfileData);
+              } catch (createError) {
+                console.log('âŒ Auto-profile create failed:', createError);
+                const createMessage = createError?.message || createError?.error || createError?.msg;
+
+                if (
+                  String(createMessage || '').toLowerCase().includes('username') &&
+                  String(createMessage || '').toLowerCase().includes('taken')
+                ) {
+                  const retryUsername = `${baseUsername}_${String(user._id).slice(-5)}`;
+                  await tryCreate({ ...defaultProfileData, username: retryUsername });
+                } else {
+                  throw createError;
+                }
+              }
             }
+          } catch (createError) {
+            dispatch({
+              type: 'SET_ERROR',
+              payload:
+                createError?.message ||
+                createError?.error ||
+                createError?.msg ||
+                'Failed to create profile'
+            });
           }
-        } catch (createError) {
-          dispatch({ type: 'SET_ERROR', payload: createError.message || 'Failed to create profile' });
+        } else {
+          dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load profile' });
         }
-      } else {
-        dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load profile' });
       }
-    }
   }, [initializeSocket]);
 
   const updateProfile = useCallback(async (profileData) => {

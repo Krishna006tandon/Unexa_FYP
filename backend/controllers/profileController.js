@@ -58,7 +58,13 @@ const createOrUpdateProfile = async (req, res) => {
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
-        return res.status(400).json({ message: 'Username already taken' });
+        // If the profile's linked user no longer exists (stale data), cleanup and allow reuse
+        const linkedUserExists = await User.exists({ _id: existingProfile.user });
+        if (!linkedUserExists) {
+          await Profile.deleteOne({ _id: existingProfile._id });
+        } else {
+          return res.status(400).json({ message: 'Username already taken' });
+        }
       }
     }
 
@@ -68,7 +74,13 @@ const createOrUpdateProfile = async (req, res) => {
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
-        return res.status(400).json({ message: 'Email already taken' });
+        // If the profile's linked user no longer exists (stale data), cleanup and allow reuse
+        const linkedUserExists = await User.exists({ _id: existingProfile.user });
+        if (!linkedUserExists) {
+          await Profile.deleteOne({ _id: existingProfile._id });
+        } else {
+          return res.status(400).json({ message: 'Email already taken' });
+        }
       }
     }
 
