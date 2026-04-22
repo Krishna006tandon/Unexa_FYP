@@ -65,7 +65,8 @@ exports.createLive = async (req, res) => {
     // local/hybrid: backend generates streamKey; broadcaster streams to their local NMS.
     const live = await createLiveStream({ userId: req.user._id, title: title || 'Live Stream' });
 
-    const playbackUrl = buildHybridPlaybackUrl(live.streamKey) || buildLivePlaybackUrl(live.streamKey);
+    // Prefer PUBLIC_BASE_URL based viewer URL (backend redirect), to avoid leaking internal/ngrok URLs to clients.
+    const playbackUrl = buildLivePlaybackUrl(live.streamKey) || buildHybridPlaybackUrl(live.streamKey);
     const rtmpUrl = buildLiveRtmpUrl(live.streamKey);
 
     return res.json({
@@ -122,7 +123,7 @@ exports.getActiveLives = async (req, res) => {
         status: l.isLive ? 'live' : 'idle',
         viewerCount: l.viewerCount || 0,
         startedAt: l.startedAt,
-        playbackUrl: buildHybridPlaybackUrl(l.streamKey) || buildLivePlaybackUrl(l.streamKey),
+        playbackUrl: buildLivePlaybackUrl(l.streamKey) || buildHybridPlaybackUrl(l.streamKey),
         provider: 'local',
       })),
     });
@@ -168,7 +169,7 @@ exports.getLiveById = async (req, res) => {
         userId: live.userId,
         title: live.title,
         status: live.isLive ? 'live' : 'idle',
-        playbackUrl: buildHybridPlaybackUrl(live.streamKey) || buildLivePlaybackUrl(live.streamKey),
+        playbackUrl: buildLivePlaybackUrl(live.streamKey) || buildHybridPlaybackUrl(live.streamKey),
         provider: 'local',
         ...(isOwner ? { streamKey: live.streamKey, rtmpUrl: buildLiveRtmpUrl(live.streamKey) } : {}),
       },

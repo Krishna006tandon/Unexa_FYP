@@ -193,7 +193,7 @@ export default function WatchLiveScreen({ route, navigation }) {
             useNativeControls
             resizeMode="contain"
             onError={(e) => {
-              console.warn('Mux playback error', e);
+              console.warn('Playback error', e);
               setPlaybackError('Playback failed (404). Stream may not be live yet.');
             }}
           />
