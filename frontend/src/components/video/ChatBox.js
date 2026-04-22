@@ -21,7 +21,7 @@ export default function ChatBox({ messages, onSend }) {
     <View style={styles.wrap}>
       <FlatList
         data={data}
-        keyExtractor={(item, idx) => item._id || item.createdAt || `${idx}`}
+        keyExtractor={(item, idx) => `${item?._id || item?.createdAt || 'msg'}_${idx}`}
         inverted
         renderItem={({ item }) => (
           <View style={styles.msgRow}>
@@ -87,4 +87,3 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.primary,
   },
 });
-

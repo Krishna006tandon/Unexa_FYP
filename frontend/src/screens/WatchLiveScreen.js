@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video } from 'expo-av';
@@ -26,9 +26,11 @@ export default function WatchLiveScreen({ route, navigation }) {
   const [status, setStatus] = useState('idle'); // idle | live | ended
   const [viewerCount, setViewerCount] = useState(0);
   const [playbackUrl, setPlaybackUrl] = useState(playbackUrlParam || null);
+  const [playbackError, setPlaybackError] = useState(null);
   const [joined, setJoined] = useState(false);
   const [messages, setMessages] = useState([]);
   const [floating, setFloating] = useState([]);
+  const joinedRef = useRef(false);
 
   useEffect(() => {
     // Pull latest status/url from backend (real data)
@@ -49,6 +51,40 @@ export default function WatchLiveScreen({ route, navigation }) {
       cancelled = true;
     };
   }, [streamId]);
+
+  // Some providers (Mux) may return a playbackId before the HLS playlist is ready.
+  // Poll the backend briefly while status is not live to pick up a ready playbackUrl/status.
+  useEffect(() => {
+    if (!streamId) return;
+    if (status === 'live') return;
+
+    let cancelled = false;
+    let tries = 0;
+    const maxTries = 8;
+
+    const tick = async () => {
+      tries += 1;
+      try {
+        const res = await liveService.getById(streamId);
+        const data = res?.data;
+        if (cancelled || !data) return;
+        if (data.status) setStatus(data.status);
+        if (data.playbackUrl) setPlaybackUrl(data.playbackUrl);
+      } catch (_) {
+        // ignore
+      }
+
+      if (!cancelled && tries < maxTries && status !== 'live') {
+        setTimeout(tick, 2500);
+      }
+    };
+
+    const t = setTimeout(tick, 1200);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [streamId, status]);
 
   const hlsUrl = useMemo(() => {
     if (playbackUrl) return playbackUrl;
@@ -77,27 +113,35 @@ export default function WatchLiveScreen({ route, navigation }) {
     };
   }, [socket, playbackId, playbackUrl, streamId, provider]);
 
-  // Join only when stream is actually LIVE (real data).
+  // Join/leave lifecycle (avoid update-depth loops by not toggling state in cleanup).
   useEffect(() => {
     if (!socket || provider !== 'local' || !streamId) return;
-    if (status !== 'live') return;
-    if (joined) return;
 
-    socket.emit('live:join', {
-      streamId,
-      userId: user?._id,
-      username: user?.username || user?.name || 'Viewer',
-    });
-    setJoined(true);
+    const username = user?.username || user?.name || 'Viewer';
+
+    if (status === 'live' && !joinedRef.current) {
+      socket.emit('live:join', { streamId, userId: user?._id, username });
+      joinedRef.current = true;
+      setJoined(true);
+    }
+
+    if (status !== 'live' && joinedRef.current) {
+      socket.emit('live:leave', { streamId, username });
+      joinedRef.current = false;
+      setJoined(false);
+    }
+  }, [socket, provider, streamId, status, user?._id, user?.username, user?.name]);
+
+  useEffect(() => {
+    if (!socket || provider !== 'local' || !streamId) return;
+    const username = user?.username || user?.name || 'Viewer';
 
     return () => {
-      socket.emit('live:leave', {
-        streamId,
-        username: user?.username || user?.name || 'Viewer',
-      });
-      setJoined(false);
+      if (!joinedRef.current) return;
+      socket.emit('live:leave', { streamId, username });
+      joinedRef.current = false;
     };
-  }, [socket, provider, streamId, status, joined, user]);
+  }, [socket, provider, streamId, user?.username, user?.name]);
 
   // End-to-end live chat + reactions (local provider)
   useEffect(() => {
@@ -141,18 +185,28 @@ export default function WatchLiveScreen({ route, navigation }) {
       </View>
 
       <View style={styles.playerWrap}>
-        {hlsUrl ? (
+        {hlsUrl && status === 'live' ? (
           <Video
             style={styles.video}
             source={{ uri: hlsUrl }}
             shouldPlay
             useNativeControls
             resizeMode="contain"
-            onError={(e) => console.warn('Mux playback error', e)}
+            onError={(e) => {
+              console.warn('Mux playback error', e);
+              setPlaybackError('Playback failed (404). Stream may not be live yet.');
+            }}
           />
         ) : (
           <View style={styles.empty}>
-            <Text style={{ color: THEME.textDim }}>Missing playbackId</Text>
+            <Text style={{ color: THEME.textDim, textAlign: 'center' }}>
+              {status !== 'live'
+                ? 'Stream is not live yet. Please wait or start streaming.'
+                : 'Missing playback URL.'}
+            </Text>
+            {playbackError ? (
+              <Text style={{ color: THEME.textDim, marginTop: 10, textAlign: 'center' }}>{playbackError}</Text>
+            ) : null}
           </View>
         )}
 
