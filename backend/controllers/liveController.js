@@ -202,3 +202,20 @@ exports.getLiveById = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
+
+// Debug endpoint to verify the backend's live-stream configuration in production.
+exports.getLiveConfig = async (_req, res) => {
+  const norm = (v) => (typeof v === 'string' ? v.trim() : v);
+  return res.json({
+    success: true,
+    data: {
+      LIVE_PROVIDER: norm(process.env.LIVE_PROVIDER || 'local'),
+      PUBLIC_BASE_URL: norm(process.env.PUBLIC_BASE_URL || ''),
+      HLS_BASE_URL: norm(process.env.HLS_BASE_URL || ''),
+      RTMP_BASE_URL: norm(process.env.RTMP_BASE_URL || ''),
+      STREAM_BASE_URL: norm(process.env.STREAM_BASE_URL || ''),
+      STREAM_NOTIFY_URL: norm(process.env.STREAM_NOTIFY_URL || ''),
+      NODE_ENV: norm(process.env.NODE_ENV || ''),
+    },
+  });
+};

@@ -7,6 +7,7 @@ import { AuthContext } from '../context/AuthContext';
 import liveService from '../services/liveService';
 import ChatBox from '../components/video/ChatBox';
 import { FloatingReaction } from '../components/video/ReactionOverlay';
+import ENVIRONMENT from '../config/environment';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -87,7 +88,17 @@ export default function WatchLiveScreen({ route, navigation }) {
   }, [streamId, status]);
 
   const hlsUrl = useMemo(() => {
-    if (playbackUrl) return playbackUrl;
+    if (playbackUrl) {
+      // Guardrail: never try to play `localhost` on mobile devices.
+      // If the backend accidentally returns an internal HLS URL, rewrite to the backend proxy endpoint.
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//i.test(playbackUrl)) {
+        const m = playbackUrl.match(/\/live\/([0-9a-f]{16,64})\/index\.m3u8/i);
+        const streamKey = m?.[1];
+        if (streamKey) return `${ENVIRONMENT.API_URL.replace(/\/$/, '')}/live/${streamKey}.m3u8`;
+        return null;
+      }
+      return playbackUrl;
+    }
     if (playbackId) return `https://stream.mux.com/${playbackId}.m3u8`;
     return null;
   }, [playbackId, playbackUrl]);
@@ -209,6 +220,12 @@ export default function WatchLiveScreen({ route, navigation }) {
             ) : null}
           </View>
         )}
+
+        {hlsUrl ? (
+          <Text style={styles.debugUrl} numberOfLines={2}>
+            HLS: {hlsUrl}
+          </Text>
+        ) : null}
 
         {provider === 'local' && streamId ? (
           <View style={styles.chatOverlay}>
