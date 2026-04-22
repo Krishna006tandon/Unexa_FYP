@@ -175,11 +175,72 @@ app.get('/api/test', (req, res) => {
 });
 
 // Convenience playback alias (matches: http://<server>/live/<streamKey>.m3u8)
-// Redirects to Node-Media-Server default output: /live/<streamKey>/index.m3u8
-app.get('/live/:streamKey.m3u8', (req, res) => {
-  const { streamKey } = req.params;
-  const hlsBase = (process.env.HLS_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
-  return res.redirect(`${hlsBase}/live/${streamKey}/index.m3u8`);
+// Proxies/rewrites HLS so clients always fetch segments from the right origin.
+function getHlsBase() {
+  return (process.env.HLS_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+}
+
+async function fetchText(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Upstream ${resp.status}`);
+  return resp.text();
+}
+
+async function fetchBinary(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Upstream ${resp.status}`);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const contentType = resp.headers.get('content-type') || 'application/octet-stream';
+  return { buf, contentType };
+}
+
+// Primary entrypoint used by apps.
+// Serves an HLS playlist where segment URLs point to this backend (stable), and backend proxies them to HLS_BASE_URL.
+app.get('/live/:streamKey.m3u8', async (req, res) => {
+  try {
+    const { streamKey } = req.params;
+    const hlsBase = getHlsBase();
+    const upstreamPlaylistUrl = `${hlsBase}/live/${streamKey}/index.m3u8`;
+    const playlist = await fetchText(upstreamPlaylistUrl);
+
+    const rewritten = playlist
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        // Rewrite relative segment URLs to backend proxy endpoint.
+        if (/^seg_.*\.ts(\?.*)?$/i.test(trimmed) || /\.ts(\?.*)?$/i.test(trimmed)) {
+          return `/live/${streamKey}/${trimmed}`;
+        }
+        // Rewrite any other relative references conservatively (e.g., nested playlists)
+        if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
+          return `/live/${streamKey}/${trimmed}`;
+        }
+        return line;
+      })
+      .join('\n');
+
+    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
+    res.setHeader('cache-control', 'no-store');
+    return res.status(200).send(rewritten);
+  } catch (e) {
+    return res.status(502).json({ success: false, error: `HLS playlist unavailable: ${e.message}` });
+  }
+});
+
+// Proxy HLS segments (and any other files under /live/<streamKey>/)
+app.get('/live/:streamKey/:file', async (req, res) => {
+  try {
+    const { streamKey, file } = req.params;
+    const hlsBase = getHlsBase();
+    const upstreamUrl = `${hlsBase}/live/${streamKey}/${encodeURIComponent(file)}`;
+    const { buf, contentType } = await fetchBinary(upstreamUrl);
+    res.setHeader('content-type', contentType);
+    res.setHeader('cache-control', 'no-store');
+    return res.status(200).send(buf);
+  } catch (e) {
+    return res.status(502).json({ success: false, error: `HLS segment unavailable: ${e.message}` });
+  }
 });
 
 // Mount Routes
