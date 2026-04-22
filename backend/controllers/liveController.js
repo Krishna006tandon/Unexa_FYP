@@ -13,6 +13,22 @@ function buildHybridPlaybackUrl(streamKey) {
   return `${base}/live/${streamKey}/index.m3u8`;
 }
 
+function safeBuildPlaybackUrl(streamKey) {
+  try {
+    return buildLivePlaybackUrl(streamKey);
+  } catch (e) {
+    return null;
+  }
+}
+
+function safeBuildRtmpUrl(streamKey) {
+  try {
+    return buildLiveRtmpUrl(streamKey);
+  } catch (e) {
+    return null;
+  }
+}
+
 // Creates a new Mux Live Stream and stores it in MongoDB.
 // Returns streamKey + rtmpUrl (for OBS) + playbackId (for viewers).
 exports.createLive = async (req, res) => {
@@ -66,8 +82,16 @@ exports.createLive = async (req, res) => {
     const live = await createLiveStream({ userId: req.user._id, title: title || 'Live Stream' });
 
     // Prefer PUBLIC_BASE_URL based viewer URL (backend redirect), to avoid leaking internal/ngrok URLs to clients.
-    const playbackUrl = buildLivePlaybackUrl(live.streamKey) || buildHybridPlaybackUrl(live.streamKey);
-    const rtmpUrl = buildLiveRtmpUrl(live.streamKey);
+    const playbackUrl = safeBuildPlaybackUrl(live.streamKey) || buildHybridPlaybackUrl(live.streamKey);
+    const rtmpUrl = safeBuildRtmpUrl(live.streamKey);
+
+    if (!rtmpUrl || !playbackUrl) {
+      return res.status(500).json({
+        success: false,
+        error:
+          'Live streaming is not configured. Set RTMP_BASE_URL, HLS_BASE_URL, and PUBLIC_BASE_URL on the backend.',
+      });
+    }
 
     return res.json({
       success: true,
@@ -123,7 +147,7 @@ exports.getActiveLives = async (req, res) => {
         status: l.isLive ? 'live' : 'idle',
         viewerCount: l.viewerCount || 0,
         startedAt: l.startedAt,
-        playbackUrl: buildLivePlaybackUrl(l.streamKey) || buildHybridPlaybackUrl(l.streamKey),
+        playbackUrl: safeBuildPlaybackUrl(l.streamKey) || buildHybridPlaybackUrl(l.streamKey),
         provider: 'local',
       })),
     });
@@ -169,9 +193,9 @@ exports.getLiveById = async (req, res) => {
         userId: live.userId,
         title: live.title,
         status: live.isLive ? 'live' : 'idle',
-        playbackUrl: buildLivePlaybackUrl(live.streamKey) || buildHybridPlaybackUrl(live.streamKey),
+        playbackUrl: safeBuildPlaybackUrl(live.streamKey) || buildHybridPlaybackUrl(live.streamKey),
         provider: 'local',
-        ...(isOwner ? { streamKey: live.streamKey, rtmpUrl: buildLiveRtmpUrl(live.streamKey) } : {}),
+        ...(isOwner ? { streamKey: live.streamKey, rtmpUrl: safeBuildRtmpUrl(live.streamKey) } : {}),
       },
     });
   } catch (error) {

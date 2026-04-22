@@ -8,18 +8,12 @@ function generateStreamKey() {
 function getRtmpBase() {
   const configured = (process.env.RTMP_BASE_URL || '').trim();
   if (configured) return configured;
-  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
-    throw new Error('RTMP_BASE_URL is not configured (required in production for live streaming)');
-  }
   return 'rtmp://localhost/live';
 }
 
 function getHlsBase() {
   const configured = (process.env.HLS_BASE_URL || '').trim();
   if (configured) return configured;
-  if ((process.env.NODE_ENV || '').toLowerCase() === 'production') {
-    throw new Error('HLS_BASE_URL is not configured (required in production for live streaming)');
-  }
   return 'http://localhost:8000';
 }
 
