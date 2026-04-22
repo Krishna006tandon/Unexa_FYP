@@ -29,10 +29,32 @@ const createOrUpdateProfile = async (req, res) => {
       privacySettings
     } = req.body;
 
+    // Load existing profile once so we can preserve required fields on partial updates
+    const existingProfileForUser = await Profile.findOne({ user: req.user.id });
+
+    const resolvedUsername =
+      (typeof username === 'string' && username.trim() ? username.trim() : null) ||
+      existingProfileForUser?.username ||
+      req.user?.username;
+
+    const resolvedEmailRaw =
+      (typeof email === 'string' && email.trim() ? email.trim() : null) ||
+      existingProfileForUser?.email ||
+      req.user?.email;
+
+    const resolvedEmail =
+      typeof resolvedEmailRaw === 'string' ? resolvedEmailRaw.toLowerCase().trim() : resolvedEmailRaw;
+
+    const resolvedFullName =
+      (typeof fullName === 'string' && fullName.trim() ? fullName.trim() : null) ||
+      existingProfileForUser?.fullName ||
+      req.user?.username ||
+      'Unexa User';
+
     // Check if username is already taken by another user
-    if (username) {
+    if (resolvedUsername) {
       const existingProfile = await Profile.findOne({ 
-        username, 
+        username: resolvedUsername,
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
@@ -40,9 +62,9 @@ const createOrUpdateProfile = async (req, res) => {
       }
     }
 
-    if (email) {
+    if (resolvedEmail) {
       const existingProfile = await Profile.findOne({ 
-        email: email.toLowerCase().trim(), 
+        email: resolvedEmail,
         user: { $ne: req.user.id } 
       });
       if (existingProfile) {
@@ -50,12 +72,10 @@ const createOrUpdateProfile = async (req, res) => {
       }
     }
 
-    const profileData = {
-      user: req.user.id,
-      username,
-      fullName,
+    // Build a $set payload with only defined values, but always ensure required fields exist
+    const profileData = { user: req.user.id, username: resolvedUsername, fullName: resolvedFullName, email: resolvedEmail };
+    const optionalFields = {
       bio,
-      email,
       phone,
       dateOfBirth,
       gender,
@@ -68,7 +88,12 @@ const createOrUpdateProfile = async (req, res) => {
       privacySettings
     };
 
-    let profile = await Profile.findOne({ user: req.user.id });
+    for (const [key, value] of Object.entries(optionalFields)) {
+      if (typeof value !== 'undefined') profileData[key] = value;
+    }
+
+    let profile = existingProfileForUser;
+    const wasCreated = !profile;
 
     if (profile) {
       // Update existing profile
@@ -94,11 +119,21 @@ const createOrUpdateProfile = async (req, res) => {
     res.status(200).json({
       success: true,
       data: profile,
-      message: profile.isNew ? 'Profile created successfully' : 'Profile updated successfully'
+      message: wasCreated ? 'Profile created successfully' : 'Profile updated successfully'
     });
 
   } catch (error) {
     console.error('Error in createOrUpdateProfile:', error);
+
+    // Common case: validation errors when required fields are missing/malformed
+    if (error?.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid profile data',
+        error: error.message
+      });
+    }
+
     res.status(500).json({ 
       success: false,
       message: 'Server error', 

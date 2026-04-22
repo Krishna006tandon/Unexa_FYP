@@ -4,6 +4,7 @@ import { Radio } from 'lucide-react-native';
 import liveService from '../../services/liveService';
 import LiveCard from '../../components/video/LiveCard';
 import ScreenHeader from '../../components/video/ScreenHeader';
+import ProfileContext from '../../context/ProfileContext';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -14,6 +15,7 @@ const THEME = {
 };
 
 export default function LiveListScreen({ navigation }) {
+  const { socket } = React.useContext(ProfileContext);
   const [items, setItems] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -34,6 +36,13 @@ export default function LiveListScreen({ navigation }) {
     load();
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const onStatus = () => load();
+    socket.on('live:status', onStatus);
+    return () => socket.off('live:status', onStatus);
+  }, [socket]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -56,6 +65,7 @@ export default function LiveListScreen({ navigation }) {
                   playbackId: item.playbackId,
                   playbackUrl: item.playbackUrl,
                   streamId: item._id,
+                  provider: item.provider,
                   title: item.title,
                 })
               }

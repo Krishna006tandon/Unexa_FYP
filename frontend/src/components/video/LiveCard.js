@@ -24,7 +24,7 @@ export default function LiveCard({ item, onPress }) {
           {item.title || 'Live Stream'}
         </Text>
         <Text style={styles.sub} numberOfLines={1}>
-          {item.userId?.username || 'creator'} • LIVE
+          {item.userId?.username || 'creator'} • {typeof item.viewerCount === 'number' ? `${item.viewerCount} watching` : 'LIVE'}
         </Text>
       </View>
       <View style={styles.livePill}>

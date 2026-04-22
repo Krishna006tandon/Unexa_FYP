@@ -45,6 +45,7 @@ const config = {
     'expo-audio',
     'expo-video',
     'expo-font',
+    './plugins/withScreenShareRtmp',
     [
       'expo-camera',
       {

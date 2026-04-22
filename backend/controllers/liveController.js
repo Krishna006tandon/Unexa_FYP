@@ -120,6 +120,8 @@ exports.getActiveLives = async (req, res) => {
         userId: l.userId,
         title: l.title,
         status: l.isLive ? 'live' : 'idle',
+        viewerCount: l.viewerCount || 0,
+        startedAt: l.startedAt,
         playbackUrl: buildHybridPlaybackUrl(l.streamKey) || buildLivePlaybackUrl(l.streamKey),
         provider: 'local',
       })),

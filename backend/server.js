@@ -62,8 +62,11 @@ app.use(cors({
   credentials: true
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Expose uploads folder
+app.use('/liveweb', express.static(path.join(__dirname, 'public', 'liveweb')));
 app.use(helmet({
   contentSecurityPolicy: false, // Required for WebRTC/Agora script execution
+  frameguard: false, // allow embedding /liveweb in an iframe (web app)
+  crossOriginResourcePolicy: false,
 }));
 
 // Critical Infrastructure Verification

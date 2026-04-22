@@ -3,6 +3,10 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-na
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video } from 'expo-av';
 import ProfileContext from '../context/ProfileContext';
+import { AuthContext } from '../context/AuthContext';
+import liveService from '../services/liveService';
+import ChatBox from '../components/video/ChatBox';
+import { FloatingReaction } from '../components/video/ReactionOverlay';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -15,11 +19,36 @@ const THEME = {
 };
 
 export default function WatchLiveScreen({ route, navigation }) {
-  const { playbackId, playbackUrl, streamId, title } = route.params || {};
+  const { playbackId, playbackUrl: playbackUrlParam, streamId, provider, title } = route.params || {};
   const { socket } = useContext(ProfileContext);
+  const { user } = useContext(AuthContext);
 
   const [status, setStatus] = useState('idle'); // idle | live | ended
   const [viewerCount, setViewerCount] = useState(0);
+  const [playbackUrl, setPlaybackUrl] = useState(playbackUrlParam || null);
+  const [joined, setJoined] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [floating, setFloating] = useState([]);
+
+  useEffect(() => {
+    // Pull latest status/url from backend (real data)
+    if (!streamId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await liveService.getById(streamId);
+        const data = res?.data;
+        if (cancelled || !data) return;
+        if (data.status) setStatus(data.status);
+        if (data.playbackUrl) setPlaybackUrl(data.playbackUrl);
+      } catch (e) {
+        // ignore (viewer can still try playbackUrlParam)
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [streamId]);
 
   const hlsUrl = useMemo(() => {
     if (playbackUrl) return playbackUrl;
@@ -42,13 +71,56 @@ export default function WatchLiveScreen({ route, navigation }) {
     socket.on('live:status', onStatus);
     socket.on('live:viewers', onViewers);
 
-    if (streamId) socket.emit('live:join', { streamId });
     return () => {
-      if (streamId) socket.emit('live:leave', { streamId });
       socket.off('live:status', onStatus);
       socket.off('live:viewers', onViewers);
     };
-  }, [socket, playbackId, playbackUrl, streamId]);
+  }, [socket, playbackId, playbackUrl, streamId, provider]);
+
+  // Join only when stream is actually LIVE (real data).
+  useEffect(() => {
+    if (!socket || provider !== 'local' || !streamId) return;
+    if (status !== 'live') return;
+    if (joined) return;
+
+    socket.emit('live:join', {
+      streamId,
+      userId: user?._id,
+      username: user?.username || user?.name || 'Viewer',
+    });
+    setJoined(true);
+
+    return () => {
+      socket.emit('live:leave', {
+        streamId,
+        username: user?.username || user?.name || 'Viewer',
+      });
+      setJoined(false);
+    };
+  }, [socket, provider, streamId, status, joined, user]);
+
+  // End-to-end live chat + reactions (local provider)
+  useEffect(() => {
+    if (!socket || provider !== 'local' || !streamId) return;
+
+    const onChat = (msg) => {
+      if (msg?.streamId !== streamId) return;
+      setMessages((prev) => [...prev.slice(-100), msg]);
+    };
+
+    const onReaction = (r) => {
+      if (r?.streamId !== streamId) return;
+      setFloating((prev) => [...prev.slice(-20), { _id: `${Date.now()}_${Math.random()}`, emoji: r.emoji }]);
+      setTimeout(() => setFloating((prev) => prev.slice(1)), 1600);
+    };
+
+    socket.on('live:chat', onChat);
+    socket.on('live:reaction', onReaction);
+    return () => {
+      socket.off('live:chat', onChat);
+      socket.off('live:reaction', onReaction);
+    };
+  }, [socket, provider, streamId]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -84,9 +156,30 @@ export default function WatchLiveScreen({ route, navigation }) {
           </View>
         )}
 
-        <View style={styles.chatPlaceholder}>
-          <Text style={styles.chatText}>Chat overlay (placeholder)</Text>
-        </View>
+        {provider === 'local' && streamId ? (
+          <View style={styles.chatOverlay}>
+            <ChatBox
+              messages={messages}
+              onSend={(message) => {
+                if (!joined) return;
+                socket?.emit('live:chat', {
+                  streamId,
+                  userId: user?._id,
+                  username: user?.username || user?.name || 'Viewer',
+                  message,
+                });
+              }}
+            />
+          </View>
+        ) : (
+          <View style={styles.chatPlaceholder}>
+            <Text style={styles.chatText}>Chat overlay (placeholder)</Text>
+          </View>
+        )}
+
+        {provider === 'local' && streamId
+          ? floating.map((r) => <FloatingReaction key={r._id} emoji={r.emoji} />)
+          : null}
       </View>
     </SafeAreaView>
   );
@@ -122,6 +215,7 @@ const styles = StyleSheet.create({
   playerWrap: { flex: 1, padding: 14 },
   video: { width: '100%', height: '100%', backgroundColor: '#000', borderRadius: 18 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  chatOverlay: { position: 'absolute', left: 18, right: 18, bottom: 18 },
   chatPlaceholder: {
     position: 'absolute',
     left: 24,

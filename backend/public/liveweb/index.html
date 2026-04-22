@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UNEXA Live (Web)</title>
+    <style>
+      :root {
+        --bg: #0a0a0a;
+        --card: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.1);
+        --text: #ffffff;
+        --text-dim: #a0a0a0;
+        --primary: #7b61ff;
+        --accent: #ff3b5c;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+      .top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 900;
+      }
+      .sub {
+        margin-top: 6px;
+        color: var(--text-dim);
+        font-size: 12px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      @media (min-width: 980px) {
+        .row {
+          grid-template-columns: 1.4fr 0.6fr;
+        }
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 14px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 59, 92, 0.25);
+        background: rgba(255, 59, 92, 0.12);
+        font-weight: 900;
+        color: var(--accent);
+        font-size: 12px;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+      .list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+      .item:hover { border-color: rgba(255, 255, 255, 0.18); }
+      .it-title { font-weight: 900; }
+      .it-sub { color: var(--text-dim); font-size: 12px; margin-top: 4px; }
+      .pill {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(0,0,0,0.35);
+        border: 1px solid rgba(255,255,255,0.12);
+        font-size: 12px;
+        font-weight: 800;
+      }
+      video {
+        width: 100%;
+        background: #000;
+        border-radius: 18px;
+      }
+      .chat {
+        height: 420px;
+        overflow: auto;
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        background: rgba(0,0,0,0.25);
+      }
+      .msg {
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .msg b { color: var(--primary); }
+      .inputRow {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      input {
+        flex: 1;
+        height: 42px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        padding: 0 12px;
+        outline: none;
+      }
+      button {
+        height: 42px;
+        border: 0;
+        border-radius: 14px;
+        padding: 0 14px;
+        font-weight: 900;
+        color: #fff;
+        background: var(--primary);
+        cursor: pointer;
+      }
+      .hint { color: var(--text-dim); font-size: 12px; line-height: 18px; margin-top: 10px; }
+      .reactions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+      .rx { background: rgba(255,255,255,0.04); border:1px solid var(--border); border-radius: 14px; padding: 8px 10px; cursor:pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <div>
+          <h1>UNEXA Live (Web Viewer)</h1>
+          <div class="sub">HLS playback + realtime chat via Socket.IO (no WebRTC). For Chrome/Edge we use hls.js.</div>
+        </div>
+        <div class="badge"><span class="dot"></span><span id="statusText">Idle</span></div>
+      </div>
+
+      <div class="row">
+        <div class="card">
+          <video id="video" controls playsinline></video>
+          <div class="hint" id="playHint">Select a live stream from the list.</div>
+          <div class="reactions" id="rxRow" style="display:none;">
+            <div class="rx" data-e="❤️">❤️</div>
+            <div class="rx" data-e="🔥">🔥</div>
+            <div class="rx" data-e="😂">😂</div>
+            <div class="rx" data-e="👏">👏</div>
+            <div class="rx" data-e="😮">😮</div>
+            <div class="rx" data-e="😍">😍</div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-weight:900;">Live streams</div>
+            <div class="pill" id="viewerPill">0 watching</div>
+          </div>
+          <div class="list" id="list"></div>
+          <div class="hint">If list is empty, start OBS/Larix with a valid streamKey.</div>
+          <div style="height:14px;"></div>
+          <div style="font-weight:900;margin-bottom:8px;">Chat</div>
+          <div class="chat" id="chat"></div>
+          <div class="inputRow">
+            <input id="msg" placeholder="Type a message..." />
+            <button id="send">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script>
+      const API = location.origin;
+      const socket = io(API);
+      const listEl = document.getElementById('list');
+      const video = document.getElementById('video');
+      const chatEl = document.getElementById('chat');
+      const msgEl = document.getElementById('msg');
+      const sendBtn = document.getElementById('send');
+      const viewerPill = document.getElementById('viewerPill');
+      const statusText = document.getElementById('statusText');
+      const rxRow = document.getElementById('rxRow');
+      const playHint = document.getElementById('playHint');
+
+      let current = null; // { streamId, playbackUrl }
+      let hls = null;
+
+      function addChat(msg) {
+        const div = document.createElement('div');
+        div.className = 'msg';
+        if (msg.system) {
+          div.innerHTML = `<span style="color:#A0A0A0">SYSTEM</span> ${escapeHtml(msg.message)}`;
+        } else {
+          div.innerHTML = `<b>${escapeHtml(msg.username || 'user')}</b> ${escapeHtml(msg.message)}`;
+        }
+        chatEl.appendChild(div);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      }
+
+      function escapeHtml(s) {
+        return (s || '').toString().replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      }
+
+      function setStatus(s) {
+        statusText.textContent = s === 'live' ? 'LIVE' : s.toUpperCase();
+      }
+
+      async function loadList() {
+        const res = await fetch(`${API}/api/live/active`);
+        const json = await res.json();
+        const items = json.data || [];
+        listEl.innerHTML = '';
+        items.forEach((it) => {
+          const el = document.createElement('div');
+          el.className = 'item';
+          el.innerHTML = `
+            <div>
+              <div class="it-title">${escapeHtml(it.title || 'Live Stream')}</div>
+              <div class="it-sub">${escapeHtml(it.userId?.username || 'creator')} • ${(it.viewerCount ?? 0)} watching</div>
+            </div>
+            <div class="pill">Watch</div>
+          `;
+          el.onclick = () => selectStream(it);
+          listEl.appendChild(el);
+        });
+      }
+
+      function selectStream(it) {
+        current = { streamId: it._id, playbackUrl: it.playbackUrl };
+        chatEl.innerHTML = '';
+        viewerPill.textContent = `${it.viewerCount ?? 0} watching`;
+        setStatus(it.status || 'idle');
+        rxRow.style.display = 'flex';
+        playHint.textContent = it.playbackUrl;
+
+        socket.emit('live:join', { streamId: it._id, username: 'WebViewer' });
+
+        if (hls) { hls.destroy(); hls = null; }
+        if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = it.playbackUrl;
+          video.play().catch(()=>{});
+          return;
+        }
+        if (window.Hls && Hls.isSupported()) {
+          hls = new Hls({ lowLatencyMode: true });
+          hls.loadSource(it.playbackUrl);
+          hls.attachMedia(video);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+          hls.on(Hls.Events.ERROR, (e, data) => console.log('hls.js error', data));
+          return;
+        }
+        alert('HLS not supported in this browser. Use Safari or VLC.');
+      }
+
+      sendBtn.onclick = () => {
+        const text = msgEl.value.trim();
+        if (!text || !current) return;
+        msgEl.value = '';
+        socket.emit('live:chat', { streamId: current.streamId, username: 'WebViewer', message: text });
+      };
+
+      rxRow.addEventListener('click', (e) => {
+        const emoji = e.target?.dataset?.e;
+        if (!emoji || !current) return;
+        socket.emit('live:reaction', { streamId: current.streamId, emoji });
+      });
+
+      socket.on('live:viewers', (p) => {
+        if (!current || p.streamId !== current.streamId) return;
+        viewerPill.textContent = `${p.viewerCount || 0} watching`;
+      });
+      socket.on('live:chat', (msg) => {
+        if (!current || msg.streamId !== current.streamId) return;
+        addChat(msg);
+      });
+      socket.on('live:reaction', (r) => {
+        if (!current || r.streamId !== current.streamId) return;
+        // simple overlay: add a system chat line
+        addChat({ system: true, message: `reaction ${r.emoji}` });
+      });
+      socket.on('live:status', () => loadList());
+
+      loadList();
+      setInterval(loadList, 5000);
+    </script>
+  </body>
+</html>
+

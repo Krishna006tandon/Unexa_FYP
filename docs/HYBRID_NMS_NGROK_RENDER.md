@@ -22,6 +22,9 @@ HLS URL (local):
 Browser note:
 - Chrome/Edge don’t play HLS natively. Use Safari/VLC, or open `http://localhost:8000/player.html`.
 
+Web viewer UI:
+- `http://<BACKEND_HOST>/liveweb/` (plays live + chat + reactions)
+
 ---
 
 ## 2) ngrok (public HLS URL)
@@ -45,6 +48,10 @@ Set these env vars on Render backend:
 - `RTMP_BASE_URL=rtmp://192.168.29.104/live` (your PC LAN IP; used only to show OBS instructions)
 - `STREAM_NOTIFY_SECRET=<random>` (optional but recommended for real-time status)
 
+If you want mobile broadcasters outside your Wi‑Fi:
+- Start RTMP tunnel: `ngrok tcp 1935`
+- Set `RTMP_BASE_URL=rtmp://0.tcp.ngrok.io:<port>/live`
+
 ---
 
 ## 4) App flow
@@ -63,6 +70,10 @@ Real-time “LIVE/ENDED”:
 - On your streaming PC set env for NMS process:
   - `STREAM_NOTIFY_URL=https://<your-render-backend>/webhook/nms`
   - `STREAM_NOTIFY_SECRET=<same random as backend>`
+
+Mobile broadcasting:
+- Use an RTMP broadcaster app (Larix / Prism Live / Streamlabs).
+- Paste Server + Stream Key shown in the app’s Live screen.
 
 ---
 

@@ -30,6 +30,8 @@ const VideoHomeScreen = React.lazy(() => import('./src/screens/video/VideoHomeSc
 const LiveListScreen = React.lazy(() => import('./src/screens/video/LiveListScreen'));
 const LiveScreen = React.lazy(() => import('./src/screens/LiveScreen'));
 const WatchLiveScreen = React.lazy(() => import('./src/screens/WatchLiveScreen'));
+const MobileBroadcastScreen = React.lazy(() => import('./src/screens/MobileBroadcastScreen'));
+const ScreenShareBroadcastScreen = React.lazy(() => import('./src/screens/ScreenShareBroadcastScreen'));
 const VideoFeedScreen = React.lazy(() => import('./src/screens/video/VideoFeedScreen'));
 const VideoPlayerScreen = React.lazy(() => import('./src/screens/video/VideoPlayerScreen'));
 const UploadVideoScreen = React.lazy(() => import('./src/screens/video/UploadVideoScreen'));
@@ -58,6 +60,8 @@ const LazyVideoHomeScreen = withSuspense(VideoHomeScreen);
 const LazyLiveListScreen = withSuspense(LiveListScreen);
 const LazyLiveScreen = withSuspense(LiveScreen);
 const LazyWatchLiveScreen = withSuspense(WatchLiveScreen);
+const LazyMobileBroadcastScreen = withSuspense(MobileBroadcastScreen);
+const LazyScreenShareBroadcastScreen = withSuspense(ScreenShareBroadcastScreen);
 const LazyVideoFeedScreen = withSuspense(VideoFeedScreen);
 const LazyVideoPlayerScreen = withSuspense(VideoPlayerScreen);
 const LazyUploadVideoScreen = withSuspense(UploadVideoScreen);
@@ -130,6 +134,8 @@ const VideoStack = () => (
     <VideoStackNav.Screen name="LiveList" component={LazyLiveListScreen} />
     <VideoStackNav.Screen name="LiveScreen" component={LazyLiveScreen} />
     <VideoStackNav.Screen name="WatchLiveScreen" component={LazyWatchLiveScreen} />
+    <VideoStackNav.Screen name="MobileBroadcastScreen" component={LazyMobileBroadcastScreen} />
+    <VideoStackNav.Screen name="ScreenShareBroadcastScreen" component={LazyScreenShareBroadcastScreen} />
     <VideoStackNav.Screen name="VideoFeed" component={LazyVideoFeedScreen} />
     <VideoStackNav.Screen name="UploadVideo" component={LazyUploadVideoScreen} />
     <VideoStackNav.Screen name="VideoPlayer" component={LazyVideoPlayerScreen} />
