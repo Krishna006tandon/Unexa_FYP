@@ -261,6 +261,26 @@ app.use('/api/posts', postRoutes);
 app.use('/webhook', webhookMuxRoutes);
 app.use('/webhook', webhookNmsRoutes);
 
+// Central error handler (prevents middleware throws from crashing the process)
+app.use((err, req, res, next) => {
+  if (!err) return next();
+
+  // express-rate-limit permissive trust proxy validation
+  if (err.code === 'ERR_ERL_PERMISSIVE_TRUST_PROXY') {
+    return res.status(500).json({
+      success: false,
+      error: 'Rate limiter misconfigured (trust proxy). Please redeploy with server trust proxy set to 1.',
+    });
+  }
+
+  // Multer file upload errors
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+
+  res.status(500).json({ success: false, error: err.message || 'Server error' });
+});
+
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {
   useNewUrlParser: true,
