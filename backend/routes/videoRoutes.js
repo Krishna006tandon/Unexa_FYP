@@ -11,6 +11,7 @@ const uploadLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many uploads, please try again later',
+  validate: { trustProxy: false },
 });
 
 router.post('/upload', protect, uploadLimiter, videoController.videoUploadMiddleware, videoController.uploadVideo);

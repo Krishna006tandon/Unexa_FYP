@@ -11,8 +11,8 @@ const path = require('path');
 // Initialize App
 const app = express();
 
-// Trust proxy for Render deployment
-app.set('trust proxy', true);
+// Trust proxy for Render deployment (do not set to `true`, it's too permissive for IP-based rate limiting)
+app.set('trust proxy', 1);
 
 // Socket.IO Setup
 const server = http.createServer(app);

@@ -18,6 +18,7 @@ const postWriteLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: 'Too many post requests, please try again later',
+  validate: { trustProxy: false },
 });
 
 router.post('/create', protect, postWriteLimiter, postImageUpload.single('image'), postController.createPost);
