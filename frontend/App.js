@@ -35,6 +35,10 @@ const ScreenShareBroadcastScreen = React.lazy(() => import('./src/screens/Screen
 const VideoFeedScreen = React.lazy(() => import('./src/screens/video/VideoFeedScreen'));
 const VideoPlayerScreen = React.lazy(() => import('./src/screens/video/VideoPlayerScreen'));
 const UploadVideoScreen = React.lazy(() => import('./src/screens/video/UploadVideoScreen'));
+const UnifiedFeedScreen = React.lazy(() => import('./src/screens/video/UnifiedFeedScreen'));
+const UploadReelScreen = React.lazy(() => import('./src/screens/video/UploadReelScreen'));
+const CreatePostScreen = React.lazy(() => import('./src/screens/main/CreatePostScreen'));
+const PostDetailScreen = React.lazy(() => import('./src/screens/main/PostDetailScreen'));
 
 const LazyFallback = () => (
   <View style={{ flex: 1, backgroundColor: '#0A0A0A', justifyContent: 'center', alignItems: 'center' }}>
@@ -65,6 +69,10 @@ const LazyScreenShareBroadcastScreen = withSuspense(ScreenShareBroadcastScreen);
 const LazyVideoFeedScreen = withSuspense(VideoFeedScreen);
 const LazyVideoPlayerScreen = withSuspense(VideoPlayerScreen);
 const LazyUploadVideoScreen = withSuspense(UploadVideoScreen);
+const LazyUnifiedFeedScreen = withSuspense(UnifiedFeedScreen);
+const LazyUploadReelScreen = withSuspense(UploadReelScreen);
+const LazyCreatePostScreen = withSuspense(CreatePostScreen);
+const LazyPostDetailScreen = withSuspense(PostDetailScreen);
 
 
 class ErrorBoundary extends React.Component {
@@ -122,7 +130,7 @@ const linking = {
   },
 };
 
-const FeedScreen = ({ navigation }) => <StoriesListScreen navigation={navigation} />;
+const FeedScreen = (props) => <LazyUnifiedFeedScreen {...props} />;
 const CreateScreen = ({ navigation }) => (
   <Suspense fallback={<LazyFallback />}>
     <MediaShareScreen navigation={navigation} />
@@ -137,7 +145,9 @@ const VideoStack = () => (
     <VideoStackNav.Screen name="MobileBroadcastScreen" component={LazyMobileBroadcastScreen} />
     <VideoStackNav.Screen name="ScreenShareBroadcastScreen" component={LazyScreenShareBroadcastScreen} />
     <VideoStackNav.Screen name="VideoFeed" component={LazyVideoFeedScreen} />
+    <VideoStackNav.Screen name="UnifiedFeed" component={LazyUnifiedFeedScreen} />
     <VideoStackNav.Screen name="UploadVideo" component={LazyUploadVideoScreen} />
+    <VideoStackNav.Screen name="UploadReel" component={LazyUploadReelScreen} />
     <VideoStackNav.Screen name="VideoPlayer" component={LazyVideoPlayerScreen} />
   </VideoStackNav.Navigator>
 );
@@ -203,6 +213,8 @@ const AppNavigator = () => {
             <Stack.Screen name="CallScreen" component={LazyCallScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="StoryScreen" component={LazyStoryScreen} options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="ProfileScreen" component={LazyProfileScreen} />
+            <Stack.Screen name="CreatePost" component={LazyCreatePostScreen} />
+            <Stack.Screen name="PostDetail" component={LazyPostDetailScreen} />
             <Stack.Screen name="GroupChatDetailScreen" component={LazyGroupChatDetailScreen} />
             <Stack.Screen name="StarredMessagesScreen" component={LazyStarredMessagesScreen} />
           </>

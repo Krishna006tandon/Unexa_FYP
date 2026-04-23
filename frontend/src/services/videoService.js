@@ -35,16 +35,19 @@ async function toUploadPart(uri, nameFallback, typeFallback) {
 }
 
 class VideoService {
-  async upload({ uri, title, description }) {
-    const headers = await authHeaders({ 'Content-Type': 'multipart/form-data' });
+  async upload({ uri, title, description, name, type, kind }) {
+    // NOTE: Do not force `Content-Type: multipart/form-data` in React Native.
+    // Axios will set the correct boundary automatically; forcing it can break uploads on Android.
+    const headers = await authHeaders();
 
     const form = new FormData();
     form.append('title', title);
     if (description) form.append('description', description);
+    if (kind) form.append('kind', kind);
 
-    const filename = `video_${Date.now()}.mp4`;
-    const type = 'video/mp4';
-    const part = await toUploadPart(uri, filename, type);
+    const filename = name || `video_${Date.now()}.mp4`;
+    const contentType = type || 'video/mp4';
+    const part = await toUploadPart(uri, filename, contentType);
     if (part.blob) form.append('video', part.blob, filename);
     else form.append('video', part.file);
 
@@ -55,22 +58,30 @@ class VideoService {
     return res.data;
   }
 
-  async feed({ page = 1, limit = 10 } = {}) {
+  async feed({ page = 1, limit = 10, kind } = {}) {
     const res = await axios.get(`${API_URL}/api/video/feed`, {
-      params: { page, limit },
+      params: { page, limit, ...(kind ? { kind } : {}) },
       timeout: 60000,
     });
     return res.data;
   }
 
-  async search(q) {
-    const res = await axios.get(`${API_URL}/api/video/search`, { params: { q }, timeout: 60000 });
+  async search(q, { kind } = {}) {
+    const res = await axios.get(`${API_URL}/api/video/search`, { params: { q, ...(kind ? { kind } : {}) }, timeout: 60000 });
     return res.data;
   }
 
   async getById(id, { incrementView = true } = {}) {
     const res = await axios.get(`${API_URL}/api/video/${id}`, {
       params: { incrementView: incrementView ? 'true' : 'false' },
+      timeout: 60000,
+    });
+    return res.data;
+  }
+
+  async related(id, { limit = 10, kind } = {}) {
+    const res = await axios.get(`${API_URL}/api/video/related/${id}`, {
+      params: { limit, ...(kind ? { kind } : {}) },
       timeout: 60000,
     });
     return res.data;
@@ -94,4 +105,3 @@ class VideoService {
 }
 
 export default new VideoService();
-

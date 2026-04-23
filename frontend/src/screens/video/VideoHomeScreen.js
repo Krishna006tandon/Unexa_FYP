@@ -27,10 +27,10 @@ export default function VideoHomeScreen({ navigation }) {
           <Text style={styles.tileSub}>Watch now + chat</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.tile} onPress={() => navigation.navigate('VideoFeed')}>
+        <TouchableOpacity style={styles.tile} onPress={() => navigation.navigate('UnifiedFeed')}>
           <Play color={THEME.primary} size={26} />
-          <Text style={styles.tileTitle}>Video Feed</Text>
-          <Text style={styles.tileSub}>Browse uploads</Text>
+          <Text style={styles.tileTitle}>Feed</Text>
+          <Text style={styles.tileSub}>Long videos â€¢ reels â€¢ posts</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.tile, styles.wide]} onPress={() => navigation.navigate('LiveScreen')}>

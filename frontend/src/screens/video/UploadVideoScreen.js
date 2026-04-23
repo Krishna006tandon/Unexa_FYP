@@ -39,7 +39,13 @@ export default function UploadVideoScreen({ navigation }) {
     if (!title.trim()) return Alert.alert('Upload', 'Add a title.');
     setLoading(true);
     try {
-      const res = await videoService.upload({ uri: file.uri, title: title.trim(), description: description.trim() });
+      const res = await videoService.upload({
+        uri: file.uri,
+        title: title.trim(),
+        description: description.trim(),
+        name: file.name,
+        type: file.mimeType,
+      });
       Alert.alert('Uploaded', 'Your video is live in the feed.');
       navigation.navigate('VideoPlayer', { videoId: res?.data?._id });
     } catch (e) {
@@ -119,4 +125,3 @@ const styles = StyleSheet.create({
   uploadText: { color: '#fff', fontWeight: '900' },
   hint: { color: THEME.textDim, fontSize: 12, lineHeight: 18, marginTop: 6 },
 });
-

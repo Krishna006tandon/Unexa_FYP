@@ -30,7 +30,7 @@ function contentTypeForExt(ext) {
   return 'application/octet-stream';
 }
 
-async function createVideoFromUpload({ req, userId, title, description, uploadedFile }) {
+async function createVideoFromUpload({ req, userId, title, description, uploadedFile, kind }) {
   const uploadsDir = path.join(__dirname, '..', 'uploads');
   const videoDir = path.join(uploadsDir, 'videos');
   const thumbDir = path.join(uploadsDir, 'thumbnails');
@@ -120,6 +120,7 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
 
   const video = await Video.create({
     userId,
+    kind: kind === 'reel' ? 'reel' : 'long',
     title,
     description: description || '',
     videoUrl,

@@ -124,6 +124,7 @@ const webrtcRoutes = require('./routes/webrtc');
 const advancedRoutes = require('./routes/advancedRoutes');
 const liveRoutes = require('./routes/live');
 const videoRoutes = require('./routes/videoRoutes');
+const postRoutes = require('./routes/postRoutes');
 const webhookMuxRoutes = require('./routes/webhookMux');
 const webhookNmsRoutes = require('./routes/webhookNms');
 
@@ -256,6 +257,7 @@ app.use('/api/webrtc', webrtcRoutes);
 app.use('/api/advanced', advancedRoutes);
 app.use('/api/live', liveRoutes);
 app.use('/api/video', videoRoutes);
+app.use('/api/posts', postRoutes);
 app.use('/webhook', webhookMuxRoutes);
 app.use('/webhook', webhookNmsRoutes);
 

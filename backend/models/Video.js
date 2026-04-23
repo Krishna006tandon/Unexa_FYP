@@ -12,6 +12,7 @@ const videoCommentSchema = new mongoose.Schema(
 const videoSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    kind: { type: String, enum: ['long', 'reel'], default: 'long', index: true },
     title: { type: String, required: true, trim: true, maxlength: 120 },
     description: { type: String, trim: true, maxlength: 2000, default: '' },
     videoUrl: { type: String, required: true },
@@ -28,4 +29,3 @@ const videoSchema = new mongoose.Schema(
 videoSchema.index({ title: 'text', description: 'text' });
 
 module.exports = mongoose.model('Video', videoSchema);
-

@@ -19,28 +19,40 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
+  fileFilter: function (req, file, cb) {
+    if (file?.mimetype && file.mimetype.startsWith('video/')) return cb(null, true);
+    cb(new Error('Only video files are allowed'));
+  },
   limits: { fileSize: 1024 * 1024 * 300 }, // 300MB
 });
 
-exports.videoUploadMiddleware = upload.single('video');
+// Accept `video` (preferred) and `media` (legacy) field names from clients.
+exports.videoUploadMiddleware = upload.fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'media', maxCount: 1 },
+]);
 
 exports.uploadVideo = async (req, res) => {
   try {
-    const { title, description } = req.body || {};
+    const { title, description, kind } = req.body || {};
     if (!title) return res.status(400).json({ success: false, error: 'title is required' });
-    if (!req.file) return res.status(400).json({ success: false, error: 'video file is required' });
+    const uploadedFile = (req.files?.video && req.files.video[0]) || (req.files?.media && req.files.media[0]) || null;
+    if (!uploadedFile) return res.status(400).json({ success: false, error: 'video file is required' });
 
     const video = await createVideoFromUpload({
       req,
       userId: req.user._id,
       title,
       description,
-      uploadedFile: req.file,
+      uploadedFile,
+      kind,
     });
 
     res.json({ success: true, data: video });
   } catch (error) {
-    safeUnlink(req.file?.path);
+    // best-effort cleanup of the temp upload
+    const uploadedFile = (req.files?.video && req.files.video[0]) || (req.files?.media && req.files.media[0]) || null;
+    safeUnlink(uploadedFile?.path);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -62,19 +74,45 @@ exports.getVideoById = async (req, res) => {
   }
 };
 
+exports.getRelated = async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    if (!video) return res.status(404).json({ success: false, error: 'Video not found' });
+
+    const limit = Math.min(30, Math.max(1, parseInt(req.query.limit || '10', 10)));
+    const kind = (req.query.kind || '').toString().trim().toLowerCase();
+    const kindFilter = kind === 'reel' ? { kind: 'reel' } : kind === 'long' ? { kind: 'long' } : {};
+
+    const items = await Video.find({
+      _id: { $ne: video._id },
+      userId: video.userId,
+      ...kindFilter,
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('userId', 'username profilePhoto');
+
+    res.json({ success: true, data: { items } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
 exports.getFeed = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page || '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit || '10', 10)));
     const skip = (page - 1) * limit;
+    const kind = (req.query.kind || '').toString().trim().toLowerCase();
+    const filter = kind === 'reel' ? { kind: 'reel' } : kind === 'long' ? { kind: 'long' } : {};
 
     const [items, total] = await Promise.all([
-      Video.find({})
+      Video.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .populate('userId', 'username profilePhoto'),
-      Video.countDocuments({}),
+      Video.countDocuments(filter),
     ]);
 
     res.json({
@@ -89,9 +127,11 @@ exports.getFeed = async (req, res) => {
 exports.searchVideos = async (req, res) => {
   try {
     const q = (req.query.q || '').toString().trim();
+    const kind = (req.query.kind || '').toString().trim().toLowerCase();
+    const kindFilter = kind === 'reel' ? { kind: 'reel' } : kind === 'long' ? { kind: 'long' } : {};
     if (!q) return res.json({ success: true, data: { items: [] } });
 
-    const items = await Video.find({ $text: { $search: q } })
+    const items = await Video.find({ ...kindFilter, $text: { $search: q } })
       .sort({ score: { $meta: 'textScore' }, createdAt: -1 })
       .limit(30)
       .populate('userId', 'username profilePhoto');
@@ -145,4 +185,3 @@ exports.commentVideo = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
-

@@ -15,9 +15,13 @@ const THEME = {
 export default function ScreenHeader({ title, onBack, right }) {
   return (
     <View style={styles.wrap}>
-      <TouchableOpacity onPress={onBack} style={styles.backHit} hitSlop={12}>
-        <ChevronLeft color={THEME.text} size={26} />
-      </TouchableOpacity>
+      {onBack ? (
+        <TouchableOpacity onPress={onBack} style={styles.backHit} hitSlop={12}>
+          <ChevronLeft color={THEME.text} size={26} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.backSpacer} />
+      )}
       <Text style={styles.title} numberOfLines={1}>
         {title}
       </Text>
@@ -44,6 +48,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.border,
   },
+  backSpacer: { width: 42, height: 42 },
   title: {
     flex: 1,
     marginLeft: 12,
@@ -53,4 +58,3 @@ const styles = StyleSheet.create({
   },
   right: { width: 42, alignItems: 'flex-end' },
 });
-
