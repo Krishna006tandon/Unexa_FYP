@@ -45,7 +45,16 @@ export default function VideoPlayerScreen({ route, navigation }) {
   const loadRelated = useCallback(async () => {
     try {
       const res = await videoService.related(videoId, { limit: 12, kind: 'long' });
-      setRelated(res?.data?.items || []);
+      const items = res?.data?.items || [];
+      const seen = new Set();
+      const deduped = [];
+      for (const it of items) {
+        const id = it?._id;
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        deduped.push(it);
+      }
+      setRelated(deduped);
     } catch (_) {
       setRelated([]);
     }
@@ -104,7 +113,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
             {video?.title || ''}
           </Text>
           <Text style={styles.sub}>
-            {viewsText} â€¢ {creatorName}
+            {viewsText} • {creatorName}
           </Text>
 
           <View style={styles.actionsRow}>
@@ -182,7 +191,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
 
           <FlatList
             data={(video?.comments || []).slice(-20).reverse()}
-            keyExtractor={(it, idx) => it._id || `${idx}`}
+            keyExtractor={(it, idx) => `${it?._id || 'c'}-${idx}`}
             renderItem={({ item }) => (
               <View style={styles.cRow}>
                 <Text style={styles.cUser}>{item.userId?.username || 'user'}</Text>
@@ -195,20 +204,26 @@ export default function VideoPlayerScreen({ route, navigation }) {
 
         <View style={styles.related}>
           <Text style={styles.rTitle}>Up next</Text>
-          {related.map((it) => (
+          {related.map((it, idx) => (
             <TouchableOpacity
-              key={it._id}
+              key={`${it._id}-${idx}`}
               style={styles.relatedRow}
               onPress={() => navigation.replace('VideoPlayer', { videoId: it._id })}
               activeOpacity={0.9}
             >
-              <Image source={{ uri: it.thumbnailUrl }} style={styles.relatedThumb} />
+              {it?.thumbnailUrl ? (
+                <Image source={{ uri: it.thumbnailUrl }} style={styles.relatedThumb} />
+              ) : (
+                <View style={[styles.relatedThumb, styles.relatedThumbFallback]}>
+                  <Text style={styles.relatedThumbText}>VIDEO</Text>
+                </View>
+              )}
               <View style={styles.relatedMeta}>
                 <Text style={styles.relatedTitle} numberOfLines={2}>
                   {it.title}
                 </Text>
                 <Text style={styles.relatedSub} numberOfLines={1}>
-                  {it.userId?.username || 'creator'} â€¢ {it.views || 0} views
+                  {it.userId?.username || 'creator'} • {it.views || 0} views
                 </Text>
               </View>
             </TouchableOpacity>
@@ -311,8 +326,11 @@ const styles = StyleSheet.create({
   related: { marginTop: 14, paddingHorizontal: 12 },
   rTitle: { color: THEME.text, fontWeight: '900', fontSize: 16, marginBottom: 10 },
   relatedRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  relatedThumb: { width: 140, height: 80, borderRadius: 12, backgroundColor: '#111' },
+  relatedThumb: { width: 140, height: 80, borderRadius: 12, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  relatedThumbFallback: {},
+  relatedThumbText: { color: 'rgba(255,255,255,0.7)', fontWeight: '900', letterSpacing: 1.2 },
   relatedMeta: { flex: 1, paddingTop: 2 },
   relatedTitle: { color: THEME.text, fontWeight: '800', lineHeight: 18 },
   relatedSub: { color: THEME.textDim, marginTop: 6, fontSize: 12 },
 });
+

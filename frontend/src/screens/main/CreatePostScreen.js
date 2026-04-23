@@ -28,7 +28,8 @@ export default function CreatePostScreen({ navigation }) {
       // Use string array to avoid deprecated `MediaTypeOptions` across versions.
       mediaTypes: ['images'],
       allowsEditing: true,
-      quality: 0.7,
+      quality: 0.5,
+      exif: false,
     });
     if (res.canceled) return;
     const asset = res.assets?.[0];
@@ -38,8 +39,22 @@ export default function CreatePostScreen({ navigation }) {
 
   const submit = async () => {
     if (!caption.trim() && !image?.uri) return Alert.alert('Post', 'Add a caption or an image.');
+    if ((image?.fileSize || image?.size || 0) > 8 * 1024 * 1024) {
+      return Alert.alert('Post', 'Image too large (limit ~8MB). Pick a smaller image.');
+    }
     setLoading(true);
     try {
+      console.log('[CreatePost] payload:', {
+        captionLen: (caption || '').length,
+        image: image
+          ? {
+              uri: (image?.uri || '').slice(0, 80),
+              fileName: image?.fileName,
+              mimeType: image?.mimeType,
+              size: image?.fileSize || image?.size,
+            }
+          : null,
+      });
       await postService.create({
         caption: caption.trim(),
         imageUri: image?.uri,
@@ -49,7 +64,16 @@ export default function CreatePostScreen({ navigation }) {
       Alert.alert('Posted', 'Your post is live.');
       navigation.goBack();
     } catch (e) {
-      Alert.alert('Post', e?.response?.data?.error || e?.message || 'Failed to post');
+      console.log('[CreatePost] error', {
+        message: e?.message,
+        code: e?.code,
+        status: e?.response?.status,
+        data: e?.response?.data,
+      });
+      const status = e?.response?.status;
+      const serverMsg = e?.response?.data?.error || e?.response?.data?.message;
+      const hint = 'Hint: If backend is not redeployed, /api/posts may 404. Also try without image to isolate multipart.';
+      Alert.alert('Post Failed', `${status ? `HTTP ${status}. ` : ''}${serverMsg || e?.message || 'Network error'}\n\n${hint}`);
     } finally {
       setLoading(false);
     }

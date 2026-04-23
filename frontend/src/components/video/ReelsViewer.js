@@ -12,31 +12,71 @@ const THEME = {
   textDim: 'rgba(255,255,255,0.72)',
 };
 
-function ReelItem({ item, isActive, muted, onToggleMute, onLike, onShare }) {
+function ReelItem({ item, isActive, muted, onToggleMute, onLike, onShare, height }) {
   const videoRef = useRef(null);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (isActive) v.playAsync?.().catch(() => {});
-    else v.pauseAsync?.().catch(() => {});
-  }, [isActive]);
+  const [statusLabel, setStatusLabel] = useState('');
 
   const playUri = item?.hlsUrl || item?.videoUrl;
+  useEffect(() => {
+    if (isActive) {
+      console.log('[Reels] active uri:', (playUri || '').slice(0, 120));
+    }
+  }, [isActive, playUri]);
 
   return (
-    <View style={styles.reel}>
-      <Video
-        ref={videoRef}
-        style={styles.video}
-        source={{ uri: playUri }}
-        resizeMode="cover"
-        shouldPlay={false}
-        isLooping
-        isMuted={muted}
-        useNativeControls={false}
-        onError={(e) => console.warn('Reel video error', e)}
-      />
+    <View style={[styles.reel, { height }]}>
+      {playUri ? (
+        <TouchableOpacity
+          activeOpacity={1}
+          style={[styles.videoTap, { height }]}
+          onPress={() => {
+            // manual toggle play/pause
+            videoRef.current?.getStatusAsync?.().then((s) => {
+              if (!s?.isLoaded) return;
+              if (s.isPlaying) videoRef.current?.pauseAsync?.().catch(() => {});
+              else videoRef.current?.playAsync?.().catch(() => {});
+            }).catch(() => {});
+          }}
+        >
+          <Video
+            ref={videoRef}
+            style={styles.video}
+            source={{ uri: playUri }}
+            resizeMode="cover"
+            shouldPlay={isActive}
+            isLooping
+            isMuted={muted}
+            useNativeControls={false}
+            progressUpdateIntervalMillis={500}
+            onLoadStart={() => setStatusLabel('Loading...')}
+            onReadyForDisplay={() => setStatusLabel('')}
+            onPlaybackStatusUpdate={(st) => {
+              if (!st?.isLoaded) {
+                if (st?.error) setStatusLabel(`Error: ${st.error}`);
+                return;
+              }
+              if (st.isBuffering) setStatusLabel('Buffering...');
+              else if (isActive && !st.isPlaying && !st.didJustFinish) setStatusLabel('Tap to play');
+              else if (!st.isPlaying) setStatusLabel('');
+            }}
+            onError={(e) => {
+              console.warn('Reel video error', e);
+              setStatusLabel('Error loading video');
+            }}
+          />
+          {statusLabel ? (
+            <View pointerEvents="none" style={styles.statusPill}>
+              <Text style={styles.statusText} numberOfLines={2}>
+                {statusLabel}
+              </Text>
+            </View>
+          ) : null}
+        </TouchableOpacity>
+      ) : (
+        <View style={[styles.video, styles.missing]}>
+          <Text style={{ color: THEME.textDim, textAlign: 'center' }}>Missing video URL</Text>
+        </View>
+      )}
 
       <View pointerEvents="none" style={styles.overlay}>
         <Text style={styles.title} numberOfLines={2}>
@@ -95,7 +135,17 @@ export default function ReelsViewer({ navigation }) {
           setPage(2);
           setActiveIndex(0);
         } else {
-          setItems((prev) => [...prev, ...nextItems]);
+          setItems((prev) => {
+            const seen = new Set();
+            const merged = [];
+            for (const it of [...prev, ...nextItems]) {
+              const id = it?._id;
+              if (!id || seen.has(id)) continue;
+              seen.add(id);
+              merged.push(it);
+            }
+            return merged;
+          });
           setPage((p) => p + 1);
         }
       } catch (e) {
@@ -156,6 +206,7 @@ export default function ReelsViewer({ navigation }) {
             onToggleMute={() => setMuted((m) => !m)}
             onLike={likeActive}
             onShare={shareActive}
+            height={height}
           />
         )}
         onViewableItemsChanged={onViewableItemsChanged}
@@ -184,6 +235,21 @@ const styles = StyleSheet.create({
   wrap: { flex: 1, backgroundColor: THEME.bg },
   reel: { width: '100%', height: '100%', backgroundColor: '#000' },
   video: { width: '100%', height: '100%' },
+  videoTap: { width: '100%', height: '100%' },
+  missing: { alignItems: 'center', justifyContent: 'center', backgroundColor: THEME.bg },
+  statusPill: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    top: 70,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+  },
+  statusText: { color: '#fff', fontWeight: '800', fontSize: 12, textAlign: 'center' },
   overlay: {
     position: 'absolute',
     left: 14,

@@ -3,7 +3,7 @@ const Post = require('../models/Post');
 exports.createPost = async (req, res) => {
   try {
     const caption = (req.body?.caption || '').toString();
-    const imageUrl = req.file?.path || req.file?.secure_url || null;
+    const imageUrl = req.file?.secure_url || req.file?.path || null;
 
     if (!caption.trim() && !imageUrl) {
       return res.status(400).json({ success: false, error: 'caption or image is required' });
@@ -107,7 +107,7 @@ exports.commentPost = async (req, res) => {
 exports.updatePost = async (req, res) => {
   try {
     const caption = (req.body?.caption || '').toString();
-    const imageUrl = req.file?.path || req.file?.secure_url || null;
+    const imageUrl = req.file?.secure_url || req.file?.path || null;
 
     const post = await Post.findOne({ _id: req.params.id, isDeleted: false });
     if (!post) return res.status(404).json({ success: false, error: 'Post not found' });

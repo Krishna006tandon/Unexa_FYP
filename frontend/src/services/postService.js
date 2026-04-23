@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ENVIRONMENT from '../config/environment';
+import { Platform } from 'react-native';
 
 const API_URL = ENVIRONMENT.API_URL;
 
@@ -48,10 +49,33 @@ class PostService {
       else form.append('image', part.file);
     }
 
-    const res = await axios.post(`${API_URL}/api/posts/create`, form, {
-      headers,
-      timeout: 120000,
-    });
+    if (Platform.OS !== 'web') {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 300000);
+      const resp = await fetch(`${API_URL}/api/posts/create`, {
+        method: 'POST',
+        headers: {
+          ...(headers || {}),
+          // do not set Content-Type for multipart
+        },
+        body: form,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const text = await resp.text();
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch (_) {}
+      if (!resp.ok) {
+        const err = new Error(json?.error || json?.message || `HTTP ${resp.status}`);
+        err.response = { status: resp.status, data: json };
+        throw err;
+      }
+      return json;
+    }
+
+    const res = await axios.post(`${API_URL}/api/posts/create`, form, { headers, timeout: 120000 });
     return res.data;
   }
 
@@ -88,6 +112,29 @@ class PostService {
       const part = await toUploadPart(imageUri, filename, contentType);
       if (part.blob) form.append('image', part.blob, filename);
       else form.append('image', part.file);
+    }
+
+    if (Platform.OS !== 'web') {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 300000);
+      const resp = await fetch(`${API_URL}/api/posts/${id}`, {
+        method: 'PUT',
+        headers: { ...(headers || {}) },
+        body: form,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const text = await resp.text();
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch (_) {}
+      if (!resp.ok) {
+        const err = new Error(json?.error || json?.message || `HTTP ${resp.status}`);
+        err.response = { status: resp.status, data: json };
+        throw err;
+      }
+      return json;
     }
 
     const res = await axios.put(`${API_URL}/api/posts/${id}`, form, { headers, timeout: 120000 });

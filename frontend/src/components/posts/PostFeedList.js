@@ -26,7 +26,17 @@ export default function PostFeedList({ navigation }) {
         setItems(nextItems);
         setPage(2);
       } else {
-        setItems((prev) => [...prev, ...nextItems]);
+        setItems((prev) => {
+          const seen = new Set();
+          const merged = [];
+          for (const it of [...prev, ...nextItems]) {
+            const id = it?._id;
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            merged.push(it);
+          }
+          return merged;
+        });
         setPage((p) => p + 1);
       }
     } catch (e) {
