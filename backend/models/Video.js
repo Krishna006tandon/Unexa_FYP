@@ -17,7 +17,7 @@ const videoSchema = new mongoose.Schema(
     description: { type: String, trim: true, maxlength: 2000, default: '' },
     videoUrl: { type: String, required: true },
     hlsUrl: { type: String, default: null },
-    thumbnailUrl: { type: String, required: true },
+    thumbnailUrl: { type: String, default: null },
     views: { type: Number, default: 0 },
     likes: { type: Number, default: 0 },
     likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],

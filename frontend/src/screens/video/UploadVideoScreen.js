@@ -37,8 +37,17 @@ export default function UploadVideoScreen({ navigation }) {
   const upload = async () => {
     if (!file?.uri) return Alert.alert('Upload', 'Pick a video first.');
     if (!title.trim()) return Alert.alert('Upload', 'Add a title.');
+    if ((file?.size || 0) > 290 * 1024 * 1024) {
+      return Alert.alert('Upload', 'This video is too large (limit ~290MB). Please pick a smaller file.');
+    }
     setLoading(true);
     try {
+      console.log('[UploadVideo] picking asset:', {
+        name: file?.name,
+        size: file?.size,
+        mimeType: file?.mimeType,
+        uri: (file?.uri || '').slice(0, 80),
+      });
       const res = await videoService.upload({
         uri: file.uri,
         title: title.trim(),
@@ -49,7 +58,21 @@ export default function UploadVideoScreen({ navigation }) {
       Alert.alert('Uploaded', 'Your video is live in the feed.');
       navigation.navigate('VideoPlayer', { videoId: res?.data?._id });
     } catch (e) {
-      Alert.alert('Upload', e?.response?.data?.error || e?.message || 'Failed to upload');
+      console.log('[UploadVideo] error', {
+        message: e?.message,
+        code: e?.code,
+        status: e?.response?.status,
+        data: e?.response?.data,
+      });
+      const status = e?.response?.status;
+      const serverMsg = e?.response?.data?.error || e?.response?.data?.message;
+      const hint =
+        (file?.uri || '').startsWith('content://')
+          ? 'Hint: Android content:// URIs sometimes fail. We can copy-to-cache before upload.'
+          : (file?.size || 0) > 80 * 1024 * 1024
+            ? 'Hint: Large uploads may fail on Render/proxy limits. Try a smaller video.'
+            : 'Hint: Check API_URL and backend is reachable.';
+      Alert.alert('Upload Failed', `${status ? `HTTP ${status}. ` : ''}${serverMsg || e?.message || 'Network error'}\n\n${hint}`);
     } finally {
       setLoading(false);
     }

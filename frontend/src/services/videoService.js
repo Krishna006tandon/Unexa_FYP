@@ -1,6 +1,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ENVIRONMENT from '../config/environment';
+import { Platform } from 'react-native';
 
 const API_URL = ENVIRONMENT.API_URL;
 
@@ -36,8 +37,6 @@ async function toUploadPart(uri, nameFallback, typeFallback) {
 
 class VideoService {
   async upload({ uri, title, description, name, type, kind }) {
-    // NOTE: Do not force `Content-Type: multipart/form-data` in React Native.
-    // Axios will set the correct boundary automatically; forcing it can break uploads on Android.
     const headers = await authHeaders();
 
     const form = new FormData();
@@ -51,10 +50,31 @@ class VideoService {
     if (part.blob) form.append('video', part.blob, filename);
     else form.append('video', part.file);
 
-    const res = await axios.post(`${API_URL}/api/video/upload`, form, {
-      headers,
-      timeout: 300000,
-    });
+    // On Android/iOS, `fetch` is often more reliable than axios for large multipart uploads.
+    if (Platform.OS !== 'web') {
+      const resp = await fetch(`${API_URL}/api/video/upload`, {
+        method: 'POST',
+        headers: {
+          ...(headers || {}),
+          // Do NOT set Content-Type; let RN set the boundary.
+        },
+        body: form,
+      });
+      const text = await resp.text();
+      let json = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch (_) {}
+      if (!resp.ok) {
+        const err = new Error(json?.error || json?.message || `HTTP ${resp.status}`);
+        err.response = { status: resp.status, data: json };
+        throw err;
+      }
+      return json;
+    }
+
+    // Web fallback
+    const res = await axios.post(`${API_URL}/api/video/upload`, form, { headers, timeout: 300000 });
     return res.data;
   }
 

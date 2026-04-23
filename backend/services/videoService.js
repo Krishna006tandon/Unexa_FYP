@@ -50,7 +50,19 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
 
   const thumbFilename = `${path.parse(videoFilename).name}.jpg`;
   const finalThumbPath = path.join(thumbDir, thumbFilename);
-  await generateThumbnail({ inputPath: finalVideoPath, outputPath: finalThumbPath, atSeconds: 1 });
+  let thumbnailGenerated = false;
+  try {
+    await generateThumbnail({ inputPath: finalVideoPath, outputPath: finalThumbPath, atSeconds: 1 });
+    thumbnailGenerated = true;
+  } catch (e) {
+    // If ffmpeg isn't available in the environment, allow upload to proceed without thumbnail.
+    // This is common on some hosts unless ffmpeg is explicitly installed/provisioned.
+    if ((e?.message || '').includes('ENOENT') || (e?.message || '').toLowerCase().includes('ffmpeg')) {
+      thumbnailGenerated = false;
+    } else {
+      throw e;
+    }
+  }
 
   const driver = storageDriver();
   const videoPrefix = `video-assets/${randomId(10)}`;
@@ -70,19 +82,23 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
     });
     videoUrl = uploadedVideo.url;
 
-    const uploadedThumb = await uploadFileAndGetUrl({
-      req,
-      filePath: finalThumbPath,
-      keyPrefix: `${videoPrefix}/thumbnails`,
-      filename: thumbFilename,
-      contentType: 'image/jpeg',
-      cacheControl: 'public, max-age=31536000, immutable',
-    });
-    thumbnailUrl = uploadedThumb.url;
+    if (thumbnailGenerated) {
+      const uploadedThumb = await uploadFileAndGetUrl({
+        req,
+        filePath: finalThumbPath,
+        keyPrefix: `${videoPrefix}/thumbnails`,
+        filename: thumbFilename,
+        contentType: 'image/jpeg',
+        cacheControl: 'public, max-age=31536000, immutable',
+      });
+      thumbnailUrl = uploadedThumb.url;
+    } else {
+      thumbnailUrl = null;
+    }
   } else {
     // Local URLs
     videoUrl = localPublicUrl(req, path.join('videos', videoFilename));
-    thumbnailUrl = localPublicUrl(req, path.join('thumbnails', thumbFilename));
+    thumbnailUrl = thumbnailGenerated ? localPublicUrl(req, path.join('thumbnails', thumbFilename)) : null;
   }
 
   if (shouldTranscodeHls()) {

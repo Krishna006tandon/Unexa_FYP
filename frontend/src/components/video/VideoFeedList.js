@@ -81,7 +81,14 @@ export default function VideoFeedList({ navigation, title, mode }) {
     <View style={styles.container}>
       <View style={styles.headRow}>
         <Text style={styles.title}>{title}</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('UploadVideo')} hitSlop={12}>
+        <TouchableOpacity
+          onPress={() => {
+            const routeNames = navigation?.getState?.()?.routeNames || [];
+            if (routeNames.includes('UploadVideo')) navigation.navigate('UploadVideo');
+            else navigation.navigate('Videos', { screen: 'UploadVideo' });
+          }}
+          hitSlop={12}
+        >
           <Upload color={THEME.text} size={18} />
         </TouchableOpacity>
       </View>

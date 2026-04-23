@@ -25,7 +25,8 @@ export default function CreatePostScreen({ navigation }) {
     if (!perm.granted) return Alert.alert('Permission', 'Media library permission is required.');
 
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType?.Images ? ImagePicker.MediaType.Images : ImagePicker.MediaTypeOptions.Images,
+      // Use string array to avoid deprecated `MediaTypeOptions` across versions.
+      mediaTypes: ['images'],
       allowsEditing: true,
       quality: 0.7,
     });

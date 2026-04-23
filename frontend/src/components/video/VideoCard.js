@@ -15,7 +15,13 @@ const THEME = {
 export default function VideoCard({ item, onPress }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.card}>
-      <Image source={{ uri: item.thumbnailUrl }} style={styles.thumb} />
+      {item?.thumbnailUrl ? (
+        <Image source={{ uri: item.thumbnailUrl }} style={styles.thumb} />
+      ) : (
+        <View style={[styles.thumb, styles.thumbFallback]}>
+          <Text style={styles.thumbText}>VIDEO</Text>
+        </View>
+      )}
       <View style={styles.meta}>
         <Text style={styles.title} numberOfLines={2}>
           {item.title}
@@ -44,6 +50,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   thumb: { width: '100%', height: 200, backgroundColor: '#111' },
+  thumbFallback: { alignItems: 'center', justifyContent: 'center' },
+  thumbText: { color: 'rgba(255,255,255,0.7)', fontWeight: '900', letterSpacing: 1.5 },
   meta: { padding: 12 },
   title: { color: THEME.text, fontWeight: '800', fontSize: 15, marginBottom: 6 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -51,4 +59,3 @@ const styles = StyleSheet.create({
   likes: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   likeText: { color: THEME.text, fontSize: 12, fontWeight: '700' },
 });
-
