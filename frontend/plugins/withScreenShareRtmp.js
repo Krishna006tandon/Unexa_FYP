@@ -124,6 +124,10 @@ public class ScreenShareRtmpModule extends ReactContextBaseJavaModule implements
       public void onAuthErrorRtmp() { emit("rtmp:auth_error", null); }
       @Override
       public void onAuthSuccessRtmp() { emit("rtmp:auth_success", null); }
+      @Override
+      public void onNewBitrateRtmp(long bitrate) {
+        // Optional: emit bitrate change event if needed
+      }
     });
     if (lastData != null) {
       rtmpDisplay.setIntentResult(lastResultCode, lastData);
