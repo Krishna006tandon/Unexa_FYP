@@ -128,6 +128,10 @@ public class ScreenShareRtmpModule extends ReactContextBaseJavaModule implements
       public void onNewBitrateRtmp(long bitrate) {
         // Optional: emit bitrate change event if needed
       }
+      @Override
+      public void onConnectionStartedRtmp(String rtmpUrl) {
+        // Optional: emit connection started event if needed
+      }
     });
     if (lastData != null) {
       rtmpDisplay.setIntentResult(lastResultCode, lastData);
