@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
@@ -299,12 +299,36 @@ if ((process.env.ENABLE_NMS || '').toLowerCase() === 'true') {
 const cloudinary = require('./config/cloudinary').cloudinary;
 console.log('â˜ï¸ Cloudinary Configuration:');
 console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? 'âœ… Set' : 'âŒ Missing');
-console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? 'âœ… Set' : 'âŒ Missing');
-console.log('   API Secret:', process.env.CLOUDINARY_API_SECRET ? 'âœ… Set' : 'âŒ Missing');
+console.log('✨ Cloudinary Configuration:');
+console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
+console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
+console.log('   API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`ðŸš€ UNEXA Backend Server running on port ${PORT}`);
+  console.log(`🚀 UNEXA Backend Server running on port ${PORT}`);
+  
+  // Keep-alive script for Render free tier
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://unexa-fyp.onrender.com';
+  if (RENDER_URL) {
+    console.log(`⏱️ Setting up keep-alive ping for ${RENDER_URL} every 5 minutes`);
+    setInterval(async () => {
+      try {
+        const fetch = (await import('node-fetch')).default || globalThis.fetch;
+        if (fetch) {
+           await fetch(RENDER_URL);
+           console.log(`✅ Keep-alive ping sent to ${RENDER_URL}`);
+        } else {
+           const https = require('https');
+           https.get(RENDER_URL, (res) => {
+             console.log(`✅ Keep-alive ping sent to ${RENDER_URL} (status: ${res.statusCode})`);
+           }).on('error', (e) => {
+             console.error(`❌ Keep-alive ping failed: ${e.message}`);
+           });
+        }
+      } catch (error) {
+        console.error(`❌ Keep-alive error: ${error.message}`);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+  }
 });
-
-
