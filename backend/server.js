@@ -303,6 +303,201 @@ console.log('✨ Cloudinary Configuration:');
 console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
 console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
 console.log('   API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
+  }
+});
+
+// Routes
+const authRoutes = require('./routes/authRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const messageRoutes = require('./routes/messageRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const storyRoutes = require('./routes/storyRoutes');
+const mediaShareRoutes = require('./routes/mediaShare');
+const streakRoutes = require('./routes/streaks');
+const profileRoutes = require('./routes/profileRoutes');
+const webrtcRoutes = require('./routes/webrtc');
+const advancedRoutes = require('./routes/advancedRoutes');
+const liveRoutes = require('./routes/live');
+const videoRoutes = require('./routes/videoRoutes');
+const postRoutes = require('./routes/postRoutes');
+const webhookMuxRoutes = require('./routes/webhookMux');
+const webhookNmsRoutes = require('./routes/webhookNms');
+
+// Basic Route for testing
+app.get('/', (req, res) => {
+  res.send('UNEXA SuperApp API is running...');
+});
+
+// Profile Deep Link Redirection
+app.get('/profile/:id', (req, res) => {
+  const { id } = req.params;
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Opening UNEXA...</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background-color: #0A0A0A; color: white; text-align: center; }
+          .container { padding: 20px; }
+          .btn { display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #7B61FF; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h2>Opening Profile in UNEXA...</h2>
+          <p>If the app doesn't open automatically, click the button below:</p>
+          <a href="unexa://profile/${id}" class="btn">Open UNEXA App</a>
+        </div>
+        <script>
+          window.location.href = "unexa://profile/${id}";
+          // Fallback after 3 seconds
+          setTimeout(function() {
+            console.log("App didn't open automatically");
+          }, 3000);
+        </script>
+      </body>
+    </html>
+  `);
+});
+
+// Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'Test endpoint working',
+    timestamp: new Date().toISOString(),
+    headers: req.headers
+  });
+});
+
+// Convenience playback alias (matches: http://<server>/live/<streamKey>.m3u8)
+// Proxies/rewrites HLS so clients always fetch segments from the right origin.
+function getHlsBase() {
+  return (process.env.HLS_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+}
+
+async function fetchText(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Upstream ${resp.status}`);
+  return resp.text();
+}
+
+async function fetchBinary(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Upstream ${resp.status}`);
+  const buf = Buffer.from(await resp.arrayBuffer());
+  const contentType = resp.headers.get('content-type') || 'application/octet-stream';
+  return { buf, contentType };
+}
+
+// Primary entrypoint used by apps.
+// Serves an HLS playlist where segment URLs point to this backend (stable), and backend proxies them to HLS_BASE_URL.
+app.get('/live/:streamKey.m3u8', async (req, res) => {
+  try {
+    const { streamKey } = req.params;
+    const hlsBase = getHlsBase();
+    const upstreamPlaylistUrl = `${hlsBase}/live/${streamKey}/index.m3u8`;
+    const playlist = await fetchText(upstreamPlaylistUrl);
+
+    const rewritten = playlist
+      .split('\n')
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) return line;
+        // Rewrite relative segment URLs to backend proxy endpoint.
+        if (/^seg_.*\.ts(\?.*)?$/i.test(trimmed) || /\.ts(\?.*)?$/i.test(trimmed)) {
+          return `/live/${streamKey}/${trimmed}`;
+        }
+        // Rewrite any other relative references conservatively (e.g., nested playlists)
+        if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
+          return `/live/${streamKey}/${trimmed}`;
+        }
+        return line;
+      })
+      .join('\n');
+
+    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
+    res.setHeader('cache-control', 'no-store');
+    return res.status(200).send(rewritten);
+  } catch (e) {
+    return res.status(502).json({ success: false, error: `HLS playlist unavailable: ${e.message}` });
+  }
+});
+
+// Proxy HLS segments (and any other files under /live/<streamKey>/)
+app.get('/live/:streamKey/:file', async (req, res) => {
+  try {
+    const { streamKey, file } = req.params;
+    const hlsBase = getHlsBase();
+    const upstreamUrl = `${hlsBase}/live/${streamKey}/${encodeURIComponent(file)}`;
+    const { buf, contentType } = await fetchBinary(upstreamUrl);
+    res.setHeader('content-type', contentType);
+    res.setHeader('cache-control', 'no-store');
+    return res.status(200).send(buf);
+  } catch (e) {
+    return res.status(502).json({ success: false, error: `HLS segment unavailable: ${e.message}` });
+  }
+});
+
+// Mount Routes
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/message', messageLimiter, messageRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/story', storyRoutes);
+app.use('/api/media', mediaShareRoutes);
+app.use('/api/streaks', streakRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/webrtc', webrtcRoutes);
+app.use('/api/advanced', advancedRoutes);
+app.use('/api/live', liveRoutes);
+app.use('/api/video', videoRoutes);
+app.use('/api/posts', postRoutes);
+app.use('/webhook', webhookMuxRoutes);
+app.use('/webhook', webhookNmsRoutes);
+
+// Central error handler (prevents middleware throws from crashing the process)
+app.use((err, req, res, next) => {
+  if (!err) return next();
+
+  // express-rate-limit permissive trust proxy validation
+  if (err.code === 'ERR_ERL_PERMISSIVE_TRUST_PROXY') {
+    return res.status(500).json({
+      success: false,
+      error: 'Rate limiter misconfigured (trust proxy). Please redeploy with server trust proxy set to 1.',
+    });
+  }
+
+  // Multer file upload errors
+  if (err.name === 'MulterError') {
+    return res.status(400).json({ success: false, error: err.message });
+  }
+
+  res.status(500).json({ success: false, error: err.message || 'Server error' });
+});
+
+// Database Connection
+mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte.wplnzim.mongodb.net/unexa_new', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+  .then(() => console.log('âœ… MongoDB Connected Successfully'))
+  .catch(err => console.error('â Œ MongoDB connection error:', err));
+
+// Optional: Run Node-Media-Server inside this process (local dev / single-node setups)
+if ((process.env.ENABLE_NMS || '').toLowerCase() === 'true') {
+  const { startNodeMediaServer } = require('./streaming/nms');
+  startNodeMediaServer({ io }).catch((e) => console.error('[NMS] Failed to start:', e.message));
+}
+
+// Test Cloudinary Configuration
+const cloudinary = require('./config/cloudinary').cloudinary;
+console.log('â˜ ï¸  Cloudinary Configuration:');
+console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? 'âœ… Set' : 'â Œ Missing');
+console.log('✨ Cloudinary Configuration:');
+console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
+console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
+console.log('   API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
@@ -311,24 +506,18 @@ server.listen(PORT, () => {
   // Keep-alive script for Render free tier
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://unexa-fyp.onrender.com';
   if (RENDER_URL) {
-    console.log(`⏱️ Setting up keep-alive ping for ${RENDER_URL} every 5 minutes`);
-    setInterval(async () => {
+    console.log(`⏱️ Setting up keep-alive ping for ${RENDER_URL} every 2 minutes`);
+    setInterval(() => {
       try {
-        const fetch = (await import('node-fetch')).default || globalThis.fetch;
-        if (fetch) {
-           await fetch(RENDER_URL);
-           console.log(`✅ Keep-alive ping sent to ${RENDER_URL}`);
-        } else {
-           const https = require('https');
-           https.get(RENDER_URL, (res) => {
-             console.log(`✅ Keep-alive ping sent to ${RENDER_URL} (status: ${res.statusCode})`);
-           }).on('error', (e) => {
-             console.error(`❌ Keep-alive ping failed: ${e.message}`);
-           });
-        }
+        const https = require('https');
+        https.get(RENDER_URL, (res) => {
+          console.log(`✅ Keep-alive ping sent to ${RENDER_URL} (status: ${res.statusCode})`);
+        }).on('error', (e) => {
+          console.error(`❌ Keep-alive ping failed: ${e.message}`);
+        });
       } catch (error) {
         console.error(`❌ Keep-alive error: ${error.message}`);
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 2 * 60 * 1000); // 2 minutes
   }
 });
