@@ -51,7 +51,7 @@ export const getPushToken = async () => {
     if (status !== 'granted') return null;
 
     const token = (await Notifications.getExpoPushTokenAsync({
-       projectId: '16ce1f59-3a00-442f-94a7-50bf0c6d17a9'
+       projectId: '2f5c4478-8850-473b-9b46-cd5121d02f24'
     })).data;
     
     return token;
