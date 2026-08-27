@@ -292,17 +292,17 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte
 // Optional: Run Node-Media-Server inside this process (local dev / single-node setups)
 if ((process.env.ENABLE_NMS || '').toLowerCase() === 'true') {
   const { startNodeMediaServer } = require('./streaming/nms');
-  startNodeMediaServer({ io }).catch((e) => console.error('[NMS] Failed to start:', e.message));
-}
+});
 
-// Test Cloudinary Configuration
-const cloudinary = require('./config/cloudinary').cloudinary;
-console.log('â˜ï¸ Cloudinary Configuration:');
-console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? 'âœ… Set' : 'âŒ Missing');
-console.log('✨ Cloudinary Configuration:');
-console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
-console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
-console.log('   API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Set' : '❌ Missing');
+// Specific rate limit for messages
+const messageLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 20, // 20 messages per minute
+  message: "Too many messages sent from this IP, please try again after a minute",
+  validate: { trustProxy: false },
+  // Skip rate limiting for development
+  skip: (req) => {
+    return process.env.NODE_ENV === 'development';
   }
 });
 
@@ -481,8 +481,8 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://nexbyte:nexbyte@nexbyte
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-  .then(() => console.log('âœ… MongoDB Connected Successfully'))
-  .catch(err => console.error('â Œ MongoDB connection error:', err));
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Optional: Run Node-Media-Server inside this process (local dev / single-node setups)
 if ((process.env.ENABLE_NMS || '').toLowerCase() === 'true') {
@@ -492,8 +492,6 @@ if ((process.env.ENABLE_NMS || '').toLowerCase() === 'true') {
 
 // Test Cloudinary Configuration
 const cloudinary = require('./config/cloudinary').cloudinary;
-console.log('â˜ ï¸  Cloudinary Configuration:');
-console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? 'âœ… Set' : 'â Œ Missing');
 console.log('✨ Cloudinary Configuration:');
 console.log('   Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Set' : '❌ Missing');
 console.log('   API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Set' : '❌ Missing');
