@@ -606,49 +606,57 @@ const CallScreen = ({ route, navigation }) => {
         </View>
 
         <View style={styles.bottomHUD}>
-          <TouchableOpacity style={styles.controlBtn} onPress={toggleMute}>
-            <View style={styles.iconCircle}>
-              {isMuted ? <MicOff color="#FFF" /> : <Mic color="#FFF" />}
-            </View>
-            <Text style={styles.btnLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.controlBtn} onPress={toggleSpeaker}>
-            <View style={styles.iconCircle}>
-              {isSpeakerOn ? <Volume2 color="#FFF" /> : <VolumeX color="#FFF" />}
-            </View>
-            <Text style={styles.btnLabel}>{isSpeakerOn ? 'Speaker' : 'Earpiece'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.endCallBtn} onPress={endCall}>
-            <PhoneOff color="#FFF" size={28} />
-          </TouchableOpacity>
-
-          {type === 'video' && (
-            <TouchableOpacity style={styles.controlBtn} onPress={toggleVideo}>
-               <View style={styles.iconCircle}>
-                {isVideoOff ? <VideoOff color="#FFF" /> : <VideoIcon color="#FFF" />}
+          <View style={styles.controlsRow}>
+            <TouchableOpacity style={styles.controlBtn} onPress={toggleMute}>
+              <View style={styles.iconCircle}>
+                {isMuted ? <MicOff color="#FFF" /> : <Mic color="#FFF" />}
               </View>
-              <Text style={styles.btnLabel}>{isVideoOff ? 'Video On' : 'Video Off'}</Text>
+              <Text style={styles.btnLabel}>{isMuted ? 'Unmute' : 'Mute'}</Text>
             </TouchableOpacity>
-          )}
+
+            {type === 'video' && (
+              <TouchableOpacity style={styles.controlBtn} onPress={toggleVideo}>
+                 <View style={styles.iconCircle}>
+                  {isVideoOff ? <VideoOff color="#FFF" /> : <VideoIcon color="#FFF" />}
+                </View>
+                <Text style={styles.btnLabel}>{isVideoOff ? 'Video On' : 'Video Off'}</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.controlBtn} onPress={toggleSpeaker}>
+              <View style={styles.iconCircle}>
+                {isSpeakerOn ? <Volume2 color="#FFF" /> : <VolumeX color="#FFF" />}
+              </View>
+              <Text style={styles.btnLabel}>{isSpeakerOn ? 'Speaker' : 'Earpiece'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.endCallRow}>
+            <TouchableOpacity style={styles.endCallBtn} onPress={endCall}>
+              <PhoneOff color="#FFF" size={32} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>
   );
 };
 
+const { width } = Dimensions.get('window');
+const scale = width / 375;
+const normalize = (size) => Math.round(size * scale);
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   webview: { flex: 1, backgroundColor: 'transparent' },
   loadingOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: THEME.colors.secondary, marginTop: 20, fontSize: 16, fontWeight: '600' },
-  callingNameText: { color: '#FFF', fontSize: 24, fontWeight: 'bold', marginTop: 30 },
-  avatarContainer: { width: 120, height: 120, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: THEME.colors.secondary, marginTop: normalize(20), fontSize: normalize(16), fontWeight: '600' },
+  callingNameText: { color: '#FFF', fontSize: normalize(24), fontWeight: 'bold', marginTop: normalize(30) },
+  avatarContainer: { width: normalize(120), height: normalize(120), justifyContent: 'center', alignItems: 'center' },
   avatarCircle: { 
-    width: 100, 
-    height: 100, 
-    borderRadius: 50, 
+    width: normalize(100), 
+    height: normalize(100), 
+    borderRadius: normalize(50), 
     justifyContent: 'center', 
     alignItems: 'center', 
     elevation: 10, 
@@ -657,39 +665,49 @@ const styles = StyleSheet.create({
     shadowRadius: 15,
     overflow: 'hidden'
   },
-  avatarInitial: { color: '#FFF', fontSize: 42, fontWeight: 'bold' },
-  callingPulse: { position: 'absolute', width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: THEME.colors.primary, opacity: 0.2 },
-  hudOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: 40, zIndex: 100 },
-  headerHUD: { alignItems: 'center', marginTop: 20 },
-  statusText: { color: THEME.colors.secondary, fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase' },
-  timerText: { color: '#FFF', fontSize: 32, fontWeight: '300', marginTop: 10 },
+  avatarInitial: { color: '#FFF', fontSize: normalize(42), fontWeight: 'bold' },
+  callingPulse: { position: 'absolute', width: normalize(120), height: normalize(120), borderRadius: normalize(60), borderWidth: 2, borderColor: THEME.colors.primary, opacity: 0.2 },
+  hudOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', paddingVertical: normalize(40), paddingHorizontal: normalize(20), zIndex: 100 },
+  headerHUD: { alignItems: 'center', marginTop: normalize(20) },
+  statusText: { color: THEME.colors.secondary, fontSize: normalize(16), fontWeight: 'bold', textTransform: 'uppercase' },
+  timerText: { color: '#FFF', fontSize: normalize(32), fontWeight: '300', marginTop: normalize(10) },
   bottomHUD: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-evenly', 
+    flexDirection: 'column', 
     alignItems: 'center', 
     width: '100%',
-    marginBottom: Platform.OS === 'ios' ? 20 : 10
+    marginBottom: Platform.OS === 'ios' ? normalize(30) : normalize(20),
+  },
+  controlsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    width: '100%',
+    marginBottom: normalize(40)
+  },
+  endCallRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%'
   },
   controlBtn: { 
     alignItems: 'center', 
     justifyContent: 'center',
-    minWidth: 70
+    minWidth: normalize(70)
   },
   iconCircle: {
-    width: 58, 
-    height: 58, 
-    borderRadius: 29, 
+    width: normalize(58), 
+    height: normalize(58), 
+    borderRadius: normalize(29), 
     backgroundColor: 'rgba(255,255,255,0.2)', 
     justifyContent: 'center', 
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: normalize(8),
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)'
   },
   endCallBtn: { 
-    width: 72, 
-    height: 72, 
-    borderRadius: 36, 
+    width: normalize(72), 
+    height: normalize(72), 
+    borderRadius: normalize(36), 
     backgroundColor: THEME.colors.danger, 
     justifyContent: 'center', 
     alignItems: 'center',
@@ -700,19 +718,19 @@ const styles = StyleSheet.create({
   },
   btnLabel: { 
     color: '#FFF', 
-    fontSize: 11, 
+    fontSize: normalize(11), 
     fontWeight: '500', 
     textAlign: 'center'
   },
   audioCallInterface: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   audioContent: { alignItems: 'center' },
-  audioAvatarWrapper: { width: 220, height: 220, justifyContent: 'center', alignItems: 'center' },
-  audioAvatarCircle: { width: 160, height: 160, borderRadius: 80, overflow: 'hidden', elevation: 15, shadowColor: THEME.colors.primary, shadowRadius: 20, shadowOpacity: 0.6 },
-  audioAvatarInitial: { color: '#FFF', fontSize: 60, fontWeight: 'bold', textAlign: 'center', marginTop: 40 },
-  audioNameText: { color: '#FFF', fontSize: 32, fontWeight: '700', marginTop: 30 },
-  audioStatusText: { color: THEME.colors.secondary, fontSize: 18, fontWeight: '500', marginTop: 10, letterSpacing: 1 },
-  pulsingCircle1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, borderWidth: 2, borderColor: THEME.colors.primary, opacity: 0.3 },
-  pulsingCircle2: { position: 'absolute', width: 240, height: 240, borderRadius: 120, borderWidth: 1, borderColor: THEME.colors.primary, opacity: 0.15 },
+  audioAvatarWrapper: { width: normalize(220), height: normalize(220), justifyContent: 'center', alignItems: 'center' },
+  audioAvatarCircle: { width: normalize(160), height: normalize(160), borderRadius: normalize(80), overflow: 'hidden', elevation: 15, shadowColor: THEME.colors.primary, shadowRadius: 20, shadowOpacity: 0.6 },
+  audioAvatarInitial: { color: '#FFF', fontSize: normalize(60), fontWeight: 'bold', textAlign: 'center', marginTop: normalize(40) },
+  audioNameText: { color: '#FFF', fontSize: normalize(32), fontWeight: '700', marginTop: normalize(30) },
+  audioStatusText: { color: THEME.colors.secondary, fontSize: normalize(18), fontWeight: '500', marginTop: normalize(10), letterSpacing: 1 },
+  pulsingCircle1: { position: 'absolute', width: normalize(200), height: normalize(200), borderRadius: normalize(100), borderWidth: 2, borderColor: THEME.colors.primary, opacity: 0.3 },
+  pulsingCircle2: { position: 'absolute', width: normalize(240), height: normalize(240), borderRadius: normalize(120), borderWidth: 1, borderColor: THEME.colors.primary, opacity: 0.15 },
 });
 
 export default CallScreen;

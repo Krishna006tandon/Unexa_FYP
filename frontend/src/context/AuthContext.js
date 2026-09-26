@@ -17,7 +17,24 @@ export const AuthProvider = ({ children }) => {
   const checkContext = async () => {
     try {
       const data = await AsyncStorage.getItem('userInfo');
-      if (data) setUser(JSON.parse(data));
+      if (data) {
+        const userData = JSON.parse(data);
+        setUser(userData);
+        
+        // ⚡ Ensure Push Token is updated on startup
+        try {
+          const hasPermission = await NotificationService.requestPermissions();
+          if (hasPermission) {
+            const token = await NotificationService.getPushToken();
+            if (token) {
+              await axios.post(`${ENVIRONMENT.API_URL}/api/auth/push-token`, { token }, {
+                headers: { Authorization: `Bearer ${userData.token}` }
+              });
+              console.log('✅ [AUTH] Push token verified on startup');
+            }
+          }
+        } catch (err) { console.log('Push token verification failed on startup', err); }
+      }
     } catch (e) {
       console.log(e);
     }

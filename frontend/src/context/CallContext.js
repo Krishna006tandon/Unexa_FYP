@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
-import { View, Text, Modal, StyleSheet, TouchableOpacity, Image, Platform } from 'react-native';
+import { View, Text, Modal, StyleSheet, TouchableOpacity, Image, Platform, Dimensions } from 'react-native';
 import { Phone, PhoneOff, User, Video } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -157,15 +157,19 @@ export const CallProvider = ({ children }) => {
             </View>
 
             <View style={styles.buttonRow}>
-              <TouchableOpacity style={[styles.callBtn, styles.declineBtn]} onPress={declineCall}>
-                <PhoneOff color="#FFF" size={32} />
+              <View style={styles.btnContainer}>
+                <TouchableOpacity style={[styles.callBtn, styles.declineBtn]} onPress={declineCall}>
+                  <PhoneOff color="#FFF" size={32} />
+                </TouchableOpacity>
                 <Text style={styles.btnLabel}>Decline</Text>
-              </TouchableOpacity>
+              </View>
               
-              <TouchableOpacity style={[styles.callBtn, styles.acceptBtn]} onPress={acceptCall}>
-                <Phone color="#FFF" size={32} />
+              <View style={styles.btnContainer}>
+                <TouchableOpacity style={[styles.callBtn, styles.acceptBtn]} onPress={acceptCall}>
+                  <Phone color="#FFF" size={32} />
+                </TouchableOpacity>
                 <Text style={styles.btnLabel}>Accept</Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -174,19 +178,24 @@ export const CallProvider = ({ children }) => {
   );
 };
 
+const { width } = Dimensions.get('window');
+const scale = width / 375;
+const normalize = (size) => Math.round(size * scale);
+
 const styles = StyleSheet.create({
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { flex: 1, width: '100%', justifyContent: 'space-between', paddingVertical: 100, alignItems: 'center' },
-  callerInfo: { alignItems: 'center' },
-  avatarGlow: { width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(123, 97, 255, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  avatarCircle: { width: 110, height: 110, borderRadius: 55, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  avatarImg: { width: 110, height: 110, borderRadius: 55 },
-  avatarInitial: { color: '#FFF', fontSize: 48, fontWeight: 'bold' },
-  callerName: { color: '#FFF', fontSize: 32, fontWeight: 'bold', marginBottom: 10 },
-  callTypeText: { color: '#3DDCFF', fontSize: 18, fontWeight: '600' },
-  buttonRow: { flexDirection: 'row', gap: 60, marginTop: 100 },
-  callBtn: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+  content: { flex: 1, width: '100%', justifyContent: 'center', paddingVertical: normalize(40), alignItems: 'center' },
+  callerInfo: { alignItems: 'center', marginBottom: normalize(60) },
+  avatarGlow: { width: normalize(130), height: normalize(130), borderRadius: normalize(65), backgroundColor: 'rgba(123, 97, 255, 0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: normalize(20) },
+  avatarCircle: { width: normalize(100), height: normalize(100), borderRadius: normalize(50), justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  avatarImg: { width: normalize(100), height: normalize(100), borderRadius: normalize(50) },
+  avatarInitial: { color: '#FFF', fontSize: normalize(40), fontWeight: 'bold' },
+  callerName: { color: '#FFF', fontSize: normalize(28), fontWeight: 'bold', marginBottom: normalize(10), textAlign: 'center', paddingHorizontal: normalize(20) },
+  callTypeText: { color: '#3DDCFF', fontSize: normalize(16), fontWeight: '600' },
+  buttonRow: { flexDirection: 'row', justifyContent: 'center', marginTop: normalize(20), width: '100%' },
+  btnContainer: { alignItems: 'center', marginHorizontal: normalize(25) },
+  callBtn: { width: normalize(70), height: normalize(70), borderRadius: normalize(35), justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
   acceptBtn: { backgroundColor: '#00C853' },
   declineBtn: { backgroundColor: '#FF4B4B' },
-  btnLabel: { color: '#FFF', marginTop: 10, fontSize: 14, fontWeight: 'bold' }
+  btnLabel: { color: '#FFF', marginTop: normalize(10), fontSize: normalize(13), fontWeight: 'bold' }
 });
