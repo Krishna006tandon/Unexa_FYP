@@ -63,6 +63,12 @@ app.use(cors({
 }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Expose uploads folder
 app.use('/liveweb', express.static(path.join(__dirname, 'public', 'liveweb')));
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
+});
+app.get('/delete-account', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'delete-account.html'));
+});
 app.use(helmet({
   contentSecurityPolicy: false, // Required for WebRTC/Agora script execution
   frameguard: false, // allow embedding /liveweb in an iframe (web app)
