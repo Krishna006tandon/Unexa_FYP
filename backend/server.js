@@ -69,6 +69,9 @@ app.get('/privacy-policy', (req, res) => {
 app.get('/delete-account', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'delete-account.html'));
 });
+app.get('/child-safety-standards', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'child-safety-standards.html'));
+});
 app.use(helmet({
   contentSecurityPolicy: false, // Required for WebRTC/Agora script execution
   frameguard: false, // allow embedding /liveweb in an iframe (web app)

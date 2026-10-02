@@ -15,7 +15,7 @@ const config = {
   ],
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'com.unexa.superapp',
+    bundleIdentifier: 'com.unexa.application',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false
     }
@@ -25,7 +25,7 @@ const config = {
       backgroundColor: '#000000',
       foregroundImage: './assets/Unexalogo.png'
     },
-    package: 'com.unexa.superapp',
+    package: 'com.unexa.application',
     permissions: [
       "RECORD_AUDIO",
       "CAMERA",
