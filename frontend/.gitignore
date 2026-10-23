@@ -17,3 +17,7 @@ veda
 .env.test.local
 .env.production.local
 .env
+
+*.aab
+*.apk
+UNEXA_production_*

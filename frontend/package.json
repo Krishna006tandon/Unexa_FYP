@@ -9,7 +9,7 @@
     "ios": "npx expo run:ios",
     "web": "npx expo start --web",
     "build:web": "npx expo export",
-    "build:aab": "eas build --platform android --profile production",
+    "build:aab": "node build-aab.js",
     "build:aab:local": "eas build --platform android --profile production --local",
     "build:apk": "eas build --platform android --profile preview"
   },

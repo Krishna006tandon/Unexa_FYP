@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build artifacts & packages
+*.aab
+*.apk
+*.zip
+*.tar.gz
+UNEXA_production_*
+dist/
+web-build/
+
+# Expo & IDE
+.expo/
+.vscode/
+.idea/
+
+# Environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env
+
+# Git
+.git/
