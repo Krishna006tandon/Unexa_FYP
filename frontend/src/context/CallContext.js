@@ -179,7 +179,7 @@ export const CallProvider = ({ children }) => {
 };
 
 const { width } = Dimensions.get('window');
-const scale = width / 375;
+const scale = Math.min(1.3, Math.max(0.85, width / 375));
 const normalize = (size) => Math.round(size * scale);
 
 const styles = StyleSheet.create({

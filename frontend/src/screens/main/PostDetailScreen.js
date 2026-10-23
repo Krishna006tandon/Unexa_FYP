@@ -14,6 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Heart, Pencil, Trash2 } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
 import postService from '../../services/postService';
+import { resolveMediaUrl } from '../../utils/mediaUtils';
+import { useResponsive } from '../../utils/responsive';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -32,6 +34,7 @@ async function getCurrentUserId() {
 }
 
 export default function PostDetailScreen({ route, navigation }) {
+  const { isTablet, maxContentWidth } = useResponsive();
   const { postId } = route.params || {};
   const [post, setPost] = useState(null);
   const [comment, setComment] = useState('');
@@ -127,7 +130,7 @@ export default function PostDetailScreen({ route, navigation }) {
         }
       />
 
-      <View style={styles.body}>
+      <View style={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
         <Text style={styles.user}>{post?.userId?.username || 'user'}</Text>
 
         {editing ? (
@@ -147,7 +150,11 @@ export default function PostDetailScreen({ route, navigation }) {
           !!post?.caption && <Text style={styles.caption}>{post.caption}</Text>
         )}
 
-        {!!post?.imageUrl && <Image source={{ uri: post.imageUrl }} style={styles.image} />}
+        {!!post?.imageUrl && (
+          <View style={styles.imageWrap}>
+            <Image source={{ uri: resolveMediaUrl(post.imageUrl) }} style={styles.image} resizeMode="cover" />
+          </View>
+        )}
 
         <TouchableOpacity style={styles.likeBtn} onPress={like}>
           <Heart size={18} color={THEME.accent} />

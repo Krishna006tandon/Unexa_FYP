@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image as ImageIcon, Upload, X } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
 import postService from '../../services/postService';
+import { useResponsive } from '../../utils/responsive';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -16,6 +17,7 @@ const THEME = {
 };
 
 export default function CreatePostScreen({ navigation }) {
+  const { isTablet, maxContentWidth } = useResponsive();
   const [caption, setCaption] = useState('');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -82,7 +84,7 @@ export default function CreatePostScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScreenHeader title="Create Post" onBack={() => navigation.goBack()} />
-      <View style={styles.body}>
+      <View style={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
         <Text style={styles.label}>Caption</Text>
         <TextInput
           value={caption}

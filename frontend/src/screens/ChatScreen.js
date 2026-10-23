@@ -14,6 +14,7 @@ import { AuthContext } from '../context/AuthContext';
 import ProfileContext from '../context/ProfileContext';
 import { useUI } from '../context/UIContext';
 import ENVIRONMENT from '../config/environment';
+import { resolveMediaUrl } from '../utils/mediaUtils';
 
 
 
@@ -614,7 +615,7 @@ const ChatScreen = ({ route, navigation }) => {
   
             {item.messageType === 'image' && (
                <TouchableOpacity onPress={() => setModalImage(item.mediaUrl)} style={styles.mediaContainer}>
-                 <Image source={{ uri: item.mediaUrl }} style={styles.mediaPreview} />
+                 <Image source={{ uri: resolveMediaUrl(item.mediaUrl) }} style={styles.mediaPreview} />
                </TouchableOpacity>
             )}
             
@@ -629,7 +630,7 @@ const ChatScreen = ({ route, navigation }) => {
                <View style={styles.audioContainer}>
                  <TouchableOpacity 
                    style={styles.playButton} 
-                   onPress={() => playAudio(item.mediaUrl)}
+                   onPress={() => playAudio(resolveMediaUrl(item.mediaUrl))}
                  >
                    <Play color="#FFF" size={20} />
                  </TouchableOpacity>
@@ -694,7 +695,7 @@ const ChatScreen = ({ route, navigation }) => {
                {/* Could add download icon here */}
             </TouchableOpacity>
           </View>
-          {modalImage && <Image source={{ uri: modalImage }} style={styles.fullImageStyled} resizeMode="contain" />}
+          {modalImage && <Image source={{ uri: resolveMediaUrl(modalImage) }} style={styles.fullImageStyled} resizeMode="contain" />}
         </BlurView>
       </Modal>
 
@@ -1170,10 +1171,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  fullImageStyled: { 
-    width: Dimensions.get('window').width, 
-    height: Dimensions.get('window').height * 0.8,
-  },
+  fullImageStyled: { width: '100%', height: '80%' },
   modalHeaderExtended: {
     padding: 20,
     borderBottomWidth: 1,

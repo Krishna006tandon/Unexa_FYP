@@ -1,5 +1,5 @@
 import React, { useContext, lazy, Suspense } from 'react';
-import { StyleSheet, Text, View, StatusBar, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, StatusBar, ActivityIndicator, Platform } from 'react-native';
 import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { navigationRef } from './src/services/NavigationService';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -12,7 +12,8 @@ import AuthScreen from './src/screens/AuthScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import StoriesListScreen from './src/screens/StoriesListScreen';
 import { Home, MessageCircle, SquarePlus, Video, User } from 'lucide-react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { configureAudioForPlayback } from './src/utils/mediaUtils';
 import * as NotificationService from './src/services/NotificationService';
 
 
@@ -160,46 +161,63 @@ const ChatStack = () => (
   </Stack.Navigator>
 );
 
-const MainTabs = () => (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarStyle: styles.tabBar,
-      tabBarShowLabel: false,
-      tabBarIcon: ({ focused }) => {
-        let IconComponent;
-        if (route.name === 'Home') IconComponent = Home;
-        else if (route.name === 'Chats') IconComponent = MessageCircle;
-        else if (route.name === 'Create') IconComponent = SquarePlus;
-        else if (route.name === 'Videos') IconComponent = Video;
-        else if (route.name === 'Profile') IconComponent = User;
-        if (!IconComponent) return null;
-        return <IconComponent color={focused ? THEME.colors.secondary : THEME.colors.textDim} size={28} />;
-      },
-    })}
-  >
-    <Tab.Screen name="Home" component={FeedScreen} />
-    <Tab.Screen 
-      name="Chats" 
-      component={ChatStack} 
-      options={({ route }) => {
-        const routeName = getFocusedRouteNameFromRoute(route) ?? 'ChatList';
-        const hideOnScreens = ['ChatScreen', 'NewChat'];
-        return {
-          tabBarStyle: hideOnScreens.includes(routeName) ? { display: 'none' } : styles.tabBar,
-        };
-      }}
-    />
-    <Tab.Screen name="Create" component={CreateScreen} />
-    <Tab.Screen name="Videos" component={VideoStack} />
-    <Tab.Screen name="Profile" component={LazyProfileScreen} />
-  </Tab.Navigator>
-);
+const MainTabs = () => {
+  const insets = useSafeAreaInsets();
+  const tabBottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 8);
+  const tabHeight = 56 + tabBottomPadding;
+
+  const dynamicTabBarStyle = {
+    backgroundColor: 'rgba(12, 12, 16, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    elevation: 8,
+    height: tabHeight,
+    paddingBottom: tabBottomPadding,
+    paddingTop: 8,
+  };
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarStyle: dynamicTabBarStyle,
+        tabBarShowLabel: false,
+        tabBarIcon: ({ focused }) => {
+          let IconComponent;
+          if (route.name === 'Home') IconComponent = Home;
+          else if (route.name === 'Chats') IconComponent = MessageCircle;
+          else if (route.name === 'Create') IconComponent = SquarePlus;
+          else if (route.name === 'Videos') IconComponent = Video;
+          else if (route.name === 'Profile') IconComponent = User;
+          if (!IconComponent) return null;
+          return <IconComponent color={focused ? THEME.colors.secondary : THEME.colors.textDim} size={26} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Home" component={FeedScreen} />
+      <Tab.Screen 
+        name="Chats" 
+        component={ChatStack} 
+        options={({ route }) => {
+          const routeName = getFocusedRouteNameFromRoute(route) ?? 'ChatList';
+          const hideOnScreens = ['ChatScreen', 'NewChat'];
+          return {
+            tabBarStyle: hideOnScreens.includes(routeName) ? { display: 'none' } : dynamicTabBarStyle,
+          };
+        }}
+      />
+      <Tab.Screen name="Create" component={CreateScreen} />
+      <Tab.Screen name="Videos" component={VideoStack} />
+      <Tab.Screen name="Profile" component={LazyProfileScreen} />
+    </Tab.Navigator>
+  );
+};
 
 const AppNavigator = () => {
   const { user, loading } = useContext(AuthContext);
 
   React.useEffect(() => {
+    configureAudioForPlayback();
     // ⚡ Initialize Notification Services
     NotificationService.requestPermissions();
     const cleanup = NotificationService.setupNotificationClickListeners();

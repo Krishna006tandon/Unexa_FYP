@@ -11,11 +11,15 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Bookmark, ChevronDown, ChevronUp, MessageSquareText, Share2, ThumbsUp } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
 import VideoPlayer from '../../components/video/VideoPlayer';
 import videoService from '../../services/videoService';
+import { resolveMediaUrl } from '../../utils/mediaUtils';
+import { useResponsive } from '../../utils/responsive';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -28,6 +32,7 @@ const THEME = {
 
 export default function VideoPlayerScreen({ route, navigation }) {
   const { videoId } = route.params || {};
+  const { isTablet, maxContentWidth } = useResponsive();
   const [video, setVideo] = useState(null);
   const [comment, setComment] = useState('');
   const [related, setRelated] = useState([]);
@@ -65,10 +70,12 @@ export default function VideoPlayerScreen({ route, navigation }) {
     loadRelated();
   }, [load, loadRelated]);
 
-  const playUri = video?.hlsUrl || video?.videoUrl;
+  const rawPlayUri = video?.hlsUrl || video?.videoUrl;
+  const playUri = resolveMediaUrl(rawPlayUri);
+  const posterUri = resolveMediaUrl(video?.thumbnailUrl);
   const creator = video?.userId || null;
   const creatorName = creator?.username || 'creator';
-  const creatorPhoto = creator?.profilePhoto || null;
+  const creatorPhoto = resolveMediaUrl(creator?.profilePhoto);
   const viewsText = useMemo(() => `${video?.views || 0} views`, [video?.views]);
   const commentsCount = (video?.comments || []).length;
 
@@ -82,7 +89,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
   };
 
   const share = async () => {
-    const url = video?.hlsUrl || video?.videoUrl || '';
+    const url = playUri || '';
     try {
       await Share.share({ message: url ? `Watch this video: ${url}` : 'Watch this video on UNEXA' });
     } catch (_) {}
@@ -103,133 +110,163 @@ export default function VideoPlayerScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScreenHeader title="Video" onBack={() => navigation.goBack()} />
-      <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 24 }}>
-        <View style={styles.playerWrap}>
-          <VideoPlayer uri={playUri} posterUri={video?.thumbnailUrl} />
-        </View>
-
-        <View style={styles.meta}>
-          <Text style={styles.title} numberOfLines={3}>
-            {video?.title || ''}
-          </Text>
-          <Text style={styles.sub}>
-            {viewsText} • {creatorName}
-          </Text>
-
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionBtn} onPress={like}>
-              <ThumbsUp size={18} color={THEME.text} />
-              <Text style={styles.actionText}>{video?.likes || 0}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={share}>
-              <Share2 size={18} color={THEME.text} />
-              <Text style={styles.actionText}>Share</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={() => Alert.alert('Save', 'Save coming soon')}>
-              <Bookmark size={18} color={THEME.text} />
-              <Text style={styles.actionText}>Save</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionBtn} onPress={() => {}}>
-              <MessageSquareText size={18} color={THEME.text} />
-              <Text style={styles.actionText}>{commentsCount}</Text>
-            </TouchableOpacity>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.playerWrap}>
+            <VideoPlayer uri={playUri} posterUri={posterUri} />
           </View>
 
-          <View style={styles.channelRow}>
-            {creatorPhoto ? (
-              <Image source={{ uri: creatorPhoto }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarLetter}>{creatorName.slice(0, 1).toUpperCase()}</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.channelName} numberOfLines={1}>
-                {creatorName}
-              </Text>
-              <Text style={styles.channelSub} numberOfLines={1}>
-                {viewsText}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.subscribeBtn} onPress={() => Alert.alert('Subscribe', 'Subscribe coming soon')}>
-              <Text style={styles.subscribeText}>Subscribe</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.descBox} onPress={() => setDescOpen((v) => !v)} activeOpacity={0.9}>
-            <View style={styles.descHead}>
-              <Text style={styles.descTitle}>Description</Text>
-              {descOpen ? <ChevronUp size={18} color={THEME.textDim} /> : <ChevronDown size={18} color={THEME.textDim} />}
-            </View>
-            <Text style={styles.descText} numberOfLines={descOpen ? 20 : 2}>
-              {video?.description || 'No description.'}
+          <View style={styles.meta}>
+            <Text style={styles.title} numberOfLines={3}>
+              {video?.title || ''}
             </Text>
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.sub}>
+              {viewsText} • {creatorName}
+            </Text>
 
-        <View style={styles.comments}>
-          <View style={styles.commentsHead}>
-            <Text style={styles.cTitle}>Comments</Text>
-            <Text style={styles.cCount}>{commentsCount}</Text>
-          </View>
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={styles.actionBtn} onPress={like} activeOpacity={0.8}>
+                <ThumbsUp size={18} color={THEME.text} />
+                <Text style={styles.actionText}>{video?.likes || 0}</Text>
+              </TouchableOpacity>
 
-          <View style={styles.cInputRow}>
-            <TextInput
-              value={comment}
-              onChangeText={setComment}
-              placeholder="Add a comment..."
-              placeholderTextColor={THEME.textDim}
-              style={styles.cInput}
-            />
-            <TouchableOpacity style={styles.cSend} onPress={sendComment}>
-              <Text style={styles.cSendText}>Post</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity style={styles.actionBtn} onPress={share} activeOpacity={0.8}>
+                <Share2 size={18} color={THEME.text} />
+                <Text style={styles.actionText}>Share</Text>
+              </TouchableOpacity>
 
-          <FlatList
-            data={(video?.comments || []).slice(-20).reverse()}
-            keyExtractor={(it, idx) => `${it?._id || 'c'}-${idx}`}
-            renderItem={({ item }) => (
-              <View style={styles.cRow}>
-                <Text style={styles.cUser}>{item.userId?.username || 'user'}</Text>
-                <Text style={styles.cText}>{item.content}</Text>
-              </View>
-            )}
-            scrollEnabled={false}
-          />
-        </View>
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() => Alert.alert('Saved', 'Video added to bookmarks')}
+                activeOpacity={0.8}
+              >
+                <Bookmark size={18} color={THEME.text} />
+                <Text style={styles.actionText}>Save</Text>
+              </TouchableOpacity>
 
-        <View style={styles.related}>
-          <Text style={styles.rTitle}>Up next</Text>
-          {related.map((it, idx) => (
-            <TouchableOpacity
-              key={`${it._id}-${idx}`}
-              style={styles.relatedRow}
-              onPress={() => navigation.replace('VideoPlayer', { videoId: it._id })}
-              activeOpacity={0.9}
-            >
-              {it?.thumbnailUrl ? (
-                <Image source={{ uri: it.thumbnailUrl }} style={styles.relatedThumb} />
+              <TouchableOpacity style={styles.actionBtn} onPress={() => {}} activeOpacity={0.8}>
+                <MessageSquareText size={18} color={THEME.text} />
+                <Text style={styles.actionText}>{commentsCount}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.channelRow}>
+              {creatorPhoto ? (
+                <Image source={{ uri: creatorPhoto }} style={styles.avatar} />
               ) : (
-                <View style={[styles.relatedThumb, styles.relatedThumbFallback]}>
-                  <Text style={styles.relatedThumbText}>VIDEO</Text>
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarLetter}>{creatorName.slice(0, 1).toUpperCase()}</Text>
                 </View>
               )}
-              <View style={styles.relatedMeta}>
-                <Text style={styles.relatedTitle} numberOfLines={2}>
-                  {it.title}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.channelName} numberOfLines={1}>
+                  {creatorName}
                 </Text>
-                <Text style={styles.relatedSub} numberOfLines={1}>
-                  {it.userId?.username || 'creator'} • {it.views || 0} views
+                <Text style={styles.channelSub} numberOfLines={1}>
+                  {viewsText}
                 </Text>
               </View>
+              <TouchableOpacity
+                style={styles.subscribeBtn}
+                onPress={() => Alert.alert('Subscribe', `Subscribed to ${creatorName}`)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.subscribeText}>Subscribe</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.descBox} onPress={() => setDescOpen((v) => !v)} activeOpacity={0.9}>
+              <View style={styles.descHead}>
+                <Text style={styles.descTitle}>Description</Text>
+                {descOpen ? <ChevronUp size={18} color={THEME.textDim} /> : <ChevronDown size={18} color={THEME.textDim} />}
+              </View>
+              <Text style={styles.descText} numberOfLines={descOpen ? 20 : 2}>
+                {video?.description || 'No description provided.'}
+              </Text>
             </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+          </View>
+
+          <View style={styles.comments}>
+            <View style={styles.commentsHead}>
+              <Text style={styles.cTitle}>Comments</Text>
+              <Text style={styles.cCount}>{commentsCount}</Text>
+            </View>
+
+            <View style={styles.cInputRow}>
+              <TextInput
+                value={comment}
+                onChangeText={setComment}
+                placeholder="Add a comment..."
+                placeholderTextColor={THEME.textDim}
+                style={styles.cInput}
+              />
+              <TouchableOpacity style={styles.cSend} onPress={sendComment} activeOpacity={0.85}>
+                <Text style={styles.cSendText}>Post</Text>
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={(video?.comments || []).slice(-20).reverse()}
+              keyExtractor={(it, idx) => `${it?._id || 'c'}-${idx}`}
+              renderItem={({ item }) => (
+                <View style={styles.cRow}>
+                  <Text style={styles.cUser}>{item.userId?.username || 'user'}</Text>
+                  <Text style={styles.cText}>{item.content}</Text>
+                </View>
+              )}
+              scrollEnabled={false}
+              ListEmptyComponent={
+                <Text style={{ color: THEME.textDim, fontSize: 12, paddingVertical: 8 }}>
+                  No comments yet. Be the first to comment!
+                </Text>
+              }
+            />
+          </View>
+
+          {related.length > 0 && (
+            <View style={styles.related}>
+              <Text style={styles.rTitle}>Up next</Text>
+              {related.map((it, idx) => {
+                const relThumb = resolveMediaUrl(it?.thumbnailUrl);
+                return (
+                  <TouchableOpacity
+                    key={`${it._id}-${idx}`}
+                    style={styles.relatedRow}
+                    onPress={() => navigation.replace('VideoPlayer', { videoId: it._id })}
+                    activeOpacity={0.85}
+                  >
+                    {relThumb ? (
+                      <Image source={{ uri: relThumb }} style={styles.relatedThumb} />
+                    ) : (
+                      <View style={[styles.relatedThumb, styles.relatedThumbFallback]}>
+                        <Text style={styles.relatedThumbText}>VIDEO</Text>
+                      </View>
+                    )}
+                    <View style={styles.relatedMeta}>
+                      <Text style={styles.relatedTitle} numberOfLines={2}>
+                        {it.title}
+                      </Text>
+                      <Text style={styles.relatedSub} numberOfLines={1}>
+                        {it.userId?.username || 'creator'} • {it.views || 0} views
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -237,13 +274,14 @@ export default function VideoPlayerScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: THEME.bg },
   scroll: { flex: 1, backgroundColor: THEME.bg },
+  scrollContent: { paddingBottom: 32 },
   playerWrap: { padding: 12, paddingBottom: 0 },
   meta: { paddingHorizontal: 12, paddingTop: 10 },
-  title: { color: THEME.text, fontWeight: '900', fontSize: 16, lineHeight: 22 },
+  title: { color: THEME.text, fontWeight: '900', fontSize: 17, lineHeight: 23 },
   sub: { color: THEME.textDim, marginTop: 6, fontSize: 12 },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginTop: 12,
     paddingBottom: 10,
     borderBottomWidth: 1,
@@ -251,7 +289,7 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    height: 40,
+    height: 38,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
@@ -259,31 +297,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
-  actionText: { color: THEME.text, fontWeight: '900', fontSize: 12 },
+  actionText: { color: THEME.text, fontWeight: '800', fontSize: 12 },
   channelRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
-  avatar: { width: 40, height: 40, borderRadius: 999, backgroundColor: '#111' },
+  avatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#111' },
   avatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: 'rgba(255,255,255,0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLetter: { color: THEME.text, fontWeight: '900' },
-  channelName: { color: THEME.text, fontWeight: '900' },
+  avatarLetter: { color: THEME.text, fontWeight: '900', fontSize: 16 },
+  channelName: { color: THEME.text, fontWeight: '900', fontSize: 14 },
   channelSub: { color: THEME.textDim, fontSize: 12, marginTop: 2 },
   subscribeBtn: {
     height: 36,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderRadius: 999,
     backgroundColor: THEME.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  subscribeText: { color: '#fff', fontWeight: '900' },
+  subscribeText: { color: '#fff', fontWeight: '900', fontSize: 13 },
   descBox: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
@@ -292,8 +330,8 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 6,
   },
-  descHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  descTitle: { color: THEME.text, fontWeight: '900' },
+  descHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  descTitle: { color: THEME.text, fontWeight: '800', fontSize: 13 },
   descText: { color: THEME.textDim, lineHeight: 18, fontSize: 12 },
   comments: {
     marginTop: 12,
@@ -302,35 +340,51 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: THEME.border,
     borderRadius: 16,
-    padding: 12,
+    padding: 14,
   },
   commentsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  cTitle: { color: THEME.text, fontWeight: '900' },
-  cCount: { color: THEME.textDim, fontWeight: '800', fontSize: 12 },
-  cInputRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  cTitle: { color: THEME.text, fontWeight: '900', fontSize: 15 },
+  cCount: { color: THEME.textDim, fontWeight: '800', fontSize: 13 },
+  cInputRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   cInput: {
     flex: 1,
-    height: 44,
-    borderRadius: 16,
+    height: 42,
+    borderRadius: 14,
     paddingHorizontal: 12,
     color: THEME.text,
     backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
     borderColor: THEME.border,
+    fontSize: 13,
   },
-  cSend: { width: 70, height: 44, borderRadius: 16, backgroundColor: THEME.primary, alignItems: 'center', justifyContent: 'center' },
-  cSendText: { color: '#fff', fontWeight: '900' },
+  cSend: {
+    width: 64,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: THEME.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cSendText: { color: '#fff', fontWeight: '800', fontSize: 13 },
   cRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   cUser: { color: THEME.primary, fontWeight: '800', fontSize: 12, marginBottom: 2 },
   cText: { color: THEME.text, fontSize: 13, lineHeight: 18 },
-  related: { marginTop: 14, paddingHorizontal: 12 },
-  rTitle: { color: THEME.text, fontWeight: '900', fontSize: 16, marginBottom: 10 },
-  relatedRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  relatedThumb: { width: 140, height: 80, borderRadius: 12, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  relatedThumbFallback: {},
-  relatedThumbText: { color: 'rgba(255,255,255,0.7)', fontWeight: '900', letterSpacing: 1.2 },
-  relatedMeta: { flex: 1, paddingTop: 2 },
-  relatedTitle: { color: THEME.text, fontWeight: '800', lineHeight: 18 },
-  relatedSub: { color: THEME.textDim, marginTop: 6, fontSize: 12 },
+  related: { marginTop: 16, paddingHorizontal: 12 },
+  rTitle: { color: THEME.text, fontWeight: '900', fontSize: 16, marginBottom: 12 },
+  relatedRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  relatedThumb: {
+    width: 130,
+    height: 76,
+    borderRadius: 12,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  relatedThumbFallback: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  relatedThumbText: { color: 'rgba(255,255,255,0.6)', fontWeight: '900', letterSpacing: 1.2, fontSize: 11 },
+  relatedMeta: { flex: 1, justifyContent: 'center' },
+  relatedTitle: { color: THEME.text, fontWeight: '800', fontSize: 13, lineHeight: 18 },
+  relatedSub: { color: THEME.textDim, marginTop: 4, fontSize: 11 },
 });
-

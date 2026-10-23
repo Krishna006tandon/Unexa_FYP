@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { Upload } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
 import VideoFeedList from '../../components/video/VideoFeedList';
 import ReelsViewer from '../../components/video/ReelsViewer';
 import PostFeedList from '../../components/posts/PostFeedList';
+import { useResponsive } from '../../utils/responsive';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -24,6 +26,8 @@ const TABS = [
 
 export default function UnifiedFeedScreen({ navigation }) {
   const [tab, setTab] = useState('long');
+  const isFocused = useIsFocused();
+  const { isTablet, maxContentWidth } = useResponsive();
 
   const activeTitle = useMemo(() => {
     const found = TABS.find((t) => t.key === tab);
@@ -55,8 +59,14 @@ export default function UnifiedFeedScreen({ navigation }) {
         }
       />
 
-      <View style={styles.body}>
-        <View style={styles.tabRow}>
+      <View
+        style={[
+          styles.body,
+          tab === 'reels' ? styles.bodyReels : styles.bodyStandard,
+          isTablet && tab !== 'reels' && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' },
+        ]}
+      >
+        <View style={[styles.tabRow, tab === 'reels' && styles.tabRowReels]}>
           {TABS.map((t) => {
             const active = t.key === tab;
             return (
@@ -80,7 +90,7 @@ export default function UnifiedFeedScreen({ navigation }) {
         </View>
 
         <View style={{ flex: 1, display: tab === 'reels' ? 'flex' : 'none' }}>
-          <ReelsViewer navigation={navigation} isTabActive={tab === 'reels'} />
+          <ReelsViewer navigation={navigation} isTabActive={tab === 'reels' && isFocused} />
         </View>
 
         <View style={{ flex: 1, display: tab === 'posts' ? 'flex' : 'none' }}>
@@ -93,7 +103,9 @@ export default function UnifiedFeedScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: THEME.bg },
-  body: { flex: 1, paddingHorizontal: 16, paddingTop: 10 },
+  body: { flex: 1 },
+  bodyStandard: { paddingHorizontal: 16, paddingTop: 10 },
+  bodyReels: { paddingHorizontal: 0, paddingTop: 6 },
   tabRow: {
     flexDirection: 'row',
     backgroundColor: THEME.card,
@@ -102,7 +114,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 6,
     gap: 6,
-    marginBottom: 12,
+    marginBottom: 10,
+  },
+  tabRowReels: {
+    marginHorizontal: 16,
+    marginBottom: 6,
   },
   tabBtn: {
     flex: 1,
@@ -114,12 +130,4 @@ const styles = StyleSheet.create({
   tabBtnActive: { backgroundColor: THEME.primary },
   tabText: { color: THEME.textDim, fontWeight: '900', fontSize: 12 },
   tabTextActive: { color: '#fff' },
-  placeholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  placeholderTitle: { color: THEME.text, fontWeight: '900', fontSize: 18, marginBottom: 8 },
-  placeholderSub: { color: THEME.textDim, textAlign: 'center', lineHeight: 18, fontSize: 12 },
 });

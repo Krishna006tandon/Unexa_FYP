@@ -6,6 +6,7 @@ import ProfileContext from '../context/ProfileContext';
 import { Plus, Phone, PhoneMissed, PhoneOutgoing, PhoneIncoming, MessageSquare } from 'lucide-react-native';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
+import { useResponsive } from '../utils/responsive';
 
 const THEME = {
   colors: {
@@ -21,6 +22,7 @@ const THEME = {
 };
 
 const ChatListScreen = ({ navigation }) => {
+  const { insets, isTablet, maxContentWidth } = useResponsive();
   const [activeTab, setActiveTab] = useState('chats'); // 'chats' or 'calls'
   const [chats, setChats] = useState([]);
   const [calls, setCalls] = useState([]);
@@ -228,7 +230,8 @@ const ChatListScreen = ({ navigation }) => {
   const keyExtractor = useCallback((item) => item._id, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={[styles.innerContent, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
       <View style={styles.headerContainer}>
          <Text style={styles.header}>{activeTab === 'chats' ? 'Messages' : 'Calls'}</Text>
          <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewChat')}>
@@ -284,6 +287,7 @@ const ChatListScreen = ({ navigation }) => {
           }
         />
       )}
+      </View>
     </View>
   );
 };
@@ -292,9 +296,10 @@ export default ChatListScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.colors.background },
-  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 65, paddingHorizontal: 25, marginBottom: 10 },
+  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingHorizontal: 20, marginBottom: 12 },
+  innerContent: { flex: 1 },
   header: { color: THEME.colors.text, fontSize: 32, fontWeight: 'bold' },
-  tabBar: { flexDirection: 'row', marginHorizontal: 25, marginVertical: 15, backgroundColor: THEME.colors.glass, borderRadius: 15, padding: 5 },
+  tabBar: { flexDirection: 'row', marginHorizontal: 20, marginVertical: 15, backgroundColor: THEME.colors.glass, borderRadius: 15, padding: 5 },
   tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 12 },
   activeTab: { backgroundColor: 'rgba(123, 97, 255, 0.1)' },
   tabText: { color: THEME.colors.textDim, marginLeft: 8, fontWeight: '600' },
@@ -317,7 +322,7 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, alignItems: 'center', marginTop: 100 },
   emptyText: { color: THEME.colors.textDim, fontSize: 16 },
   searchContainer: {
-    marginHorizontal: 25,
+    marginHorizontal: 20,
     marginBottom: 5,
   },
   searchInput: {

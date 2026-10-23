@@ -1120,13 +1120,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.2)',
   },
   viewerContentWrapper: {
-    width: Dimensions.get('window').width,
+    width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   fullScreenMediaPremium: {
-    width: Dimensions.get('window').width,
+    width: '100%',
     height: '100%',
   },
   viewerCaptionWrapper: {

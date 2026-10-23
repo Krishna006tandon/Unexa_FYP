@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Upload, FileVideo, Image as ImageIcon, X } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
 import videoService from '../../services/videoService';
+import { useResponsive } from '../../utils/responsive';
 
 const THEME = {
   bg: '#0A0A0A',
@@ -17,6 +18,7 @@ const THEME = {
 };
 
 export default function UploadVideoScreen({ navigation }) {
+  const { isTablet, maxContentWidth } = useResponsive();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [file, setFile] = useState(null);
@@ -111,7 +113,7 @@ export default function UploadVideoScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <ScreenHeader title="Upload Video" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: "center", width: "100%" }]} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.pickBtn} onPress={pick} disabled={loading}>
           <FileVideo color="#fff" size={18} />
           <Text style={styles.pickText}>{file?.name ? `Selected: ${file.name}` : 'Pick a video file'}</Text>

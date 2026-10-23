@@ -1685,7 +1685,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   qrModalContentStyled: {
-    width: Dimensions.get('window').width * 0.85,
+    width: '85%', maxWidth: 420,
     backgroundColor: 'rgba(15, 15, 20, 0.95)',
     borderRadius: 40,
     padding: 30,

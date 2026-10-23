@@ -1,14 +1,17 @@
 {
   "name": "unexa-frontend",
   "main": "expo/AppEntry.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "start": "npx expo start",
     "reset": "npx expo start --clear",
     "android": "npx expo run:android",
     "ios": "npx expo run:ios",
     "web": "npx expo start --web",
-    "build:web": "npx expo export"
+    "build:web": "npx expo export",
+    "build:aab": "eas build --platform android --profile production",
+    "build:aab:local": "eas build --platform android --profile production --local",
+    "build:apk": "eas build --platform android --profile preview"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",

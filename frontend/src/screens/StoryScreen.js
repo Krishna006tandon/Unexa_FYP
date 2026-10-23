@@ -9,6 +9,7 @@ import { X, Send, Eye, Heart, MessageCircle, Smile, Trash2 } from 'lucide-react-
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';
+import { resolveMediaUrl, configureAudioForPlayback } from '../utils/mediaUtils';
 
 
 
@@ -44,6 +45,13 @@ const StoryScreen = ({ route, navigation }) => {
   const progressInterval = useRef(null);
   const currentStory = stories[currentIndex];
 
+  useEffect(() => {
+    configureAudioForPlayback();
+    return () => {
+      videoRef.current?.unloadAsync?.().catch(() => {});
+    };
+  }, []);
+
   if (!currentStory) {
     navigation.goBack();
     return null;
@@ -59,6 +67,7 @@ const StoryScreen = ({ route, navigation }) => {
   }, [currentIndex]);
 
   const loadStory = async () => {
+    videoRef.current?.unloadAsync?.().catch(() => {});
     setIsLoading(true);
     setProgress(0);
     
@@ -129,10 +138,15 @@ const StoryScreen = ({ route, navigation }) => {
   const handleVideoStatusUpdate = (status) => {
     if (status.isLoaded) {
       setIsLoading(false);
-      if (status.isPlaying) {
-        const duration = status.durationMillis || 5000;
-        startProgress(duration / 1000);
+      if (status.durationMillis && status.durationMillis > 0) {
+        setProgress(status.positionMillis / status.durationMillis);
       }
+      if (status.didJustFinish) {
+        goToNextStory();
+      }
+    } else if (status.error) {
+      console.warn('[StoryScreen] video error:', status.error);
+      setIsLoading(false);
     }
   };
 
@@ -251,7 +265,7 @@ const StoryScreen = ({ route, navigation }) => {
       return (
         <Video
           ref={videoRef}
-          source={{ uri: currentStory.mediaUrl }}
+          source={{ uri: resolveMediaUrl(currentStory.mediaUrl) }}
           style={styles.media}
           shouldPlay={isPlaying}
           isLooping={false}
@@ -263,7 +277,7 @@ const StoryScreen = ({ route, navigation }) => {
 
     return (
       <Image 
-        source={{ uri: currentStory.mediaUrl }} 
+        source={{ uri: resolveMediaUrl(currentStory.mediaUrl) }} 
         style={styles.media}
         resizeMode="cover"
       />
@@ -537,10 +551,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  media: {
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height * 0.7,
-  },
+  media: { width: '100%', height: '100%' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -586,7 +597,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.glass,
     borderRadius: 20,
     padding: 20,
-    width: Dimensions.get('window').width * 0.8,
+    width: '85%', maxWidth: 400,
     borderWidth: 1,
     borderColor: THEME.colors.glassBorder,
   },
@@ -619,7 +630,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.glass,
     borderRadius: 20,
     padding: 20,
-    width: Dimensions.get('window').width * 0.9,
+    width: '90%', maxWidth: 440,
     borderWidth: 1,
     borderColor: THEME.colors.glassBorder,
   },
@@ -691,7 +702,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30,30,30,0.95)',
     borderRadius: 30,
     padding: 24,
-    width: Dimensions.get('window').width * 0.9,
+    width: '90%', maxWidth: 440,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -731,7 +742,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   replyContainerPremium: {
-    width: Dimensions.get('window').width * 0.95,
+    width: '92%', maxWidth: 460,
     borderRadius: 30,
     padding: 24,
     borderWidth: 1,
