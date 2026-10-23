@@ -30,7 +30,7 @@ function contentTypeForExt(ext) {
   return 'application/octet-stream';
 }
 
-async function createVideoFromUpload({ req, userId, title, description, uploadedFile, kind }) {
+async function createVideoFromUpload({ req, userId, title, description, uploadedFile, uploadedThumbnail, kind }) {
   const uploadsDir = path.join(__dirname, '..', 'uploads');
   const videoDir = path.join(uploadsDir, 'videos');
   const thumbDir = path.join(uploadsDir, 'thumbnails');
@@ -48,19 +48,34 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
   // Normalize to our videos/ folder.
   fs.renameSync(uploadedFile.path, finalVideoPath);
 
-  const thumbFilename = `${path.parse(videoFilename).name}.jpg`;
+  const thumbExt = uploadedThumbnail
+    ? (path.extname(uploadedThumbnail.originalname || '').toLowerCase() || '.jpg')
+    : '.jpg';
+  const thumbFilename = `${path.parse(videoFilename).name}${thumbExt}`;
   const finalThumbPath = path.join(thumbDir, thumbFilename);
   let thumbnailGenerated = false;
-  try {
-    await generateThumbnail({ inputPath: finalVideoPath, outputPath: finalThumbPath, atSeconds: 1 });
-    thumbnailGenerated = true;
-  } catch (e) {
-    // If ffmpeg isn't available in the environment, allow upload to proceed without thumbnail.
-    // This is common on some hosts unless ffmpeg is explicitly installed/provisioned.
-    if ((e?.message || '').includes('ENOENT') || (e?.message || '').toLowerCase().includes('ffmpeg')) {
-      thumbnailGenerated = false;
-    } else {
-      throw e;
+
+  if (uploadedThumbnail && uploadedThumbnail.path) {
+    try {
+      fs.renameSync(uploadedThumbnail.path, finalThumbPath);
+      thumbnailGenerated = true;
+    } catch (e) {
+      console.warn('[VideoService] Failed to move custom thumbnail, falling back to generate:', e.message);
+    }
+  }
+
+  if (!thumbnailGenerated) {
+    try {
+      await generateThumbnail({ inputPath: finalVideoPath, outputPath: finalThumbPath, atSeconds: 1 });
+      thumbnailGenerated = true;
+    } catch (e) {
+      // If ffmpeg isn't available in the environment, allow upload to proceed without thumbnail.
+      // This is common on some hosts unless ffmpeg is explicitly installed/provisioned.
+      if ((e?.message || '').includes('ENOENT') || (e?.message || '').toLowerCase().includes('ffmpeg')) {
+        thumbnailGenerated = false;
+      } else {
+        throw e;
+      }
     }
   }
 
@@ -88,12 +103,46 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
         filePath: finalThumbPath,
         keyPrefix: `${videoPrefix}/thumbnails`,
         filename: thumbFilename,
-        contentType: 'image/jpeg',
+        contentType: contentTypeForExt(thumbExt),
         cacheControl: 'public, max-age=31536000, immutable',
       });
       thumbnailUrl = uploadedThumb.url;
     } else {
       thumbnailUrl = null;
+    }
+  } else if (process.env.CLOUDINARY_CLOUD_NAME) {
+    try {
+      const cloudinary = require('cloudinary').v2;
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      const videoRes = await cloudinary.uploader.upload(finalVideoPath, {
+        resource_type: 'video',
+        folder: 'unexa/videos',
+        chunk_size: 6000000,
+      });
+      videoUrl = videoRes.secure_url;
+
+      if (thumbnailGenerated) {
+        try {
+          const thumbRes = await cloudinary.uploader.upload(finalThumbPath, {
+            resource_type: 'image',
+            folder: 'unexa/thumbnails',
+          });
+          thumbnailUrl = thumbRes.secure_url;
+        } catch (_) {
+          thumbnailUrl = videoRes.secure_url.replace(/\.[^/.]+$/, '.jpg');
+        }
+      } else {
+        thumbnailUrl = videoRes.secure_url.replace(/\.[^/.]+$/, '.jpg');
+      }
+    } catch (cErr) {
+      console.warn('[VideoService] Cloudinary upload failed, falling back to local:', cErr.message);
+      videoUrl = localPublicUrl(req, path.join('videos', videoFilename));
+      thumbnailUrl = thumbnailGenerated ? localPublicUrl(req, path.join('thumbnails', thumbFilename)) : null;
     }
   } else {
     // Local URLs

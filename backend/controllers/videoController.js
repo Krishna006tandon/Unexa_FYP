@@ -20,16 +20,19 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: function (req, file, cb) {
-    if (file?.mimetype && file.mimetype.startsWith('video/')) return cb(null, true);
-    cb(new Error('Only video files are allowed'));
+    if (file?.mimetype && (file.mimetype.startsWith('video/') || (file.fieldname === 'thumbnail' && file.mimetype.startsWith('image/')))) {
+      return cb(null, true);
+    }
+    cb(new Error('Only video files (and image for thumbnail) are allowed'));
   },
   limits: { fileSize: 1024 * 1024 * 300 }, // 300MB
 });
 
-// Accept `video` (preferred) and `media` (legacy) field names from clients.
+// Accept `video` (preferred) and `media` (legacy) field names from clients, and optional `thumbnail`.
 exports.videoUploadMiddleware = upload.fields([
   { name: 'video', maxCount: 1 },
   { name: 'media', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 },
 ]);
 
 exports.uploadVideo = async (req, res) => {
@@ -37,6 +40,7 @@ exports.uploadVideo = async (req, res) => {
     const { title, description, kind } = req.body || {};
     if (!title) return res.status(400).json({ success: false, error: 'title is required' });
     const uploadedFile = (req.files?.video && req.files.video[0]) || (req.files?.media && req.files.media[0]) || null;
+    const uploadedThumbnail = (req.files?.thumbnail && req.files.thumbnail[0]) || null;
     if (!uploadedFile) return res.status(400).json({ success: false, error: 'video file is required' });
 
     const video = await createVideoFromUpload({
@@ -45,14 +49,17 @@ exports.uploadVideo = async (req, res) => {
       title,
       description,
       uploadedFile,
+      uploadedThumbnail,
       kind,
     });
 
     res.json({ success: true, data: video });
   } catch (error) {
-    // best-effort cleanup of the temp upload
+    // best-effort cleanup of temp uploads
     const uploadedFile = (req.files?.video && req.files.video[0]) || (req.files?.media && req.files.media[0]) || null;
+    const uploadedThumbnail = (req.files?.thumbnail && req.files.thumbnail[0]) || null;
     safeUnlink(uploadedFile?.path);
+    safeUnlink(uploadedThumbnail?.path);
     res.status(500).json({ success: false, error: error.message });
   }
 };

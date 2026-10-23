@@ -44,20 +44,37 @@ function addDependencyToAppGradle(contents) {
 function patchMainApplication(contents) {
   if (contents.includes('ScreenShareRtmpPackage')) return contents;
 
-  // Add imports
-  contents = contents.replace(
-    /import com\.facebook\.react\.ReactPackage;\s*/m,
-    (m) => `${m}\nimport ${MODULE_PKG}.ScreenShareRtmpPackage;\n`
-  );
+  // Add import (supports Kotlin without semicolon and Java with semicolon)
+  if (/import\s+com\.facebook\.react\.ReactPackage/m.test(contents)) {
+    contents = contents.replace(
+      /(import\s+com\.facebook\.react\.ReactPackage;?)/m,
+      `$1\nimport ${MODULE_PKG}.ScreenShareRtmpPackage`
+    );
+  } else if (/package\s+[\w\.]+;?/m.test(contents)) {
+    contents = contents.replace(
+      /(package\s+[\w\.]+;?\s*)/m,
+      `$1\nimport ${MODULE_PKG}.ScreenShareRtmpPackage\n`
+    );
+  }
 
   // Add package to getPackages()
-  // Typical Expo template:
-  // List<ReactPackage> packages = new PackageList(this).getPackages();
-  // return packages;
-  contents = contents.replace(
-    /new PackageList\(this\)\.getPackages\(\);\s*/m,
-    (m) => `${m}\n    packages.add(new ScreenShareRtmpPackage());\n`
-  );
+  // Kotlin template: PackageList(this).packages.apply {
+  if (contents.includes('PackageList(this).packages.apply')) {
+    contents = contents.replace(
+      /(PackageList\(this\)\.packages\.apply\s*\{)/m,
+      `$1\n              add(ScreenShareRtmpPackage())`
+    );
+  } else if (contents.includes('PackageList(this).packages')) {
+    contents = contents.replace(
+      /PackageList\(this\)\.packages/m,
+      `PackageList(this).packages.apply { add(ScreenShareRtmpPackage()) }`
+    );
+  } else if (/new PackageList\(this\)\.getPackages\(\);\s*/m.test(contents)) {
+    contents = contents.replace(
+      /new PackageList\(this\)\.getPackages\(\);\s*/m,
+      (m) => `${m}\n    packages.add(new ScreenShareRtmpPackage());\n`
+    );
+  }
 
   return contents;
 }

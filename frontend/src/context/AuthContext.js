@@ -14,26 +14,39 @@ export const AuthProvider = ({ children }) => {
     checkContext();
   }, []);
 
+  const syncPushToken = (tokenAuth) => {
+    NotificationService.requestPermissions()
+      .then((hasPermission) => {
+        if (!hasPermission) return null;
+        return NotificationService.getPushToken();
+      })
+      .then((token) => {
+        if (token && tokenAuth) {
+          return axios.post(`${ENVIRONMENT.API_URL}/api/auth/push-token`, { token }, {
+            headers: { Authorization: `Bearer ${tokenAuth}` },
+            timeout: 10000,
+          });
+        }
+      })
+      .then(() => {
+        console.log('✅ [AUTH] Push token registered in background');
+      })
+      .catch((err) => {
+        console.log('Push token background sync notice:', err?.message || err);
+      });
+  };
+
   const checkContext = async () => {
     try {
       const data = await AsyncStorage.getItem('userInfo');
       if (data) {
         const userData = JSON.parse(data);
         setUser(userData);
+        setLoading(false); // ⚡ Instant startup: Unblock UI without waiting for network
         
-        // ⚡ Ensure Push Token is updated on startup
-        try {
-          const hasPermission = await NotificationService.requestPermissions();
-          if (hasPermission) {
-            const token = await NotificationService.getPushToken();
-            if (token) {
-              await axios.post(`${ENVIRONMENT.API_URL}/api/auth/push-token`, { token }, {
-                headers: { Authorization: `Bearer ${userData.token}` }
-              });
-              console.log('✅ [AUTH] Push token verified on startup');
-            }
-          }
-        } catch (err) { console.log('Push token verification failed on startup', err); }
+        // ⚡ Run push token update in the background
+        syncPushToken(userData.token);
+        return;
       }
     } catch (e) {
       console.log(e);
@@ -47,19 +60,8 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem('userInfo', JSON.stringify(userData));
       setUser(userData);
       
-      // ⚡ Register Push Token on Login
-      try {
-        const hasPermission = await NotificationService.requestPermissions();
-        if (hasPermission) {
-          const token = await NotificationService.getPushToken();
-          if (token) {
-            await axios.post(`${ENVIRONMENT.API_URL}/api/auth/push-token`, { token }, {
-              headers: { Authorization: `Bearer ${userData.token}` }
-            });
-            console.log('✅ [AUTH] Push token registered successfully');
-          }
-        }
-      } catch (err) { console.log('Push token registration failed during login', err); }
+      // ⚡ Register Push Token in background
+      syncPushToken(userData.token);
 
       console.log('✅ Login successful, user data stored:', userData.username);
     } catch (error) {

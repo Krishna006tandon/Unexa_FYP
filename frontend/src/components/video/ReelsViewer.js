@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Video } from 'expo-av';
 import { Share } from 'react-native';
 import { Heart, Volume2, VolumeX } from 'lucide-react-native';
@@ -12,16 +12,57 @@ const THEME = {
   textDim: 'rgba(255,255,255,0.72)',
 };
 
-function ReelItem({ item, isActive, muted, onToggleMute, onLike, onShare, height }) {
+const ReelItem = React.memo(function ReelItem({
+  item,
+  isActive,
+  isTabActive = true,
+  muted,
+  onToggleMute,
+  onLike,
+  onShare,
+  height,
+}) {
   const videoRef = useRef(null);
   const [statusLabel, setStatusLabel] = useState('');
+  const [hasError, setHasError] = useState(false);
 
+  const shouldRenderVideo = isActive && isTabActive;
   const playUri = item?.hlsUrl || item?.videoUrl;
-  useEffect(() => {
-    if (isActive) {
-      console.log('[Reels] active uri:', (playUri || '').slice(0, 120));
+
+  const retryPlayback = useCallback(() => {
+    setHasError(false);
+    setStatusLabel('Retrying...');
+    if (videoRef.current) {
+      videoRef.current
+        .unloadAsync()
+        .then(() => {
+          if (playUri) {
+            return videoRef.current.loadAsync(
+              { uri: playUri },
+              { shouldPlay: shouldRenderVideo, isLooping: true, isMuted: muted }
+            );
+          }
+        })
+        .then(() => {
+          setStatusLabel('');
+        })
+        .catch((err) => {
+          console.warn('Retry failed:', err?.message);
+          setHasError(true);
+          setStatusLabel('Tap to retry');
+        });
     }
-  }, [isActive, playUri]);
+  }, [playUri, shouldRenderVideo, muted]);
+
+  useEffect(() => {
+    if (shouldRenderVideo) {
+      setHasError(false);
+      setStatusLabel('');
+    } else {
+      setHasError(false);
+      setStatusLabel('');
+    }
+  }, [shouldRenderVideo, playUri]);
 
   return (
     <View style={[styles.reel, { height }]}>
@@ -30,7 +71,10 @@ function ReelItem({ item, isActive, muted, onToggleMute, onLike, onShare, height
           activeOpacity={1}
           style={[styles.videoTap, { height }]}
           onPress={() => {
-            // manual toggle play/pause
+            if (hasError) {
+              retryPlayback();
+              return;
+            }
             videoRef.current?.getStatusAsync?.().then((s) => {
               if (!s?.isLoaded) return;
               if (s.isPlaying) videoRef.current?.pauseAsync?.().catch(() => {});
@@ -38,38 +82,63 @@ function ReelItem({ item, isActive, muted, onToggleMute, onLike, onShare, height
             }).catch(() => {});
           }}
         >
-          <Video
-            ref={videoRef}
-            style={styles.video}
-            source={{ uri: playUri }}
-            resizeMode="cover"
-            shouldPlay={isActive}
-            isLooping
-            isMuted={muted}
-            useNativeControls={false}
-            progressUpdateIntervalMillis={500}
-            onLoadStart={() => setStatusLabel('Loading...')}
-            onReadyForDisplay={() => setStatusLabel('')}
-            onPlaybackStatusUpdate={(st) => {
-              if (!st?.isLoaded) {
-                if (st?.error) setStatusLabel(`Error: ${st.error}`);
-                return;
-              }
-              if (st.isBuffering) setStatusLabel('Buffering...');
-              else if (isActive && !st.isPlaying && !st.didJustFinish) setStatusLabel('Tap to play');
-              else if (!st.isPlaying) setStatusLabel('');
-            }}
-            onError={(e) => {
-              console.warn('Reel video error', e);
-              setStatusLabel('Error loading video');
-            }}
-          />
-          {statusLabel ? (
-            <View pointerEvents="none" style={styles.statusPill}>
+          {shouldRenderVideo ? (
+            <Video
+              ref={videoRef}
+              style={styles.video}
+              source={{ uri: playUri }}
+              resizeMode="cover"
+              shouldPlay={shouldRenderVideo}
+              isLooping
+              isMuted={muted}
+              useNativeControls={false}
+              progressUpdateIntervalMillis={500}
+              onLoadStart={() => {
+                setHasError(false);
+                setStatusLabel('Loading...');
+              }}
+              onReadyForDisplay={() => {
+                setHasError(false);
+                setStatusLabel('');
+              }}
+              onPlaybackStatusUpdate={(st) => {
+                if (!st?.isLoaded) {
+                  if (st?.error) {
+                    console.warn('Reel playback error:', st.error);
+                    setHasError(true);
+                    setStatusLabel('Video unavailable. Tap to retry');
+                  }
+                  return;
+                }
+                setHasError(false);
+                if (st.isBuffering) setStatusLabel('Buffering...');
+                else if (shouldRenderVideo && !st.isPlaying && !st.didJustFinish) setStatusLabel('Tap to play');
+                else if (!st.isPlaying) setStatusLabel('');
+              }}
+              onError={(e) => {
+                console.warn('Reel video error', e);
+                setHasError(true);
+                setStatusLabel('Video unavailable. Tap to retry');
+              }}
+            />
+          ) : item?.thumbnailUrl ? (
+            <Image source={{ uri: item.thumbnailUrl }} style={styles.video} resizeMode="cover" />
+          ) : (
+            <View style={[styles.video, styles.missing]}>
+              <Text style={{ color: THEME.textDim, textAlign: 'center' }}>{item?.title || 'UNEXA Reel'}</Text>
+            </View>
+          )}
+
+          {statusLabel && shouldRenderVideo ? (
+            <TouchableOpacity
+              activeOpacity={hasError ? 0.7 : 1}
+              onPress={hasError ? retryPlayback : undefined}
+              style={[styles.statusPill, hasError && styles.statusPillError]}
+            >
               <Text style={styles.statusText} numberOfLines={2}>
                 {statusLabel}
               </Text>
-            </View>
+            </TouchableOpacity>
           ) : null}
         </TouchableOpacity>
       ) : (
@@ -101,9 +170,9 @@ function ReelItem({ item, isActive, muted, onToggleMute, onLike, onShare, height
       </View>
     </View>
   );
-}
+});
 
-export default function ReelsViewer({ navigation }) {
+export default function ReelsViewer({ navigation, isTabActive = true }) {
   const { height } = Dimensions.get('window');
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -158,57 +227,62 @@ export default function ReelsViewer({ navigation }) {
   );
 
   useEffect(() => {
-    const unsub = navigation?.addListener?.('focus', () => load({ reset: true }));
-    load({ reset: true });
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (items.length === 0) {
+      load({ reset: true });
+    }
   }, []);
 
-  const likeActive = async () => {
-    const current = items[activeIndex];
-    if (!current?._id) return;
-    try {
-      const res = await videoService.like(current._id);
-      const likes = res?.data?.likes;
-      setItems((prev) => prev.map((it) => (it._id === current._id ? { ...it, likes: likes ?? it.likes } : it)));
-    } catch (e) {
-      console.warn('Reel like error', e?.message);
-    }
-  };
+  const onToggleMute = useCallback(() => setMuted((m) => !m), []);
 
-  const shareActive = async () => {
-    const current = items[activeIndex];
-    if (!current) return;
-    const url = current?.hlsUrl || current?.videoUrl || '';
-    try {
-      await Share.share({ message: url ? `Watch this reel: ${url}` : 'Check this reel on UNEXA' });
-    } catch (_) {}
-  };
+  const onLike = useCallback((itemId) => {
+    if (!itemId) return;
+    videoService.like(itemId)
+      .then((res) => {
+        const likes = res?.data?.likes;
+        setItems((prev) => prev.map((it) => (it._id === itemId ? { ...it, likes: likes ?? it.likes } : it)));
+      })
+      .catch((e) => console.warn('Reel like error', e?.message));
+  }, []);
+
+  const onShare = useCallback((item) => {
+    if (!item) return;
+    const url = item?.hlsUrl || item?.videoUrl || '';
+    Share.share({ message: url ? `Watch this reel: ${url}` : 'Check this reel on UNEXA' }).catch(() => {});
+  }, []);
+
+  const renderItem = useCallback(
+    ({ item, index }) => (
+      <ReelItem
+        item={item}
+        isActive={index === activeIndex}
+        isTabActive={isTabActive}
+        muted={muted}
+        onToggleMute={onToggleMute}
+        onLike={() => onLike(item._id)}
+        onShare={() => onShare(item)}
+        height={height}
+      />
+    ),
+    [activeIndex, isTabActive, muted, onToggleMute, onLike, onShare, height]
+  );
+
+  const keyExtractor = useCallback((it) => it._id, []);
 
   return (
     <View style={[styles.wrap, { height }]}>
       <FlatList
         data={items}
-        keyExtractor={(it) => it._id}
+        keyExtractor={keyExtractor}
         pagingEnabled
         snapToInterval={height}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
-        initialNumToRender={3}
-        windowSize={5}
-        maxToRenderPerBatch={3}
+        initialNumToRender={2}
+        windowSize={3}
+        maxToRenderPerBatch={2}
+        removeClippedSubviews={Platform.OS === 'android'}
         getItemLayout={(_, index) => ({ length: height, offset: height * index, index })}
-        renderItem={({ item, index }) => (
-          <ReelItem
-            item={item}
-            isActive={index === activeIndex}
-            muted={muted}
-            onToggleMute={() => setMuted((m) => !m)}
-            onLike={likeActive}
-            onShare={shareActive}
-            height={height}
-          />
-        )}
+        renderItem={renderItem}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         onEndReached={() => {
@@ -248,6 +322,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
+  },
+  statusPillError: {
+    backgroundColor: 'rgba(185, 28, 28, 0.85)',
+    borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   statusText: { color: '#fff', fontWeight: '800', fontSize: 12, textAlign: 'center' },
   overlay: {

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { FlatList, Platform, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import postService from '../../services/postService';
 import PostCard from './PostCard';
 
@@ -15,7 +15,7 @@ export default function PostFeedList({ navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = async ({ reset } = {}) => {
+  const load = useCallback(async ({ reset } = {}) => {
     if (refreshing) return;
     setRefreshing(true);
     try {
@@ -44,9 +44,9 @@ export default function PostFeedList({ navigation }) {
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [page, refreshing]);
 
-  const like = async (postId) => {
+  const like = useCallback(async (postId) => {
     try {
       const res = await postService.like(postId);
       const likes = res?.data?.likes;
@@ -54,28 +54,39 @@ export default function PostFeedList({ navigation }) {
     } catch (e) {
       console.warn('Like post error', e?.message);
     }
-  };
+  }, []);
+
+  const handlePress = useCallback((postId) => {
+    navigation.navigate('PostDetail', { postId });
+  }, [navigation]);
 
   useEffect(() => {
-    const unsub = navigation?.addListener?.('focus', () => load({ reset: true }));
-    load({ reset: true });
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (items.length === 0) {
+      load({ reset: true });
+    }
   }, []);
+
+  const renderItem = useCallback(({ item }) => (
+    <PostCard
+      item={item}
+      onLike={() => like(item._id)}
+      onPress={() => handlePress(item._id)}
+    />
+  ), [like, handlePress]);
+
+  const keyExtractor = useCallback((it) => it._id, []);
 
   return (
     <View style={styles.wrap}>
       <FlatList
         data={items}
-        keyExtractor={(it) => it._id}
+        keyExtractor={keyExtractor}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load({ reset: true })} tintColor={THEME.primary} />}
-        renderItem={({ item }) => (
-          <PostCard
-            item={item}
-            onLike={() => like(item._id)}
-            onPress={() => navigation.navigate('PostDetail', { postId: item._id })}
-          />
-        )}
+        renderItem={renderItem}
         onEndReached={() => {
           if (hasMore && !refreshing) load();
         }}

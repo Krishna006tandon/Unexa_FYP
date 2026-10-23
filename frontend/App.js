@@ -1,6 +1,6 @@
 import React, { useContext, lazy, Suspense } from 'react';
 import { StyleSheet, Text, View, StatusBar, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { navigationRef } from './src/services/NavigationService';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -179,7 +179,17 @@ const MainTabs = () => (
     })}
   >
     <Tab.Screen name="Home" component={FeedScreen} />
-    <Tab.Screen name="Chats" component={ChatStack} />
+    <Tab.Screen 
+      name="Chats" 
+      component={ChatStack} 
+      options={({ route }) => {
+        const routeName = getFocusedRouteNameFromRoute(route) ?? 'ChatList';
+        const hideOnScreens = ['ChatScreen', 'NewChat'];
+        return {
+          tabBarStyle: hideOnScreens.includes(routeName) ? { display: 'none' } : styles.tabBar,
+        };
+      }}
+    />
     <Tab.Screen name="Create" component={CreateScreen} />
     <Tab.Screen name="Videos" component={VideoStack} />
     <Tab.Screen name="Profile" component={LazyProfileScreen} />
@@ -210,6 +220,8 @@ const AppNavigator = () => {
         {user ? (
           <>
             <Stack.Screen name="Main" component={MainTabs} />
+            <Stack.Screen name="ChatScreen" component={LazyChatScreen} />
+            <Stack.Screen name="NewChat" component={LazyNewChatScreen} />
             <Stack.Screen name="CallScreen" component={LazyCallScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="StoryScreen" component={LazyStoryScreen} options={{ presentation: 'fullScreenModal' }} />
             <Stack.Screen name="ProfileScreen" component={LazyProfileScreen} />

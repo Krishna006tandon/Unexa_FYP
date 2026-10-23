@@ -71,17 +71,21 @@ export default function UnifiedFeedScreen({ navigation }) {
           })}
         </View>
 
-        {tab === 'reels' ? (
-          <ReelsViewer navigation={navigation} />
-        ) : tab === 'posts' ? (
-          <PostFeedList navigation={navigation} />
-        ) : (
+        <View style={{ flex: 1, display: tab === 'long' ? 'flex' : 'none' }}>
           <VideoFeedList
             navigation={navigation}
-            title={activeTitle}
-            mode={tab === 'long' ? 'long' : tab}
+            title="Long Videos"
+            mode="long"
           />
-        )}
+        </View>
+
+        <View style={{ flex: 1, display: tab === 'reels' ? 'flex' : 'none' }}>
+          <ReelsViewer navigation={navigation} isTabActive={tab === 'reels'} />
+        </View>
+
+        <View style={{ flex: 1, display: tab === 'posts' ? 'flex' : 'none' }}>
+          <PostFeedList navigation={navigation} />
+        </View>
       </View>
     </SafeAreaView>
   );

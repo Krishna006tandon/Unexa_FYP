@@ -12,7 +12,7 @@ const THEME = {
   border: 'rgba(255,255,255,0.10)',
 };
 
-export default function PostCard({ item, onLike, onPress }) {
+function PostCard({ item, onLike, onPress }) {
   const user = item?.userId || {};
   const username = user?.username || 'user';
   const avatar = user?.profilePhoto || null;
@@ -49,6 +49,8 @@ export default function PostCard({ item, onLike, onPress }) {
     </TouchableOpacity>
   );
 }
+
+export default React.memo(PostCard);
 
 const styles = StyleSheet.create({
   card: {

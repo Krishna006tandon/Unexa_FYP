@@ -26,6 +26,8 @@ const videoSchema = new mongoose.Schema(
   { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } }
 );
 
+videoSchema.index({ createdAt: -1 });
+videoSchema.index({ kind: 1, createdAt: -1 });
 videoSchema.index({ title: 'text', description: 'text' });
 
 module.exports = mongoose.model('Video', videoSchema);

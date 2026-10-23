@@ -682,7 +682,7 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* Full Screen Image Modal */}
       <Modal visible={modalImage !== null} transparent={true} animationType="fade" onRequestClose={() => setModalImage(null)}>
         <BlurView intensity={100} tint="dark" style={styles.modalContainer}>
@@ -774,8 +774,8 @@ const ChatScreen = ({ route, navigation }) => {
         </TouchableOpacity>
 
         <View style={styles.headerActions}>
-           <TouchableOpacity onPress={() => setVanishMode(!vanishMode)}>
-              <Clock color={vanishMode ? THEME.colors.danger : THEME.colors.textDim} size={24} style={{ marginRight: 20 }} />
+           <TouchableOpacity onPress={() => setVanishMode(!vanishMode)} hitSlop={10}>
+              <Clock color={vanishMode ? THEME.colors.danger : THEME.colors.textDim} size={22} />
            </TouchableOpacity>
            
             {/* Passing receiverId or participants to CallScreen for initiating invitations */}
@@ -787,8 +787,8 @@ const ChatScreen = ({ route, navigation }) => {
                console.log(`[FRONTEND] Starting Video Call with ${receivers.length} recipients`);
                if (receivers.length === 0 || !receivers[0]) showAlert("Error", "Could not identify users to call.", "error");
                else navigation.navigate('CallScreen', { chatId, type: 'video', name, receivers, isIncoming: false });
-            }}>
-               <Video color={THEME.colors.primary} size={24} style={{ marginRight: 20 }} />
+            }} hitSlop={10}>
+               <Video color={THEME.colors.primary} size={22} />
             </TouchableOpacity>
             
             <TouchableOpacity onPress={() => {
@@ -799,39 +799,40 @@ const ChatScreen = ({ route, navigation }) => {
                console.log(`[FRONTEND] Starting Audio Call with ${receivers.length} recipients`);
                if (receivers.length === 0 || !receivers[0]) showAlert("Error", "Could not identify users to call.", "error");
                else navigation.navigate('CallScreen', { chatId, type: 'audio', name, receivers, isIncoming: false });
-            }}>
-               <Phone color={THEME.colors.secondary} size={24} style={{ marginRight: 10 }} />
+            }} hitSlop={10}>
+               <Phone color={THEME.colors.secondary} size={22} />
             </TouchableOpacity>
         </View>
       </View>
 
-      {fetching ? <ActivityIndicator style={{marginTop: 50}} color={THEME.colors.primary} /> : (
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={item => item._id}
-          renderItem={renderBubble}
-          contentContainerStyle={{ padding: 15 }}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          inverted
-        />
-      )}
-
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 25}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={styles.keyboardView}
       >
+        {fetching ? <ActivityIndicator style={{marginTop: 50}} color={THEME.colors.primary} /> : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={item => item._id}
+            renderItem={renderBubble}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 15 }}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            inverted
+          />
+        )}
+
         <LinearGradient
             colors={['rgba(20,20,20,0.8)', 'rgba(10,10,10,1)']}
             style={styles.inputAreaGradient}
         >
             <View style={styles.inputContainer}>
-              <TouchableOpacity style={styles.iconButton} onPress={pickDocument}><Paperclip color={THEME.colors.textDim} size={24} /></TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton} onPress={pickImage}><ImageIcon color={THEME.colors.textDim} size={24} /></TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton} onPress={openCamera}><Video color={THEME.colors.primary} size={24} /></TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={pickDocument}><Paperclip color={THEME.colors.textDim} size={22} /></TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={pickImage}><ImageIcon color={THEME.colors.textDim} size={22} /></TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={openCamera}><Video color={THEME.colors.primary} size={22} /></TouchableOpacity>
               
               {recording ? (
                  <View style={styles.recordingBar}>
@@ -853,7 +854,7 @@ const ChatScreen = ({ route, navigation }) => {
               ) : recording ? (
                 <TouchableOpacity onPress={stopRecording} style={[styles.iconButton, { backgroundColor: THEME.colors.danger, borderRadius: 25, padding: 8 }]}><Square color="#FFF" size={20} /></TouchableOpacity>
               ) : (
-                <TouchableOpacity onPress={startRecording} style={styles.iconButton}><Mic color={THEME.colors.textDim} size={24} /></TouchableOpacity>
+                <TouchableOpacity onPress={startRecording} style={styles.iconButton}><Mic color={THEME.colors.textDim} size={22} /></TouchableOpacity>
               )}
             </View>
         </LinearGradient>
@@ -905,8 +906,8 @@ const styles = StyleSheet.create({
   header: { 
     flexDirection: 'row', 
     alignItems: 'center', 
-    paddingHorizontal: 20,
-    paddingTop: 55,
+    paddingHorizontal: 12,
+    paddingTop: 50,
     paddingBottom: 12,
     backgroundColor: 'rgba(10, 10, 10, 0.95)',
     borderBottomWidth: 1,
@@ -916,22 +917,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 6,
   },
   headerAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderColor: THEME.colors.primary,
   },
   headerInfo: {
-    marginLeft: 12,
+    marginLeft: 10,
     flex: 1,
   },
   headerName: { 
     color: '#FFF', 
-    fontSize: 17, 
-    fontWeight: '800',
+    fontSize: 16, 
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   headerStatus: { 
@@ -943,11 +945,11 @@ const styles = StyleSheet.create({
   headerActions: { 
     flexDirection: 'row', 
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   backContainer: {
     padding: 6,
-    marginRight: 8,
+    marginRight: 4,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
@@ -1102,6 +1104,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   keyboardView: {
+    flex: 1,
     width: '100%',
   },
   inputAreaGradient: {

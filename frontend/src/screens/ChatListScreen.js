@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, TextInput } from 'react-native';
+import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, ActivityIndicator, TextInput, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import ProfileContext from '../context/ProfileContext';
@@ -50,15 +50,21 @@ const ChatListScreen = ({ navigation }) => {
   }, [user.token]);
 
   useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      await Promise.all([fetchChats(), fetchCalls()]);
-      setLoading(false);
+    let isMounted = true;
+    const init = async (silent = false) => {
+      if (!silent) setLoading(true);
+      await Promise.allSettled([fetchChats(), fetchCalls()]);
+      if (isMounted) setLoading(false);
     };
-    init();
+    init(chats.length > 0);
 
-    const unsubscribe = navigation.addListener('focus', init);
-    return unsubscribe;
+    const unsubscribe = navigation.addListener('focus', () => {
+      init(true); // Silent background refresh, don't wipe out the screen
+    });
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [navigation, fetchChats, fetchCalls]);
 
   // ⚡ REAL-TIME: Update chat list and call logs
@@ -113,9 +119,9 @@ const ChatListScreen = ({ navigation }) => {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const renderChatItem = ({ item }) => {
+  const renderChatItem = useCallback(({ item }) => {
     const isGroup = item.isGroupChat;
-    const otherUser = item.users.find(u => u._id !== user._id) || item.users[0];
+    const otherUser = item.users?.find(u => u._id !== user?._id) || item.users?.[0] || {};
     const name = isGroup ? item.chatName : otherUser.username;
     const avatarInfo = isGroup 
       ? { uri: item.groupPhoto || 'https://via.placeholder.com/150?text=Group' } 
@@ -158,11 +164,11 @@ const ChatListScreen = ({ navigation }) => {
         </View>
       </TouchableOpacity>
     );
-  };
+  }, [navigation, user?._id]);
 
-  const renderCallItem = ({ item }) => {
-    const isOutgoing = item.caller._id === user._id;
-    const otherParty = isOutgoing ? (item.receivers[0] || {}) : item.caller;
+  const renderCallItem = useCallback(({ item }) => {
+    const isOutgoing = item.caller?._id === user?._id;
+    const otherParty = isOutgoing ? (item.receivers?.[0] || {}) : item.caller || {};
     const avatarUri = otherParty.profilePhoto || 'https://i.pravatar.cc/150';
     
     let Icon = PhoneIncoming;
@@ -200,7 +206,26 @@ const ChatListScreen = ({ navigation }) => {
         </TouchableOpacity>
       </TouchableOpacity>
     );
-  };
+  }, [navigation, user?._id]);
+
+  const filteredData = useMemo(() => {
+    const list = activeTab === 'chats' ? chats : calls;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(item => {
+      if (activeTab === 'chats') {
+        const otherUser = item.users?.find(u => u._id !== user?._id) || item.users?.[0] || {};
+        const name = item.isGroupChat ? item.chatName : otherUser.username;
+        return (name || '').toLowerCase().includes(q);
+      } else {
+        const isOutgoing = item.caller?._id === user?._id;
+        const otherParty = isOutgoing ? (item.receivers?.[0] || {}) : item.caller;
+        return (otherParty?.username || '').toLowerCase().includes(q);
+      }
+    });
+  }, [activeTab, chats, calls, searchQuery, user?._id]);
+
+  const keyExtractor = useCallback((item) => item._id, []);
 
   return (
     <View style={styles.container}>
@@ -244,18 +269,12 @@ const ChatListScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={(activeTab === 'chats' ? chats : calls).filter(item => {
-            if (activeTab === 'chats') {
-              const otherUser = item.users.find(u => u._id !== user._id) || {};
-              const name = item.isGroupChat ? item.chatName : otherUser.username;
-              return name?.toLowerCase().includes(searchQuery.toLowerCase());
-            } else {
-              const isOutgoing = item.caller._id === user._id;
-              const otherParty = isOutgoing ? (item.receivers[0] || {}) : item.caller;
-              return otherParty.username?.toLowerCase().includes(searchQuery.toLowerCase());
-            }
-          })}
-          keyExtractor={item => item._id}
+          data={filteredData}
+          keyExtractor={keyExtractor}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={activeTab === 'chats' ? renderChatItem : renderCallItem}
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
           ListEmptyComponent={

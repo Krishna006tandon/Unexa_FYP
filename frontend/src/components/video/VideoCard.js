@@ -12,7 +12,7 @@ const THEME = {
   border: 'rgba(255,255,255,0.10)',
 };
 
-export default function VideoCard({ item, onPress }) {
+function VideoCard({ item, onPress }) {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.9} style={styles.card}>
       {item?.thumbnailUrl ? (
@@ -39,6 +39,8 @@ export default function VideoCard({ item, onPress }) {
     </TouchableOpacity>
   );
 }
+
+export default React.memo(VideoCard);
 
 const styles = StyleSheet.create({
   card: {

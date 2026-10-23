@@ -19,4 +19,7 @@ const postSchema = new mongoose.Schema(
   { timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' } }
 );
 
+postSchema.index({ isDeleted: 1, createdAt: -1 });
+postSchema.index({ userId: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Post', postSchema);

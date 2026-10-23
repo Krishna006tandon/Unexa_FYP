@@ -36,7 +36,7 @@ async function toUploadPart(uri, nameFallback, typeFallback) {
 }
 
 class VideoService {
-  async upload({ uri, title, description, name, type, kind }) {
+  async upload({ uri, title, description, name, type, kind, thumbnailUri, thumbnailName, thumbnailType }) {
     const headers = await authHeaders();
 
     const form = new FormData();
@@ -49,6 +49,14 @@ class VideoService {
     const part = await toUploadPart(uri, filename, contentType);
     if (part.blob) form.append('video', part.blob, filename);
     else form.append('video', part.file);
+
+    if (thumbnailUri) {
+      const thumbFilename = thumbnailName || `thumb_${Date.now()}.jpg`;
+      const thumbContentType = thumbnailType || 'image/jpeg';
+      const thumbPart = await toUploadPart(thumbnailUri, thumbFilename, thumbContentType);
+      if (thumbPart.blob) form.append('thumbnail', thumbPart.blob, thumbFilename);
+      else form.append('thumbnail', thumbPart.file);
+    }
 
     // On Android/iOS, `fetch` is often more reliable than axios for large multipart uploads.
     if (Platform.OS !== 'web') {

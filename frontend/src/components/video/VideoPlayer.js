@@ -7,6 +7,17 @@ const THEME = { bg: '#0A0A0A', primary: '#7B61FF' };
 export default function VideoPlayer({ uri, posterUri, autoReplay = false }) {
   const videoRef = useRef(null);
   const [ended, setEnded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  const retryPlayback = () => {
+    setHasError(false);
+    setEnded(false);
+    videoRef.current
+      ?.unloadAsync?.()
+      .then(() => videoRef.current?.loadAsync({ uri }, { shouldPlay: true }))
+      .catch(() => setHasError(true));
+  };
+
   if (!uri) return null;
   return (
     <View style={styles.wrap}>
@@ -20,7 +31,11 @@ export default function VideoPlayer({ uri, posterUri, autoReplay = false }) {
         shouldPlay
         useNativeControls
         onPlaybackStatusUpdate={(status) => {
-          if (!status?.isLoaded) return;
+          if (!status?.isLoaded) {
+            if (status?.error) setHasError(true);
+            return;
+          }
+          if (hasError) setHasError(false);
           if (status.didJustFinish) {
             if (autoReplay) {
               videoRef.current?.setPositionAsync?.(0).then(() => videoRef.current?.playAsync?.()).catch(() => {});
@@ -32,13 +47,20 @@ export default function VideoPlayer({ uri, posterUri, autoReplay = false }) {
             setEnded(false);
           }
         }}
-        onError={(e) => console.warn('Video error', e)}
+        onError={(e) => {
+          console.warn('Video error', e);
+          setHasError(true);
+        }}
       />
       <View pointerEvents="none" style={styles.loading}>
         <ActivityIndicator color={THEME.primary} />
       </View>
 
-      {ended ? (
+      {hasError ? (
+        <TouchableOpacity style={styles.replay} onPress={retryPlayback} activeOpacity={0.9}>
+          <Text style={styles.replayText}>Video unavailable. Tap to retry</Text>
+        </TouchableOpacity>
+      ) : ended ? (
         <TouchableOpacity
           style={styles.replay}
           onPress={() => {

@@ -14,19 +14,36 @@ const app = express();
 // Trust proxy for Render deployment (do not set to `true`, it's too permissive for IP-based rate limiting)
 app.set('trust proxy', 1);
 
+// Allowed origins for Web / Mobile / Local development
+const allowedOrigins = [
+  'http://localhost:8081',
+  'http://localhost:19006',
+  'http://localhost:8082',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'https://unexa-fyp.onrender.com',
+];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin || origin === 'null') return true; // Native apps, ExoPlayer, local files, curl
+  if (allowedOrigins.includes(origin)) return true;
+  if (origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) return true;
+  if (/^http:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2)(:\d+)?$/.test(origin)) return true;
+  if (/^exp(s)?:\/\//.test(origin)) return true;
+  if (/^android-app:\/\//.test(origin)) return true;
+  return false;
+};
+
 // Socket.IO Setup
 const server = http.createServer(app);
 const io = new Server(server, {
   pingTimeout: 60000,
   cors: {
     origin: (origin, callback) => {
-      if (process.env.NODE_ENV === 'development') return callback(null, true);
-      const allowed = ["https://unexa-fyp.onrender.com"];
-      if (!origin || allowed.indexOf(origin) !== -1 || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
-        callback(null, true);
-      } else {
-        callback(new Error('âŒ [CORS-SOCKET] Origin not allowed'));
+      if (process.env.NODE_ENV === 'development' || isAllowedOrigin(origin)) {
+        return callback(null, true);
       }
+      return callback(null, false);
     },
     methods: ["GET", "POST"],
     credentials: true
@@ -49,19 +66,34 @@ app.use(express.json({
     req.rawBody = buf;
   }
 }));
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (process.env.NODE_ENV === 'development') return callback(null, true);
-    const allowed = ["http://localhost:8081", "https://unexa-fyp.onrender.com"];
-    if (!origin || allowed.indexOf(origin) !== -1 || origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('âŒ [CORS] Deployment error: Origin not allowed'));
+    if (process.env.NODE_ENV === 'development' || isAllowedOrigin(origin)) {
+      return callback(null, true);
     }
+    return callback(null, false);
   },
   credentials: true
 }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Expose uploads folder
+
+// Expose uploads folder with full streaming, byte-range, CORS, and 7-day client caching for media
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Accept-Ranges, Content-Type, Authorization, Origin');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Content-Length, Accept-Ranges');
+  res.setHeader('Accept-Ranges', 'bytes');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+}, express.static(path.join(__dirname, 'uploads'), {
+  maxAge: '7d',
+  immutable: true,
+  setHeaders: (res) => {
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+  }
+}));
 app.use('/liveweb', express.static(path.join(__dirname, 'public', 'liveweb')));
 app.get('/privacy-policy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
@@ -287,7 +319,14 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ success: false, error: err.message });
   }
 
-  res.status(500).json({ success: false, error: err.message || 'Server error' });
+  // Range Not Satisfiable (HTTP 416) from static file streaming (ExoPlayer seeking/looping)
+  if (err.status === 416 || err.statusCode === 416) {
+    res.setHeader('Content-Range', `bytes */${err.headers?.['content-range'] || '*'}`);
+    return res.status(416).end();
+  }
+
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ success: false, error: err.message || 'Server error' });
 });
 
 // Database Connection

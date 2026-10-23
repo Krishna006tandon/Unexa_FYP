@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -81,11 +82,25 @@ export default function VideoFeedList({ navigation, title, mode }) {
   };
 
   useEffect(() => {
-    const unsub = navigation?.addListener?.('focus', () => load({ reset: true }));
-    load({ reset: true });
-    return unsub;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (items.length === 0) {
+      load({ reset: true });
+    }
   }, [mode]);
+
+  const handlePressVideo = useCallback((videoId) => {
+    const routeNames = navigation?.getState?.()?.routeNames || [];
+    if (routeNames.includes('VideoPlayer')) {
+      navigation.navigate('VideoPlayer', { videoId });
+    } else {
+      navigation.navigate('Videos', { screen: 'VideoPlayer', params: { videoId } });
+    }
+  }, [navigation]);
+
+  const renderItem = useCallback(({ item }) => (
+    <VideoCard item={item} onPress={() => handlePressVideo(item._id)} />
+  ), [handlePressVideo]);
+
+  const keyExtractor = useCallback((it) => it._id, []);
 
   return (
     <View style={styles.container}>
@@ -122,7 +137,11 @@ export default function VideoFeedList({ navigation, title, mode }) {
 
       <FlatList
         data={items}
-        keyExtractor={(it) => it._id}
+        keyExtractor={keyExtractor}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -130,19 +149,7 @@ export default function VideoFeedList({ navigation, title, mode }) {
             tintColor={THEME.primary}
           />
         }
-        renderItem={({ item }) => (
-          <VideoCard
-            item={item}
-            onPress={() => {
-              const routeNames = navigation?.getState?.()?.routeNames || [];
-              if (routeNames.includes('VideoPlayer')) {
-                navigation.navigate('VideoPlayer', { videoId: item._id });
-              } else {
-                navigation.navigate('Videos', { screen: 'VideoPlayer', params: { videoId: item._id } });
-              }
-            }}
-          />
-        )}
+        renderItem={renderItem}
         onEndReached={() => {
           if (hasMore && !refreshing && !query.trim()) load();
         }}
