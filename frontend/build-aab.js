@@ -12,9 +12,12 @@ process.env.TMP = tempDir;
 console.log('🚀 Redirecting build temp directory to G:\\temp (480GB+ free space)...');
 console.log('📦 Starting EAS Build for Android (Production AAB)...\n');
 
-const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const child = spawn(npxCmd, ['eas-cli', 'build', '--platform', 'android', '--profile', 'production', ...process.argv.slice(2)], {
+const extraArgs = process.argv.slice(2).join(' ');
+const cmd = `npx eas-cli build --platform android --profile production ${extraArgs}`.trim();
+
+const child = spawn(cmd, {
   stdio: 'inherit',
+  shell: true,
   env: {
     ...process.env,
     TEMP: tempDir,
