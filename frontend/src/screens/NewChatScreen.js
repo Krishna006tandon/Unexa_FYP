@@ -137,7 +137,8 @@ const NewChatScreen = ({ navigation }) => {
        {loading && <ActivityIndicator color={THEME.colors.primary} style={{marginTop: 20}} />}
 
        <FlatList 
-         data={results}
+         keyboardShouldPersistTaps="handled"
+          data={results}
          keyExtractor={item => item._id}
          renderItem={({item}) => (
              <TouchableOpacity 

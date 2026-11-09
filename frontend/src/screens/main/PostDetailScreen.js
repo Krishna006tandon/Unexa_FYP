@@ -1,9 +1,9 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
   Image,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -112,7 +112,7 @@ export default function PostDetailScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScreenHeader
         title="Post"
         onBack={() => navigation.goBack()}
@@ -130,7 +130,12 @@ export default function PostDetailScreen({ route, navigation }) {
         }
       />
 
-      <View style={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
+        <View style={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
         <Text style={styles.user}>{post?.userId?.username || 'user'}</Text>
 
         {editing ? (
@@ -188,6 +193,7 @@ export default function PostDetailScreen({ route, navigation }) {
           />
         </View>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

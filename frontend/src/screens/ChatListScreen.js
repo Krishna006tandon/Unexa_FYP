@@ -272,6 +272,7 @@ const ChatListScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
+          keyboardShouldPersistTaps="handled"
           data={filteredData}
           keyExtractor={keyExtractor}
           initialNumToRender={8}

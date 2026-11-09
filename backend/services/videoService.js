@@ -119,11 +119,14 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
         api_secret: process.env.CLOUDINARY_API_SECRET,
       });
 
-      const videoRes = await cloudinary.uploader.upload(finalVideoPath, {
+      console.log('[VideoService] Uploading video to Cloudinary via upload_large...');
+      const videoRes = await cloudinary.uploader.upload_large(finalVideoPath, {
         resource_type: 'video',
         folder: 'unexa/videos',
         chunk_size: 6000000,
+        timeout: 120000,
       });
+      console.log('[VideoService] Cloudinary video uploaded successfully:', videoRes.secure_url);
       videoUrl = videoRes.secure_url;
 
       if (thumbnailGenerated) {
@@ -140,7 +143,7 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
         thumbnailUrl = videoRes.secure_url.replace(/\.[^/.]+$/, '.jpg');
       }
     } catch (cErr) {
-      console.warn('[VideoService] Cloudinary upload failed, falling back to local:', cErr.message);
+      console.error('[VideoService] Cloudinary upload failed with error:', cErr);
       videoUrl = localPublicUrl(req, path.join('videos', videoFilename));
       thumbnailUrl = thumbnailGenerated ? localPublicUrl(req, path.join('thumbnails', thumbFilename)) : null;
     }
@@ -197,8 +200,8 @@ async function createVideoFromUpload({ req, userId, title, description, uploaded
     comments: [],
   });
 
-  // Cleanup local source files when using S3 driver
-  if (driver === 's3') {
+  // Cleanup local source files when using S3 or Cloudinary
+  if (driver === 's3' || (videoUrl && videoUrl.includes('res.cloudinary.com'))) {
     safeUnlink(finalVideoPath);
     safeUnlink(finalThumbPath);
   }

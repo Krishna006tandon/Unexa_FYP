@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react'; // Updated UI and Reactions
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking, Modal, Alert, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Linking, Modal, Alert, Dimensions, Keyboard } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ScreenCapture from 'expo-screen-capture';
@@ -7,7 +7,7 @@ import { Send, Image as ImageIcon, Mic, Check, CheckCheck, Play, Paperclip, Squa
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Audio } from 'expo-av';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
@@ -40,6 +40,23 @@ const ChatScreen = ({ route, navigation }) => {
   const { user } = useContext(AuthContext);
   const { socket } = useContext(ProfileContext);
   const { showAlert } = useUI();
+  const insets = useSafeAreaInsets();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const getSenderColor = (username) => {
     const colors = ['#FF8A65', '#4DB6AC', '#9575CD', '#F06292', '#AED581', '#FFD54F', '#4FC3F7'];
@@ -807,7 +824,7 @@ const ChatScreen = ({ route, navigation }) => {
       </View>
 
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={styles.keyboardView}
       >
@@ -823,12 +840,17 @@ const ChatScreen = ({ route, navigation }) => {
             maxToRenderPerBatch={10}
             windowSize={10}
             inverted
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           />
         )}
 
         <LinearGradient
             colors={['rgba(20,20,20,0.8)', 'rgba(10,10,10,1)']}
-            style={styles.inputAreaGradient}
+            style={[
+              styles.inputAreaGradient,
+              { paddingBottom: isKeyboardVisible ? 10 : Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) }
+            ]}
         >
             <View style={styles.inputContainer}>
               <TouchableOpacity style={styles.iconButton} onPress={pickDocument}><Paperclip color={THEME.colors.textDim} size={22} /></TouchableOpacity>
@@ -908,8 +930,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     paddingHorizontal: 12,
-    paddingTop: 50,
-    paddingBottom: 12,
+    paddingVertical: 12,
     backgroundColor: 'rgba(10, 10, 10, 0.95)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.05)',

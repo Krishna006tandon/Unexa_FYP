@@ -29,8 +29,35 @@ const THEME = {
   border: 'rgba(255,255,255,0.12)',
 };
 
+function getFriendlyErrorMessage(rawError) {
+  if (!rawError) return 'Cannot play this video right now';
+  const errStr = typeof rawError === 'string' ? rawError : (rawError.message || JSON.stringify(rawError));
+  
+  if (errStr.includes('404') || (errStr.includes('InvalidResponseCodeException') && errStr.includes('404'))) {
+    return 'Video file not found on server (404). The file may have been removed or the server restarted.';
+  }
+  if (errStr.includes('403')) {
+    return 'Access to this video stream is forbidden (403).';
+  }
+  if (errStr.includes('416')) {
+    return 'Video range request error (416).';
+  }
+  if (errStr.includes('HttpDataSource') || errStr.includes('Response code:')) {
+    const codeMatch = errStr.match(/Response code:\s*(\d+)/i);
+    if (codeMatch) {
+      return `Server returned an error (${codeMatch[1]}). Video may be missing or host unreachable.`;
+    }
+    return 'Server error while streaming video.';
+  }
+  if (errStr.includes('Connection') || errStr.includes('network') || errStr.includes('timed out')) {
+    return 'Network connection error. Please check your internet connection.';
+  }
+  return errStr.length > 95 ? 'Video playback error. Please try again later.' : errStr;
+}
+
 export default function VideoPlayer({
   uri,
+  fallbackUri,
   posterUri,
   autoReplay = false,
   autoPlay = true,
@@ -42,6 +69,15 @@ export default function VideoPlayer({
 
   const cleanUri = resolveMediaUrl(uri);
   const cleanPoster = resolveMediaUrl(posterUri);
+  const cleanFallback = resolveMediaUrl(fallbackUri);
+
+  const [currentUri, setCurrentUri] = useState(cleanUri);
+  const [triedFallback, setTriedFallback] = useState(false);
+
+  useEffect(() => {
+    setCurrentUri(cleanUri);
+    setTriedFallback(false);
+  }, [cleanUri]);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
@@ -145,12 +181,21 @@ export default function VideoPlayer({
     setErrorMessage('');
     setIsBuffering(true);
     setIsEnded(false);
+
+    // If initial URI failed and we have an untried fallback, try the fallback URI
+    let target = currentUri;
+    if (!triedFallback && cleanFallback && cleanFallback !== currentUri) {
+      target = cleanFallback;
+      setCurrentUri(cleanFallback);
+      setTriedFallback(true);
+    }
+
     try {
       if (videoRef.current) {
         await videoRef.current.unloadAsync().catch(() => {});
-        if (cleanUri) {
+        if (target) {
           await videoRef.current.loadAsync(
-            { uri: cleanUri },
+            { uri: target },
             { shouldPlay: true, isMuted }
           );
         }
@@ -158,7 +203,7 @@ export default function VideoPlayer({
     } catch (err) {
       console.warn('[VideoPlayer] retry failed:', err.message);
       setHasError(true);
-      setErrorMessage(err.message || 'Failed to play video');
+      setErrorMessage(getFriendlyErrorMessage(err.message || 'Failed to play video'));
       setIsBuffering(false);
     }
   };
@@ -168,7 +213,7 @@ export default function VideoPlayer({
       if (status?.error) {
         console.warn('[VideoPlayer] status error:', status.error);
         setHasError(true);
-        setErrorMessage(status.error);
+        setErrorMessage(getFriendlyErrorMessage(status.error));
         setIsBuffering(false);
       }
       return;
@@ -214,7 +259,7 @@ export default function VideoPlayer({
         <Video
           ref={videoRef}
           style={styles.video}
-          source={{ uri: cleanUri }}
+          source={{ uri: currentUri || cleanUri }}
           posterSource={cleanPoster ? { uri: cleanPoster } : undefined}
           usePoster={!!cleanPoster}
           resizeMode={resizeMode}
@@ -226,7 +271,7 @@ export default function VideoPlayer({
           onError={(e) => {
             console.warn('[VideoPlayer] Video error:', e);
             setHasError(true);
-            setErrorMessage(typeof e === 'string' ? e : 'Video playback error');
+            setErrorMessage(getFriendlyErrorMessage(e));
             setIsBuffering(false);
           }}
         />

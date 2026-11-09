@@ -587,7 +587,7 @@ const ProfileScreen = ({ navigation, route }) => {
   );
 
   const renderEditForm = () => (
-    <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.editForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View style={styles.formSection}>
         <Text style={styles.sectionTitle}>Basic Information</Text>
 

@@ -1,5 +1,6 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, Alert, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Upload, FileVideo, Image as ImageIcon, X } from 'lucide-react-native';
@@ -112,8 +113,13 @@ export default function UploadReelScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScreenHeader title="Upload Reel" onBack={() => navigation.goBack()} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
       <ScrollView contentContainerStyle={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: "center", width: "100%" }]} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.pickBtn} onPress={pick} disabled={loading}>
           <FileVideo color="#fff" size={18} />
@@ -162,6 +168,7 @@ export default function UploadReelScreen({ navigation }) {
           <Text style={styles.uploadText}>{loading ? 'Uploading...' : 'Upload Reel'}</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

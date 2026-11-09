@@ -784,6 +784,8 @@ const ChatScreen = ({ route, navigation }) => {
           maxToRenderPerBatch={10}
           windowSize={10}
           inverted
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         />
       )}
 

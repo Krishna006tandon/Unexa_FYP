@@ -3,7 +3,6 @@ import {
   Alert,
   FlatList,
   Image,
-  SafeAreaView,
   Share,
   ScrollView,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { Bookmark, ChevronDown, ChevronUp, MessageSquareText, Share2, ThumbsUp } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ScreenHeader from '../../components/video/ScreenHeader';
 import VideoPlayer from '../../components/video/VideoPlayer';
 import videoService from '../../services/videoService';
@@ -72,6 +72,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
 
   const rawPlayUri = video?.hlsUrl || video?.videoUrl;
   const playUri = resolveMediaUrl(rawPlayUri);
+  const fallbackUri = video?.hlsUrl && video?.videoUrl ? resolveMediaUrl(video.videoUrl) : null;
   const posterUri = resolveMediaUrl(video?.thumbnailUrl);
   const creator = video?.userId || null;
   const creatorName = creator?.username || 'creator';
@@ -108,10 +109,11 @@ export default function VideoPlayerScreen({ route, navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScreenHeader title="Video" onBack={() => navigation.goBack()} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={{ flex: 1 }}
       >
         <ScrollView
@@ -123,7 +125,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.playerWrap}>
-            <VideoPlayer uri={playUri} posterUri={posterUri} />
+            <VideoPlayer uri={playUri} fallbackUri={fallbackUri} posterUri={posterUri} />
           </View>
 
           <View style={styles.meta}>

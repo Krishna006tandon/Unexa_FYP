@@ -42,7 +42,6 @@ const config = {
     bundler: 'metro'
   },
   plugins: [
-    'expo-audio',
     'expo-video',
     'expo-font',
     [

@@ -430,7 +430,12 @@ const MediaShareScreen = ({ navigation }) => {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.tabContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'shared-with-me' && styles.activeTab]}
@@ -526,6 +531,7 @@ const MediaShareScreen = ({ navigation }) => {
         {/* Extra Bottom Padding */}
         <View style={{ height: 40 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={showFriendSelector}

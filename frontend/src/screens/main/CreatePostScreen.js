@@ -1,5 +1,6 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, TextInput, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Image, KeyboardAvoidingView, ScrollView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Image as ImageIcon, Upload, X } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
@@ -82,9 +83,14 @@ export default function CreatePostScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScreenHeader title="Create Post" onBack={() => navigation.goBack()} />
-      <View style={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={[styles.body, isTablet && { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' }]} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Caption</Text>
         <TextInput
           value={caption}
@@ -115,7 +121,8 @@ export default function CreatePostScreen({ navigation }) {
           <Upload size={18} color="#fff" />
           <Text style={styles.postText}>{loading ? 'Posting...' : 'Post'}</Text>
         </TouchableOpacity>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

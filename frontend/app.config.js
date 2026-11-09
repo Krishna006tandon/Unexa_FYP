@@ -21,12 +21,13 @@ const config = {
     }
   },
   android: {
+    softwareKeyboardLayoutMode: 'resize',
     adaptiveIcon: {
       backgroundColor: '#000000',
       foregroundImage: './assets/Unexalogo.png'
     },
     package: 'com.unexa.application',
-    versionCode: 2,
+    versionCode: 3,
     permissions: [
       "RECORD_AUDIO",
       "CAMERA",
@@ -47,7 +48,6 @@ const config = {
     bundler: 'metro'
   },
   plugins: [
-    'expo-audio',
     'expo-video',
     'expo-font',
     './plugins/withScreenShareRtmp',
