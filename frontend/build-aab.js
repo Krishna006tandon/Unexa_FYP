@@ -8,6 +8,7 @@ if (!fs.existsSync(tempDir)) {
 
 process.env.TEMP = tempDir;
 process.env.TMP = tempDir;
+process.env.EAS_BUILD_NO_EXPO_GO_WARNING = 'true';
 
 console.log('🚀 Redirecting build temp directory to G:\\temp (480GB+ free space)...');
 console.log('📦 Starting EAS Build for Android (Production AAB)...\n');
