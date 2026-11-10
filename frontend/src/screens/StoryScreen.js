@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video } from 'expo-av';
 import { usePreventScreenCapture } from 'expo-screen-capture';
-import { X, Send, Eye, Heart, MessageCircle, Smile, Trash2 } from 'lucide-react-native';
+import { X, Send, Eye, Heart, MessageCircle, Smile, Trash2, User } from 'lucide-react-native';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import ENVIRONMENT from '../config/environment';

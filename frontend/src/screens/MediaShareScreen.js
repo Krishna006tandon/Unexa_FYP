@@ -11,7 +11,9 @@ import {
   TextInput,
   Modal,
   FlatList,
-  Dimensions
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 
 import { AuthContext } from '../context/AuthContext';

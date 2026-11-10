@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   TouchableOpacity,
   View,
 } from 'react-native';
