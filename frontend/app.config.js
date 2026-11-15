@@ -1,7 +1,7 @@
 const config = {
   name: 'UNEXA',
   slug: 'unexa',
-  version: '1.2.11',
+  version: '2.4.11',
   orientation: 'portrait',
   icon: './assets/Unexalogo.png',
   userInterfaceStyle: 'light',
