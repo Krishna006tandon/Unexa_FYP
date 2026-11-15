@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useState, useContext, useEffect } from 'react';
 import { 
   View, 
@@ -42,6 +43,7 @@ const THEME = {
 };
 
 const MediaShareScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const { user } = useContext(AuthContext);
   const { showAlert } = useUI();
 
@@ -423,7 +425,7 @@ const MediaShareScreen = ({ navigation }) => {
 };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={THEME.colors.text} />
@@ -437,7 +439,7 @@ const MediaShareScreen = ({ navigation }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         style={{ flex: 1 }}
       >
-      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 80 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.tabContainer}>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'shared-with-me' && styles.activeTab]}
@@ -653,8 +655,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 25,
-    paddingTop: 65,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
     backgroundColor: THEME.colors.background,
   },
   headerTitle: {

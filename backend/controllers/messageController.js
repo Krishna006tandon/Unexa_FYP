@@ -66,16 +66,19 @@ exports.sendMessage = async (req, res) => {
         if (usr._id.toString() === req.user._id.toString()) return;
 
         if (usr.pushToken) {
-          const body = messageType === 'text' ? content : `Sent a ${messageType}`;
-          const title = chat.isGroupChat ? `${chat.chatName}` : `${req.user.username}`;
+          const body = (messageType === 'text' ? content : `Sent a ${messageType}`) || 'New message';
+          const title = chat.isGroupChat ? (chat.chatName || 'Group Chat') : (req.user?.username || 'New Message');
           
           await sendPushNotification(
             usr.pushToken, 
             title, 
             body, 
             { 
-               route: 'ChatScreen', 
-               params: { chatId: chatId.toString(), name: req.user.username } 
+               route: 'Chats', 
+               params: { 
+                 screen: 'ChatScreen',
+                 params: { chatId: chatId.toString(), name: req.user?.username || 'Chat', receiverId: req.user._id.toString() }
+               } 
             }
           );
         }

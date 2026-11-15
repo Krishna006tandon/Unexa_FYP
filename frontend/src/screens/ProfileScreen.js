@@ -15,7 +15,7 @@ import {
   RefreshControl,
   Share
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import ProfileContext, { useProfile } from '../context/ProfileContext';
@@ -60,8 +60,8 @@ import QRCode from 'react-native-qrcode-svg';
 const THEME = {
   colors: {
     background: '#0A0A0A',
-    primary: '#edeaeaff',
-    secondary: '#160d0dff',
+    primary: '#7B61FF',
+    secondary: '#3DDCFF',
     text: '#FFFFFF',
     textDim: '#A0A0A0',
     glass: 'rgba(255, 255, 255, 0.05)',
@@ -73,6 +73,7 @@ const THEME = {
 };
 
 const ProfileScreen = ({ navigation, route }) => {
+  const insets = useSafeAreaInsets();
   const { user, logout } = useContext(AuthContext);
   const {
     profile,
@@ -755,7 +756,7 @@ const ProfileScreen = ({ navigation, route }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
@@ -767,6 +768,7 @@ const ProfileScreen = ({ navigation, route }) => {
       <ScrollView
         ref={scrollViewRef}
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) + 80 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -992,8 +994,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 25,
-    paddingTop: 65,
-    paddingBottom: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
     backgroundColor: THEME.colors.background,
   },
   headerTitle: {

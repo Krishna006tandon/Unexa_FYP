@@ -1,3 +1,5 @@
+const User = require('../models/User');
+const { sendPushNotification } = require('../utils/notifier');
 const Post = require('../models/Post');
 
 exports.createPost = async (req, res) => {
@@ -80,6 +82,21 @@ exports.likePost = async (req, res) => {
     }
 
     await post.save();
+
+    // 📩 Background Push Notification for Like
+    if (!hasLiked && post.userId && post.userId.toString() !== userId) {
+      User.findById(post.userId).then((author) => {
+        if (author && author.pushToken) {
+          sendPushNotification(
+            author.pushToken,
+            'New Like ❤️',
+            `${req.user?.username || 'Someone'} liked your post`,
+            { route: 'PostDetail', params: { postId: post._id.toString() } }
+          );
+        }
+      }).catch(err => console.log('Push like error:', err?.message));
+    }
+
     res.json({ success: true, data: { postId: post._id, likes: post.likes, liked: !hasLiked } });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -97,6 +114,20 @@ exports.commentPost = async (req, res) => {
 
     post.comments.push({ userId: req.user._id, content: content.toString() });
     await post.save();
+
+    // 📩 Background Push Notification for Comment
+    if (post.userId && post.userId.toString() !== req.user._id.toString()) {
+      User.findById(post.userId).then((author) => {
+        if (author && author.pushToken) {
+          sendPushNotification(
+            author.pushToken,
+            'New Comment 💬',
+            `${req.user?.username || 'Someone'}: ${content.toString().slice(0, 50)}`,
+            { route: 'PostDetail', params: { postId: post._id.toString() } }
+          );
+        }
+      }).catch(err => console.log('Push comment error:', err?.message));
+    }
     const populated = await Post.findById(post._id).populate('userId', 'username profilePhoto').populate('comments.userId', 'username profilePhoto');
     res.json({ success: true, data: populated });
   } catch (error) {

@@ -159,7 +159,7 @@ export default function VideoFeedList({ navigation, title, mode }) {
             <Text style={{ color: THEME.textDim, textAlign: 'center' }}>No videos yet.</Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 85 }}
       />
     </View>
   );

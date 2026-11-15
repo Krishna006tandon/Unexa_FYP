@@ -772,6 +772,17 @@ const followUser = async (req, res) => {
       await targetUser.save();
       // Update Profile count
       await Profile.findOneAndUpdate({ user: targetUserId }, { $inc: { followersCount: 1 } });
+
+      // 📩 Background Push Notification for Follow
+      if (targetUser.pushToken) {
+        const { sendPushNotification } = require('../utils/notifier');
+        sendPushNotification(
+          targetUser.pushToken,
+          'New Follower 🎉',
+          `${currentUser.username || 'Someone'} started following you`,
+          { route: 'ProfileScreen', params: { userId: currentUserId } }
+        ).catch(err => console.log('Push follow error:', err?.message));
+      }
     }
 
     res.json({ success: true, message: "Following user" });

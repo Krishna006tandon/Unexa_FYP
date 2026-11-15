@@ -209,15 +209,17 @@ exports.updatePushToken = async (req, res) => {
     const { token } = req.body;
     if (!token) return res.status(400).json({ error: "Token not provided" });
 
-    const user = await User.findById(req.user._id);
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { pushToken: token },
+      { new: true }
+    );
     if (!user) return res.status(404).json({ error: "User not found" });
-
-    user.pushToken = token;
-    await user.save();
 
     console.log(`📲 [PUSH] Updated token for user: ${user.username}`);
     res.json({ success: true, message: "Push token updated" });
   } catch (error) {
+    console.error("Update Push Token Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

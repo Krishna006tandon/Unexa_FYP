@@ -96,7 +96,7 @@ export default function PostFeedList({ navigation }) {
             <Text style={{ color: THEME.textDim, textAlign: 'center' }}>No posts yet.</Text>
           </View>
         }
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingBottom: 85 }}
       />
     </View>
   );

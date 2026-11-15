@@ -704,7 +704,7 @@ const ChatScreen = ({ route, navigation }) => {
       {/* Full Screen Image Modal */}
       <Modal visible={modalImage !== null} transparent={true} animationType="fade" onRequestClose={() => setModalImage(null)}>
         <BlurView intensity={100} tint="dark" style={styles.modalContainer}>
-          <View style={styles.modalHeaderRow}>
+          <View style={styles.modalImageHeaderRow}>
             <TouchableOpacity style={styles.modalCloseBtnCircle} onPress={() => setModalImage(null)}>
               <X color="#FFF" size={24} />
             </TouchableOpacity>
@@ -1173,7 +1173,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center' 
   },
-  modalHeaderRow: {
+  modalImageHeaderRow: {
     position: 'absolute',
     top: 50,
     left: 20,

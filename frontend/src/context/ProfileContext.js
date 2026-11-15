@@ -72,6 +72,7 @@ export const ProfileProvider = ({ children }) => {
 
         socket.on('connect', () => {
           console.log('Profile socket connected');
+          socket.emit('setup', { _id: userId, username: user?.username });
           socket.emit('joinProfileRoom', userId);
           socket.emit('user_connected', userId);
         });
@@ -81,7 +82,8 @@ export const ProfileProvider = ({ children }) => {
           NotificationService.scheduleLocalNotification(
             `New ${data.mediaType === 'video' ? 'Video' : 'Image'} Received!`,
             `${data.senderName} sent you a view-once media.`,
-            { route: 'MediaShareScreen' }
+            { route: 'MediaShareScreen' },
+            'messages'
           );
         });
 
@@ -90,24 +92,25 @@ export const ProfileProvider = ({ children }) => {
            const currentRoute = NavigationService.getCurrentRouteName();
            const currentChatId = NavigationService.navigationRef.current?.getCurrentRoute()?.params?.chatId;
 
-           if (currentRoute === 'ChatScreen' && currentChatId === (msg.chat._id || msg.chat)) {
+           if (currentRoute === 'ChatScreen' && currentChatId === (msg.chat?._id || msg.chat)) {
               return; // Already viewing this chat
            }
 
            NotificationService.scheduleLocalNotification(
-              `New Message from ${msg.sender.username}`,
+              `New Message from ${msg.sender?.username || 'Someone'}`,
               msg.messageType === 'text' ? msg.content : `[${msg.messageType}]`,
               { 
                 route: 'Chats', 
                 params: { 
                    screen: 'ChatScreen', 
                    params: { 
-                      chatId: msg.chat._id || msg.chat,
-                      name: msg.sender.username,
-                      receiverId: msg.sender._id
+                      chatId: msg.chat?._id || msg.chat,
+                      name: msg.sender?.username || 'Chat',
+                      receiverId: msg.sender?._id
                    } 
                 } 
-              }
+              },
+              'messages'
            );
         });
 
@@ -360,12 +363,14 @@ export const ProfileProvider = ({ children }) => {
   }), [state, loadProfile, updateProfile, uploadAvatar, uploadCoverImage, searchProfiles, toggleVisibility, getProfileByIdentifier, deleteProfile, clearError, trackProfileView, emitTyping, updateStatus]);
 
   useEffect(() => {
-    if (authUser) {
+    if (authUser?._id || authUser?.id) {
+      const uid = authUser._id || authUser.id;
+      initializeSocket(uid);
       loadProfile();
     } else if (!state.profile && !state.loading) {
       dispatch({ type: 'RESET_STATE' });
     }
-  }, [authUser, loadProfile]);
+  }, [authUser, loadProfile, initializeSocket]);
 
   return (
     <ProfileContext.Provider value={value}>

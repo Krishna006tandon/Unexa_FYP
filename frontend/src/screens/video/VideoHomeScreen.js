@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Radio, Upload, Play, Film } from 'lucide-react-native';
 import { useResponsive } from '../../utils/responsive';
 
@@ -17,7 +18,7 @@ export default function VideoHomeScreen({ navigation }) {
   const { isTablet, maxContentWidth } = useResponsive();
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -88,7 +89,7 @@ export default function VideoHomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: THEME.bg },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 90 },
   header: { paddingTop: 16, paddingBottom: 18 },
   hTitle: { color: THEME.text, fontSize: 26, fontWeight: '900' },
   hSub: { color: THEME.textDim, marginTop: 6, fontSize: 13 },

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { Upload } from 'lucide-react-native';
 import ScreenHeader from '../../components/video/ScreenHeader';
@@ -35,7 +36,7 @@ export default function UnifiedFeedScreen({ navigation }) {
   }, [tab]);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScreenHeader
         title="Feed"
         onBack={navigation?.canGoBack?.() ? () => navigation.goBack() : null}
