@@ -1,7 +1,7 @@
 const config = {
   name: 'UNEXA',
   slug: 'unexa',
-  version: '2.4.11',
+  version: '2.4.12',
   orientation: 'portrait',
   icon: './assets/Unexalogo.png',
   userInterfaceStyle: 'light',
@@ -27,7 +27,7 @@ const config = {
       foregroundImage: './assets/Unexalogo.png'
     },
     package: 'com.unexa.application',
-    versionCode: 4,
+    versionCode: 5,
     permissions: [
       "RECORD_AUDIO",
       "CAMERA",
