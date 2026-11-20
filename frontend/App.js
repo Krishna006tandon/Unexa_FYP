@@ -15,6 +15,8 @@ import { Home, MessageCircle, SquarePlus, Video, User } from 'lucide-react-nativ
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { configureAudioForPlayback } from './src/utils/mediaUtils';
 import * as NotificationService from './src/services/NotificationService';
+import UpdatePromptModal from './src/components/UpdatePromptModal';
+import { checkForAppUpdate } from './src/services/UpdateService';
 
 
 // Lazy load heavy screens to speed up app cold start
@@ -215,6 +217,8 @@ const MainTabs = () => {
 
 const AppNavigator = () => {
   const { user, loading } = useContext(AuthContext);
+  const [updateInfo, setUpdateInfo] = React.useState(null);
+  const [showUpdateModal, setShowUpdateModal] = React.useState(false);
 
   React.useEffect(() => {
     configureAudioForPlayback();
@@ -222,13 +226,20 @@ const AppNavigator = () => {
     NotificationService.initNotificationChannels();
     NotificationService.requestPermissions();
     const cleanup = NotificationService.setupNotificationClickListeners();
+    // 🚀 Check for In-App Updates
+    checkForAppUpdate().then((info) => {
+      if (info && info.updateAvailable) {
+        setUpdateInfo(info);
+        setShowUpdateModal(true);
+      }
+    });
     return cleanup;
   }, []);
 
   if (loading) return <View style={styles.container}><Text style={styles.title}>Loading...</Text></View>;
 
   return (
-
+    <>
     <NavigationContainer 
       ref={navigationRef} 
       linking={linking}
@@ -257,6 +268,12 @@ const AppNavigator = () => {
         )}
       </Stack.Navigator>
     </NavigationContainer>
+      <UpdatePromptModal
+        visible={showUpdateModal}
+        updateInfo={updateInfo}
+        onDismiss={() => setShowUpdateModal(false)}
+      />
+    </>
   );
 };
 

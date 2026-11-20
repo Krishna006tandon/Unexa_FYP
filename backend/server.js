@@ -168,6 +168,7 @@ const videoRoutes = require('./routes/videoRoutes');
 const postRoutes = require('./routes/postRoutes');
 const webhookMuxRoutes = require('./routes/webhookMux');
 const webhookNmsRoutes = require('./routes/webhookNms');
+const appConfigRoutes = require('./routes/appConfigRoutes');
 
 // Basic Route for testing
 app.get('/', (req, res) => {
@@ -301,6 +302,7 @@ app.use('/api/video', videoRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/webhook', webhookMuxRoutes);
 app.use('/webhook', webhookNmsRoutes);
+app.use('/api/app', appConfigRoutes);
 
 // Central error handler (prevents middleware throws from crashing the process)
 app.use((err, req, res, next) => {
