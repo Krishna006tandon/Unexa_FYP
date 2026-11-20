@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "157665185812",
+    "project_id": "unexa-7fd6c",
+    "storage_bucket": "unexa-7fd6c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:157665185812:android:eb792906c647ef1ca75701",
+        "android_client_info": {
+          "package_name": "com.unexa.application"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBp-vmqTjcGZv8Ed_Rq6nrjrITwSCeeuPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
