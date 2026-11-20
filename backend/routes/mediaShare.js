@@ -156,6 +156,26 @@ router.post('/share', protect, mediaUpload.single('media'), async (req, res) => 
         });
       }
     }
+
+    // 📩 Background Push Notification for Media Share
+    try {
+      const { sendPushNotification } = require('../utils/notifier');
+      User.find({ _id: { $in: recipientIds } }, 'pushToken username').then(recipientsWithToken => {
+        recipientsWithToken.forEach((rec) => {
+          if (rec.pushToken) {
+            sendPushNotification(
+              rec.pushToken,
+              `New ${mediaType === 'video' ? 'Video' : 'Photo'} 📸`,
+              `${req.user?.username || 'Someone'} sent you a view-once media`,
+              { route: 'MediaShareScreen' },
+              { channelId: 'messages', priority: 'high' }
+            ).catch(err => console.log('Push media error:', err?.message));
+          }
+        });
+      }).catch(err => console.log('Push media query error:', err?.message));
+    } catch (pushErr) {
+      console.log('⚠️ [MEDIA PUSH] Error:', pushErr?.message);
+    }
     
     res.status(201).json({ 
       success: true, 

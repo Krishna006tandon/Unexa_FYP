@@ -63,7 +63,8 @@ exports.sendMessage = async (req, res) => {
     if (chat && chat.users) {
       chat.users.forEach(async (usr) => {
         // Don't notify the sender
-        if (usr._id.toString() === req.user._id.toString()) return;
+        const targetId = (usr._id || usr).toString();
+        if (targetId === req.user._id.toString()) return;
 
         if (usr.pushToken) {
           const body = (messageType === 'text' ? content : `Sent a ${messageType}`) || 'New message';
@@ -79,8 +80,14 @@ exports.sendMessage = async (req, res) => {
                  screen: 'ChatScreen',
                  params: { chatId: chatId.toString(), name: req.user?.username || 'Chat', receiverId: req.user._id.toString() }
                } 
+            },
+            {
+              channelId: 'messages',
+              priority: 'high'
             }
           );
+        } else {
+          console.log(`ℹ️ [PUSH] User ${usr.username || targetId} has no pushToken registered`);
         }
       });
     }
@@ -208,9 +215,9 @@ exports.toggleStar = async (req, res) => {
     const message = await Message.findById(messageId);
     if (!message) return res.status(404).json({ error: "Message not found" });
 
-    const isStarred = message.isStarredBy.includes(userId);
+    const isStarred = (message.isStarredBy || []).some(id => (id._id || id).toString() === userId.toString());
     if (isStarred) {
-      message.isStarredBy = message.isStarredBy.filter(id => id.toString() !== userId.toString());
+      message.isStarredBy = message.isStarredBy.filter(id => (id._id || id).toString() !== userId.toString());
     } else {
       message.isStarredBy.push(userId);
     }

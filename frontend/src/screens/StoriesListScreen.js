@@ -35,6 +35,18 @@ const StoriesListScreen = ({ navigation }) => {
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [pendingAsset, setPendingAsset] = useState(null);
 
+  const fetchStories = useCallback(async () => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${user?.token}` } };
+      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/story`, config);
+      setStoriesData(data);
+    } catch (error) {
+      console.log('Error fetching stories:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.token]);
+
   useEffect(() => {
     fetchStories();
     // Refresh when screen comes into focus
@@ -50,18 +62,7 @@ const StoriesListScreen = ({ navigation }) => {
       unsubscribe();
       if (socket) socket.off('new_story', fetchStories);
     };
-  }, [navigation, socket]);
-
-  const fetchStories = async () => {
-    try {
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data } = await axios.get(`${ENVIRONMENT.API_URL}/api/story`, config);
-      setStoriesData(data);
-    } catch (error) {
-      console.log('Error fetching stories:', error);
-    }
-    setLoading(false);
-  };
+  }, [navigation, socket, fetchStories]);
 
   const pickImage = async () => {
     try {

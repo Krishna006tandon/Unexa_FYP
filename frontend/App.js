@@ -218,7 +218,8 @@ const AppNavigator = () => {
 
   React.useEffect(() => {
     configureAudioForPlayback();
-    // ⚡ Initialize Notification Services
+    // ⚡ Initialize Notification Services & Channels
+    NotificationService.initNotificationChannels();
     NotificationService.requestPermissions();
     const cleanup = NotificationService.setupNotificationClickListeners();
     return cleanup;
@@ -232,6 +233,9 @@ const AppNavigator = () => {
       ref={navigationRef} 
       linking={linking}
       theme={{ colors: { background: THEME.colors.background }}}
+      onReady={() => {
+        NotificationService.handleInitialNotification();
+      }}
     >
       <StatusBar barStyle="light-content" backgroundColor={THEME.colors.background} />
       <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -219,3 +219,29 @@ exports.getLiveConfig = async (_req, res) => {
     },
   });
 };
+
+// Start Live Stream
+exports.startLive = async (req, res) => {
+  try {
+    const { streamId } = req.body || {};
+    if (streamId) {
+      await LiveStream.findByIdAndUpdate(streamId, { isLive: true, startedAt: new Date() });
+    }
+    return res.json({ success: true, message: 'Stream started' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// End Live Stream
+exports.endLive = async (req, res) => {
+  try {
+    const { streamId } = req.body || {};
+    if (streamId) {
+      await LiveStream.findByIdAndUpdate(streamId, { isLive: false, endedAt: new Date() });
+    }
+    return res.json({ success: true, message: 'Stream ended' });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};

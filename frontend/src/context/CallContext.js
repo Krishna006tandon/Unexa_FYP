@@ -94,15 +94,24 @@ export const CallProvider = ({ children }) => {
 
   const stopRinging = async () => {
     setIsRinging(false);
-    if (vibrationInterval.current) clearInterval(vibrationInterval.current);
+    if (vibrationInterval.current) {
+      clearInterval(vibrationInterval.current);
+      vibrationInterval.current = null;
+    }
     if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+      } catch (err) {
+        // Sound may have already been unloaded or released
+      } finally {
+        soundRef.current = null;
+      }
     }
   };
 
   const acceptCall = () => {
+    if (!incomingCall) return;
     const callData = incomingCall;
     console.log('✅ [CallContext] Accepting call from:', callData.callerName);
     stopRinging();
@@ -121,10 +130,12 @@ export const CallProvider = ({ children }) => {
   };
 
   const declineCall = () => {
-    socket.emit('call-decline', { 
-        callerId: incomingCall.callerId, 
-        chatId: incomingCall.chatId 
-    });
+    if (socket && incomingCall) {
+      socket.emit('call-decline', { 
+          callerId: incomingCall.callerId, 
+          chatId: incomingCall.chatId 
+      });
+    }
     stopRinging();
     setIncomingCall(null);
     Notifications.dismissAllNotificationsAsync();

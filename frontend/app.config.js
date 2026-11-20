@@ -1,3 +1,9 @@
+const fs = require('fs');
+const path = require('path');
+
+const googleServicesPath = process.env.GOOGLE_SERVICES_JSON || './google-services.json';
+const hasGoogleServices = fs.existsSync(path.resolve(__dirname, googleServicesPath));
+
 const config = {
   name: 'UNEXA',
   slug: 'unexa',
@@ -28,6 +34,7 @@ const config = {
     },
     package: 'com.unexa.application',
     versionCode: 5,
+    ...(hasGoogleServices ? { googleServicesFile: googleServicesPath } : {}),
     permissions: [
       "RECORD_AUDIO",
       "CAMERA",
@@ -39,6 +46,8 @@ const config = {
       "READ_MEDIA_AUDIO",
       "POST_NOTIFICATIONS",
       "VIBRATE",
+      "RECEIVE_BOOT_COMPLETED",
+      "WAKE_LOCK",
       "ACCESS_NETWORK_STATE",
       "INTERNET"
     ]
@@ -64,7 +73,14 @@ const config = {
         photosPermission: 'Allow UNEXA to access your photos to share media and set thumbnails'
       }
     ],
-    'expo-notifications',
+    [
+      'expo-notifications',
+      {
+        icon: './assets/Unexalogo.png',
+        color: '#7B61FF',
+        defaultChannel: 'default'
+      }
+    ],
     'expo-local-authentication'
   ],
   updates: {

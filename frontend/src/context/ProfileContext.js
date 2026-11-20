@@ -88,11 +88,16 @@ export const ProfileProvider = ({ children }) => {
         });
 
         socket.on('message_received', (msg) => {
-           // Only notify if not in that specific chat screen
-           const currentRoute = NavigationService.getCurrentRouteName();
-           const currentChatId = NavigationService.navigationRef.current?.getCurrentRoute()?.params?.chatId;
+           // Don't notify self
+           const senderId = (msg.sender?._id || msg.sender || '').toString();
+           if (senderId && userId && senderId === userId.toString()) return;
 
-           if (currentRoute === 'ChatScreen' && currentChatId === (msg.chat?._id || msg.chat)) {
+           // Only notify if not in that specific chat screen
+           const currentRoute = NavigationService.getCurrentRouteName?.();
+           const currentChatId = (NavigationService.navigationRef.current?.getCurrentRoute?.()?.params?.chatId || '').toString();
+           const receivedChatId = (msg.chat?._id || msg.chat || '').toString();
+
+           if (currentRoute === 'ChatScreen' && currentChatId && currentChatId === receivedChatId) {
               return; // Already viewing this chat
            }
 

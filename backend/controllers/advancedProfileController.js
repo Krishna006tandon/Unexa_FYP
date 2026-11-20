@@ -96,9 +96,10 @@ exports.toggleCloseFriend = async (req, res) => {
   const { friendId } = req.body;
   try {
     const user = await User.findById(req.user._id);
-    const isAlreadyCloseFriend = user.closeFriends.includes(friendId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const isAlreadyCloseFriend = (user.closeFriends || []).some(id => (id._id || id).toString() === friendId.toString());
     if (isAlreadyCloseFriend) {
-      user.closeFriends.pull(friendId);
+      user.closeFriends = user.closeFriends.filter(id => (id._id || id).toString() !== friendId.toString());
     } else {
       user.closeFriends.push(friendId);
     }

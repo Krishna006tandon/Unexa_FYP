@@ -11,8 +11,11 @@ const generateToken = (id) => {
 };
 
 exports.registerUser = async (req, res) => {
-    const { username, email, password } = req.body;
-    const cleanEmail = email.toLowerCase().trim();
+    const { username, email, password } = req.body || {};
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Please Enter all the Fields' });
+    }
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
     console.log(`📝 [AUTH-REG] Registration attempt for: ${cleanEmail}`);
 
     if (!username || !email || !password) {
@@ -74,8 +77,11 @@ exports.registerUser = async (req, res) => {
 };
 
 exports.authUser = async (req, res) => {
-  const { email, password } = req.body;
-  const cleanEmail = email.toLowerCase().trim();
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Please enter all fields' });
+  }
+  const cleanEmail = (email || '').toString().toLowerCase().trim();
   console.log(`🔐 [AUTH-LOGIN] Login attempt for: ${cleanEmail}`);
   
   const user = await User.findOne({ email: cleanEmail });
@@ -109,8 +115,11 @@ exports.authUser = async (req, res) => {
 // @route   POST /api/auth/verify-otp
 exports.verifyOTP = async (req, res) => {
   try {
-     const { email, otp } = req.body;
-     const cleanEmail = email.toLowerCase().trim();
+     const { email, otp } = req.body || {};
+     if (!email || !otp) {
+       return res.status(400).json({ error: 'Email and OTP are required' });
+     }
+     const cleanEmail = (email || '').toString().toLowerCase().trim();
      console.log(`📲 [AUTH-OTP] OTP Verification attempt for: ${cleanEmail}`);
      const user = await User.findOne({ email: cleanEmail });
 
@@ -156,8 +165,11 @@ exports.verifyOTP = async (req, res) => {
 // Simplified Reset Password (No OTP - as requested)
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
-    const cleanEmail = email.toLowerCase().trim();
+    const { email, newPassword } = req.body || {};
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required' });
+    }
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
     const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {

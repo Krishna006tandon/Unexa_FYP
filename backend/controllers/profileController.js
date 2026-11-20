@@ -282,8 +282,11 @@ const getProfileByIdentifier = async (req, res) => {
     let isCloseFriend = false;
     if (req.user) {
       const currentUser = await User.findById(req.user.id);
-      isFollowing = currentUser.following.includes(profile.user._id);
-      isCloseFriend = currentUser.closeFriends && currentUser.closeFriends.includes(profile.user._id);
+      if (currentUser) {
+        const targetId = (profile.user?._id || profile.user || '').toString();
+        isFollowing = (currentUser.following || []).some(id => (id._id || id).toString() === targetId);
+        isCloseFriend = (currentUser.closeFriends || []).some(id => (id._id || id).toString() === targetId);
+      }
     }
 
     // If profile is private and NOT owner and NOT following, return limited data
@@ -759,7 +762,8 @@ const followUser = async (req, res) => {
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     // Add to following
-    if (!currentUser.following.includes(targetUserId)) {
+    const isAlreadyFollowing = (currentUser.following || []).some(id => (id._id || id).toString() === targetUserId.toString());
+    if (!isAlreadyFollowing) {
       currentUser.following.push(targetUserId);
       await currentUser.save();
       // Update Profile count
@@ -767,7 +771,8 @@ const followUser = async (req, res) => {
     }
 
     // Add to followers
-    if (!targetUser.followers.includes(currentUserId)) {
+    const isAlreadyFollower = (targetUser.followers || []).some(id => (id._id || id).toString() === currentUserId.toString());
+    if (!isAlreadyFollower) {
       targetUser.followers.push(currentUserId);
       await targetUser.save();
       // Update Profile count
@@ -805,16 +810,18 @@ const unfollowUser = async (req, res) => {
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
     // Remove from following
-    if (currentUser.following.includes(targetUserId)) {
-      currentUser.following = currentUser.following.filter(id => id.toString() !== targetUserId);
+    const hasFollowing = (currentUser.following || []).some(id => (id._id || id).toString() === targetUserId.toString());
+    if (hasFollowing) {
+      currentUser.following = currentUser.following.filter(id => (id._id || id).toString() !== targetUserId.toString());
       await currentUser.save();
       // Update Profile count
       await Profile.findOneAndUpdate({ user: currentUserId }, { $inc: { followingCount: -1 } });
     }
 
     // Remove from followers
-    if (targetUser.followers.includes(currentUserId)) {
-      targetUser.followers = targetUser.followers.filter(id => id.toString() !== currentUserId);
+    const hasFollower = (targetUser.followers || []).some(id => (id._id || id).toString() === currentUserId.toString());
+    if (hasFollower) {
+      targetUser.followers = targetUser.followers.filter(id => (id._id || id).toString() !== currentUserId.toString());
       await targetUser.save();
       // Update Profile count
       await Profile.findOneAndUpdate({ user: targetUserId }, { $inc: { followersCount: -1 } });

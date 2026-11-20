@@ -54,6 +54,10 @@ const setupWebRTCSignaling = (io) => {
                    name: callerName,
                    isIncoming: true
                 } 
+             },
+             {
+                channelId: 'calls',
+                priority: 'high'
              }
            );
         }

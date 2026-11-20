@@ -15,14 +15,19 @@ exports.accessChat = async (req, res) => {
         .populate('admins', '-passwordHash')
         .populate('latestMessage');
 
+      if (!chat) {
+        return res.status(404).json({ error: 'Chat not found' });
+      }
+
+      const isParticipant = (chat.users || []).some(u => (u._id || u).toString() === req.user._id.toString());
+      if (!isParticipant) {
+        return res.status(403).json({ error: 'You are not a participant in this chat' });
+      }
+
       chat = await User.populate(chat, {
         path: 'latestMessage.sender',
         select: 'username profilePhoto',
       });
-
-      if (!chat) {
-        return res.status(404).json({ error: 'Chat not found' });
-      }
 
       res.send(chat);
     } catch (error) {
@@ -154,9 +159,16 @@ exports.createGroupChat = async (req, res) => {
     return res.status(400).send({ message: 'Please Fill all the fields' });
   }
 
-  let users = JSON.parse(req.body.users);
+  let users = [];
+  try {
+    users = Array.isArray(req.body.users)
+      ? req.body.users
+      : (typeof req.body.users === 'string' ? JSON.parse(req.body.users) : []);
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid users array' });
+  }
   
-  if (users.length < 2) {
+  if (!Array.isArray(users) || users.length < 2) {
     return res.status(400).send('At least 2 more users are required to form a group chat');
   }
 
@@ -229,14 +241,16 @@ exports.toggleAdmin = async (req, res) => {
         const chat = await Chat.findById(chatId);
         if (!chat) return res.status(404).send("Chat Not Found");
         
-        const isAdmin = chat.admins.includes(userId);
+        const isAdmin = (chat.admins || []).some(a => (a._id || a).toString() === userId.toString());
         let update;
         if (isAdmin) {
              // Cannot remove creator as admin (conventionally)
-             if (chat.groupAdmin.toString() === userId) return res.status(400).send("Cannot demote primary group creator");
+             if (chat.groupAdmin && chat.groupAdmin.toString() === userId.toString()) {
+               return res.status(400).send("Cannot demote primary group creator");
+             }
              update = { $pull: { admins: userId } };
         } else {
-             update = { $push: { admins: userId } };
+             update = { $addToSet: { admins: userId } };
         }
         
         const updatedChat = await Chat.findByIdAndUpdate(chatId, update, { new: true })
@@ -357,35 +371,50 @@ exports.markAsRead = async (req, res) => {
   }
 };
 
-// Add members to group
+// Add member(s) to group - supports single userId or array userIds
 exports.addToGroup = async (req, res) => {
-  const { chatId, userIds } = req.body;
+  const { chatId, userId, userIds } = req.body;
+  const targetIds = userIds || (userId ? [userId] : []);
+  if (!targetIds.length) return res.status(400).json({ error: "userId or userIds required" });
+
   try {
-    const chat = await Chat.findById(chatId);
-    if (!chat) return res.status(404).json({ error: "Chat not found" });
-    
-    // Add only if not already present
-    userIds.forEach(uId => {
-       if (!chat.users.includes(uId)) chat.users.push(uId);
-    });
-    
-    await chat.save();
-    const fullChat = await Chat.findById(chatId).populate("users", "-passwordHash");
-    res.json(fullChat);
+    const added = await Chat.findByIdAndUpdate(
+      chatId,
+      { $addToSet: { users: { $each: targetIds } } },
+      { new: true }
+    )
+      .populate('users', '-passwordHash')
+      .populate('groupAdmin', '-passwordHash')
+      .populate('admins', '-passwordHash');
+
+    if (!added) return res.status(404).json({ message: 'Chat Not Found' });
+    res.json(added);
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
 // Remove member from group
 exports.removeFromGroup = async (req, res) => {
   const { chatId, userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId required" });
+
   try {
     const chat = await Chat.findById(chatId);
-    if (!chat) return res.status(404).json({ error: "Chat not found" });
-    
-    chat.users = chat.users.filter(u => u.toString() !== userId.toString());
+    if (!chat) return res.status(404).json({ message: 'Chat Not Found' });
+
+    chat.users = chat.users.filter(u => (u._id || u).toString() !== userId.toString());
+    chat.admins = (chat.admins || []).filter(a => (a._id || a).toString() !== userId.toString());
+
+    if (chat.groupAdmin && chat.groupAdmin.toString() === userId.toString()) {
+      chat.groupAdmin = chat.users.length > 0 ? chat.users[0] : null;
+    }
+
     await chat.save();
-    const fullChat = await Chat.findById(chatId).populate("users", "-passwordHash");
-    res.json(fullChat);
+    const updated = await Chat.findById(chatId)
+      .populate('users', '-passwordHash')
+      .populate('groupAdmin', '-passwordHash')
+      .populate('admins', '-passwordHash');
+
+    res.json(updated);
   } catch (error) { res.status(500).json({ error: error.message }); }
 };
 

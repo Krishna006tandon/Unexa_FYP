@@ -35,10 +35,11 @@ module.exports = (io) => {
       socket.to(roomId).emit('message_received', newMessageReceived);
 
       // Also ensure delivery to individual user rooms if they aren't active in the chat room
+      const senderId = (newMessageReceived?.sender?._id || newMessageReceived?.sender || '').toString();
       if (chat.users) {
         chat.users.forEach((user) => {
           const targetUserId = (user._id || user).toString();
-          if (targetUserId === newMessageReceived.sender._id.toString()) return;
+          if (targetUserId === senderId) return;
           
           socket.to(`profile_${targetUserId}`).emit('message_received', newMessageReceived);
         });
@@ -51,7 +52,7 @@ module.exports = (io) => {
           setTimeout(async () => {
             try {
               await Message.findByIdAndUpdate(newMessageReceived._id, { deleted: true, content: "Message vanished" });
-              io.in(chat._id).emit('message_deleted_update', { messageId: newMessageReceived._id });
+              io.in(roomId).emit('message_deleted_update', { messageId: newMessageReceived._id });
             } catch (e) { console.log("Vanish delete failed", e); }
           }, delay);
         }
@@ -60,17 +61,20 @@ module.exports = (io) => {
 
     // Advance features - Delivered to Event
     socket.on('measure_delivered', async ({ messageId, userId, chatId }) => {
+       if (!messageId || !chatId) return;
        await Message.findByIdAndUpdate(messageId, { $addToSet: { deliveredTo: userId } });
-       socket.in(chatId.toString()).emit('message_delivered', { messageId, userId }); // Ensure chatId is a string
+       socket.in(chatId.toString()).emit('message_delivered', { messageId, userId });
     });
 
     // Advance features - Read Receipts
     socket.on('measure_read', async ({ messageId, userId, chatId }) => {
+       if (!messageId || !chatId) return;
        const message = await Message.findById(messageId);
        if (!message) return;
 
        // Add to seenBy
-       if (!message.seenBy.includes(userId)) {
+       const alreadySeen = (message.seenBy || []).some(id => (id._id || id).toString() === userId.toString());
+       if (!alreadySeen) {
           message.seenBy.push(userId);
           
           // If message is in "initial" Vanish Mode (e.g., set to future by sender), 
@@ -78,12 +82,12 @@ module.exports = (io) => {
           if (message.expiresAt) {
              const purgeTime = new Date(Date.now() + 60000); // 1 minute from now
              message.expiresAt = purgeTime;
-             socket.in(chatId).emit('message_vanish_scheduled', { messageId, purgeTime });
+             socket.in(chatId.toString()).emit('message_vanish_scheduled', { messageId, purgeTime });
           }
           await message.save();
        }
        
-       socket.in(chatId).emit('message_read', { messageId, userId });
+       socket.in(chatId.toString()).emit('message_read', { messageId, userId });
     });
 
     // Edit message live broadcast

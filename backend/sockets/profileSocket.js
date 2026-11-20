@@ -54,11 +54,10 @@ module.exports = (io) => {
     // Handle profile search requests
     socket.on('searchProfiles', async (data) => {
       try {
-        const { query, limit = 10, page = 1 } = data;
-        
-        const searchRegex = new RegExp(query, 'i');
+        const { query = '', limit = 10, page = 1 } = data || {};
+        const safeQuery = query.toString().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const searchRegex = new RegExp(safeQuery, 'i');
         const skip = (page - 1) * limit;
-
         const profiles = await Profile.find({
           $or: [
             { username: searchRegex },

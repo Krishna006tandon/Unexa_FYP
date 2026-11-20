@@ -47,8 +47,8 @@ exports.getStories = async (req, res) => {
     
     // Get users that current user follows
     const currentUser = await User.findById(userId).select('following');
-    const followingIds = currentUser.following;
-    followingIds.push(userId); // Include own stories
+    const followingIds = (currentUser?.following || []).map(id => (id._id || id).toString());
+    followingIds.push(userId.toString()); // Include own stories
 
     // Get active stories from followed users
     const stories = await Story.find({
@@ -65,7 +65,7 @@ exports.getStories = async (req, res) => {
       // Check Close Friends Logic
       if (story.isCloseFriends) {
         const isOwnStory = story.user._id.toString() === userId.toString();
-        const isCloseFriend = story.user.closeFriends && story.user.closeFriends.includes(userId);
+        const isCloseFriend = (story.user.closeFriends || []).some(id => (id._id || id).toString() === userId.toString());
         if (!isOwnStory && !isCloseFriend) return; // Skip this story
       }
 
@@ -107,8 +107,8 @@ exports.viewStory = async (req, res) => {
     }
 
     // Check if already viewed
-    const alreadyViewed = story.views.some(view => 
-      view.user.toString() === userId
+    const alreadyViewed = (story.views || []).some(view => 
+      (view.user?._id || view.user || '').toString() === userId.toString()
     );
 
     if (!alreadyViewed) {

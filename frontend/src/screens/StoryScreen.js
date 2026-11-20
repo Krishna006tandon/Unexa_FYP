@@ -52,10 +52,11 @@ const StoryScreen = ({ route, navigation }) => {
     };
   }, []);
 
-  if (!currentStory) {
-    navigation.goBack();
-    return null;
-  }
+  useEffect(() => {
+    if (!currentStory) {
+      navigation.goBack();
+    }
+  }, [currentStory, navigation]);
 
   useEffect(() => {
     loadStory();
@@ -67,6 +68,7 @@ const StoryScreen = ({ route, navigation }) => {
   }, [currentIndex]);
 
   const loadStory = async () => {
+    if (!currentStory) return;
     videoRef.current?.unloadAsync?.().catch(() => {});
     setIsLoading(true);
     setProgress(0);
@@ -283,6 +285,14 @@ const StoryScreen = ({ route, navigation }) => {
       />
     );
   };
+
+  if (!currentStory) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#7B61FF" size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

@@ -89,10 +89,22 @@ const ChatScreen = ({ route, navigation }) => {
   const flatListRef = useRef(null);
   let recordingTimer = useRef(null);
   const audioTimer = useRef(null);
+  const currentSoundRef = useRef(null);
 
   const playAudio = async (url) => {
     try {
       console.log('🎵 Playing audio from:', url);
+
+      // Stop & unload any existing playback
+      if (currentSoundRef.current) {
+        try {
+          await currentSoundRef.current.stopAsync();
+          await currentSoundRef.current.unloadAsync();
+        } catch (_) {}
+        currentSoundRef.current = null;
+      }
+      if (audioTimer.current) clearInterval(audioTimer.current);
+
       await Audio.setAudioModeAsync({ 
         playsInSilentModeIOS: true,
         allowsRecordingIOS: false,
@@ -112,25 +124,18 @@ const ChatScreen = ({ route, navigation }) => {
           volume: 1.0
         }
       );
+      currentSoundRef.current = sound;
       
-      // Set up playback status updates
+      // Set up playback status updates directly from native callback
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded) {
           if (status.isPlaying) {
-            // Update current time every 100ms
-            if (audioTimer.current) clearInterval(audioTimer.current);
-            audioTimer.current = setInterval(() => {
-              sound.getStatusAsync().then((currentStatus) => {
-                if (currentStatus.isLoaded && currentStatus.isPlaying) {
-                  setCurrentAudioTime(Math.floor(currentStatus.positionMillis / 1000));
-                }
-              });
-            }, 100);
+            setCurrentAudioTime(Math.floor(status.positionMillis / 1000));
           } else if (status.didJustFinish) {
-            // Audio finished playing
             setIsPlayingAudio(false);
             setCurrentAudioTime(0);
-            if (audioTimer.current) clearInterval(audioTimer.current);
+            sound.unloadAsync().catch(() => {});
+            currentSoundRef.current = null;
           }
         }
       });
@@ -580,19 +585,25 @@ const ChatScreen = ({ route, navigation }) => {
   const stopRecording = async () => {
     try {
       clearInterval(recordingTimer.current);
+      if (!recording) return;
+      const rec = recording;
       setRecording(undefined);
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await rec.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+      const uri = rec.getURI();
       const url = await uploadMediaAPI(uri, 'audio/m4a', 'voice.m4a');
       sendMediaMessage(url, 'audio', recordingDuration);
     } catch (err) {
       console.error('Failed to send recording', err);
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true }).catch(() => {});
       showAlert('Voice Chat Error', 'Could not send voice message: ' + err.message, 'error');
     }
   };
 
   const renderBubble = ({ item }) => {
-    const isMine = item.sender._id === user._id || item.sender === user._id;
+    const itemSenderId = (item.sender?._id || item.sender)?.toString();
+    const currentUserId = (user?._id || user?.id)?.toString();
+    const isMine = !!(itemSenderId && currentUserId && itemSenderId === currentUserId);
 
     return (
       <View style={[
