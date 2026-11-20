@@ -7,7 +7,7 @@ const hasGoogleServices = fs.existsSync(path.resolve(__dirname, googleServicesPa
 const config = {
   name: 'UNEXA',
   slug: 'unexa',
-  version: '2.4.12',
+  version: '2.5.24',
   orientation: 'portrait',
   icon: './assets/Unexalogo.png',
   userInterfaceStyle: 'light',
@@ -33,7 +33,7 @@ const config = {
       foregroundImage: './assets/Unexalogo.png'
     },
     package: 'com.unexa.application',
-    versionCode: 5,
+    versionCode: 6,
     ...(hasGoogleServices ? { googleServicesFile: googleServicesPath } : {}),
     permissions: [
       "RECORD_AUDIO",
